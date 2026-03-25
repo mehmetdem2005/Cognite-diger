@@ -75,9 +75,22 @@ export default function FlowPage() {
   const [heartAnims, setHeartAnims] = useState<HeartAnim[]>([])
   const [musicEnabled, setMusicEnabled] = useState(true)
   const [currentGenre, setCurrentGenre] = useState<string>('general')
+  const [trackCycle, setTrackCycle] = useState(0)
   const pageRef = useRef(0)
   const audioRef = useRef<HTMLAudioElement>(null)
-  const currentMusic = useMemo(() => getMusicForGenre(currentGenre), [currentGenre])
+  const currentMusicSeed = useMemo(() => {
+    const currentItem = items[activeIndex]
+    const base = `${currentGenre}:${currentItem?.id || activeIndex}:${trackCycle}`
+    let hash = 0
+    for (let i = 0; i < base.length; i += 1) {
+      hash = ((hash << 5) - hash + base.charCodeAt(i)) | 0
+    }
+    return Math.abs(hash)
+  }, [currentGenre, items, activeIndex, trackCycle])
+  const currentMusic = useMemo(
+    () => getMusicForGenre(currentGenre, currentMusicSeed),
+    [currentGenre, currentMusicSeed],
+  )
 
   // Swipe refs
   const trackRef = useRef<HTMLDivElement>(null)
@@ -108,6 +121,7 @@ export default function FlowPage() {
     const currentItem = items[activeIndex]
     if (currentItem?.genre && currentItem.genre !== currentGenre) {
       setCurrentGenre(currentItem.genre)
+      setTrackCycle(0)
     }
   }, [activeIndex, items, currentGenre])
 
@@ -572,9 +586,9 @@ export default function FlowPage() {
       <audio 
         ref={audioRef} 
         autoPlay
-        loop
         preload="none"
         src={currentMusic.audioUrl}
+        onEnded={() => setTrackCycle(prev => prev + 1)}
         style={{ display: 'none' }}
       />
 

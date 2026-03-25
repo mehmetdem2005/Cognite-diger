@@ -507,71 +507,117 @@ export async function extractSmartQuotes(
 /**
  * Genre-based background music selector
  */
-export function getMusicForGenre(genre?: string): {
+export function getMusicForGenre(genre?: string, seed: number = 0): {
   playlist_id: string
   name: string
   vibe: string
   audioUrl: string
+  audioUrls: string[]
   spotifyUri?: string
 } {
-  const musicMap: Record<string, any> = {
+  const musicMap: Record<string, {
+    playlist_id: string
+    name: string
+    vibe: string
+    audioUrls: string[]
+    spotifyUri?: string
+  }> = {
     romantic: {
       playlist_id: 'romantic_nocturnes',
       name: 'Romantik Noktürn',
       vibe: 'Chopin, Debussy ve yumuşak piyano dokusu',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3',
+      audioUrls: [
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+      ],
       spotifyUri: 'spotify:playlist:romantic_piano',
     },
     philosophical: {
       playlist_id: 'philosophical_adagio',
       name: 'Düşünsel Adagio',
       vibe: 'Satie, Arvo Part ve yavaş yaylılar',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3',
+      audioUrls: [
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
+      ],
       spotifyUri: 'spotify:playlist:philosophical_ambient',
     },
     scifi: {
       playlist_id: 'modern_classical_tension',
       name: 'Modern Klasik Gerilim',
       vibe: 'Glass, Richter ve nabız hissi veren yaylılar',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3',
+      audioUrls: [
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+      ],
       spotifyUri: 'spotify:playlist:synthwave_vibes',
     },
     adventure: {
       playlist_id: 'adventure_symphony',
       name: 'Heyecanlı Senfoni',
       vibe: 'Beethoven, Holst ve hareketli yaylılar',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
+      audioUrls: [
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-18.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+      ],
       spotifyUri: 'spotify:playlist:epic_orchestral',
     },
     artistic: {
       playlist_id: 'impressionist_gallery',
       name: 'Empresyonist Salon',
       vibe: 'Ravel, Debussy ve renkli armoniler',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3',
+      audioUrls: [
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3',
+      ],
       spotifyUri: 'spotify:playlist:impressionist_classics',
     },
     historical: {
       playlist_id: 'baroque_chamber',
       name: 'Barok Oda Müziği',
       vibe: 'Bach, Vivaldi ve dönemsel doku',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3',
+      audioUrls: [
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-17.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+      ],
       spotifyUri: 'spotify:playlist:baroque_masters',
     },
     humorous: {
       playlist_id: 'playful_chamber',
       name: 'Neşeli Oda Müziği',
       vibe: 'Mozart divertimento ve hafif yaylılar',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+      audioUrls: [
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-19.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+      ],
       spotifyUri: 'spotify:playlist:funny_jazz',
     },
     general: {
       playlist_id: 'general_reading_room',
       name: 'Sessiz Okuma Salonu',
       vibe: 'Yumuşak piyano, sakin yaylılar ve klasik atmosfer',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3',
+      audioUrls: [
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+      ],
       spotifyUri: 'spotify:playlist:coffee_shop_jazz',
     },
   }
 
-  return musicMap[genre || 'general'] || musicMap.general
+  const selected = musicMap[genre || 'general'] || musicMap.general
+  const safeSeed = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : 0
+  const index = selected.audioUrls.length ? safeSeed % selected.audioUrls.length : 0
+
+  return {
+    ...selected,
+    audioUrl: selected.audioUrls[index] || selected.audioUrls[0],
+  }
 }
