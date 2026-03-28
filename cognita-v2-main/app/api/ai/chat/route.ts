@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { callAI, selectActiveProvider } from '@/lib/ai-provider-manager'
 
 const GROQ_MODELS = {
-  fast: 'llama-3.1-8b-instant',
-  quality: 'llama-3.3-70b-versatile',
+  fast: 'openai/gpt-oss-120b',
+  quality: 'openai/gpt-oss-120b',
 }
 
 async function verifyUser(token: string) {

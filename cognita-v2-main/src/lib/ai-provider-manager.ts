@@ -183,7 +183,7 @@ export async function callAI(options: AICompletionOptions, modelOverride?: strin
   const MAX_ATTEMPTS = 4
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const provider = await selectActiveProvider()
-    const model = modelOverride || provider.model_name || 'llama-3.1-8b-instant'
+    const model = modelOverride || provider.model_name || 'openai/gpt-oss-120b'
 
     try {
       const result = await callProvider(provider.provider_name, model, options)

@@ -1,14 +1,25 @@
 {
-  "name": "Cognita",
+  "name": "Cognita - Akilli Okuma Platformu",
   "short_name": "Cognita",
-  "description": "Kitapseverlerin sosyal platformu",
+  "description": "AI destekli sosyal okuma platformu",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F5F0E8",
-  "theme_color": "#F5F0E8",
-  "orientation": "portrait",
+  "background_color": "#0f0f0f",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
   "icons": [
-    {"src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png"},
-    {"src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png"}
-  ]
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["books", "education", "social"]
 }

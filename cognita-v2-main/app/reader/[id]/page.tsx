@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
+import QuizModal from '@/components/ui/QuizModal'
 import {
   ArrowLeft, Settings, Zap, Bookmark, BookOpen, X,
   Search, List, Sun, Moon, Type, AlignJustify,
@@ -17,6 +18,9 @@ interface WordPanel { word: string; x: number; y: number; translation?: string; 
 interface SelectionToolbar { text: string; x: number; y: number }
 interface Highlight { id: string; text: string; page: number; color: string; note?: string }
 interface SearchResult { page: number; context: string; index: number }
+interface ExerciseItem { id: string; question: string; options?: string[]; answer_key?: { correct?: string } }
+interface GuideState { prediction: string; main_idea: string; character_notes: string }
+interface ExerciseAttempt { exercise_id: string; is_correct: boolean | null; score: number | null; attempted_at: string }
 
 const WORDS_PER_PAGE = 300
 
@@ -57,7 +61,7 @@ export default function ReaderPage() {
   const [showHighlights, setShowHighlights] = useState(false)
   const [showFlashcards, setShowFlashcards] = useState(false)
   const [barsVisible, setBarsVisible] = useState(true)
-  const barsTimer = useRef<NodeJS.Timeout>()
+  const barsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Kelime paneli
   const [wordPanel, setWordPanel] = useState<WordPanel | null>(null)
@@ -88,13 +92,25 @@ export default function ReaderPage() {
   const [cardFlipped, setCardFlipped] = useState(false)
   const [loadingCards, setLoadingCards] = useState(false)
 
+  // Linga-benzeri alıştırma ve rehber
+  const [showQuizModal, setShowQuizModal] = useState(false)
+  const [quizLoading, setQuizLoading] = useState(false)
+  const [quizQuestions, setQuizQuestions] = useState<Array<{ id: string; question: string; options: string[]; answer: string }>>([])
+  const [sectionQuizStats, setSectionQuizStats] = useState({ attempts: 0, correct: 0, successRate: 0, avgScore: 0 })
+  const [sectionQuizLoading, setSectionQuizLoading] = useState(false)
+  const [showGuidePanel, setShowGuidePanel] = useState(false)
+  const [guideLoading, setGuideLoading] = useState(false)
+  const [guideSaving, setGuideSaving] = useState(false)
+  const [guideFeedback, setGuideFeedback] = useState('')
+  const [guide, setGuide] = useState<GuideState>({ prediction: '', main_idea: '', character_notes: '' })
+
   // İstatistikler
   const [sessionMinutes, setSessionMinutes] = useState(0)
   const [wpm, setWpm] = useState(0)
   const [wordCount, setWordCount] = useState(0)
   const [started, setStarted] = useState(false)
   const startRef = useRef(Date.now())
-  const timerRef = useRef<NodeJS.Timeout>()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Touch/swipe
   const touchStartX = useRef(0)
@@ -108,6 +124,7 @@ export default function ReaderPage() {
   const tc = THEMES[theme]
   const total = pages.length || 1
   const progress = Math.round((currentPage / total) * 100)
+  const sectionKey = `page_${currentPage}`
   const fontStyle = fontFamily === 'serif' ? 'Georgia, "Times New Roman", serif'
     : fontFamily === 'mono' ? '"Courier New", monospace'
     : 'var(--font-body)'
@@ -115,6 +132,11 @@ export default function ReaderPage() {
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user && id) { fetchBook(); loadLocal(); fetchReaderFeatures() } }, [user, id])
   useEffect(() => { setIsCurrentBookmarked(bookmarks.includes(currentPage)) }, [currentPage, bookmarks])
+  useEffect(() => {
+    if (book && user) {
+      void loadSectionQuizStats()
+    }
+  }, [book, user, currentPage])
 
   useEffect(() => {
     return () => {
@@ -177,6 +199,12 @@ export default function ReaderPage() {
   const saveSettings = (updates: object) => {
     const current = JSON.parse(localStorage.getItem('reader_settings') || '{}')
     localStorage.setItem('reader_settings', JSON.stringify({ ...current, ...updates }))
+  }
+
+  const authHeaders = async () => {
+    const session = await supabase.auth.getSession()
+    const token = session.data.session?.access_token
+    return token ? { Authorization: `Bearer ${token}` } : {}
   }
 
   const fetchBook = async () => {
@@ -428,6 +456,180 @@ export default function ReaderPage() {
     setLoadingCards(false)
   }
 
+  const loadSectionQuiz = async () => {
+    if (!book) return
+    setQuizLoading(true)
+    try {
+      const headers = await authHeaders()
+      const query = new URLSearchParams({ book_id: String(book.id), section_key: sectionKey }).toString()
+      const res = await fetch(`/api/reader/exercises?${query}`, { headers })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Quiz alinamadi')
+
+      const exercises: ExerciseItem[] = Array.isArray(json.exercises) ? json.exercises : []
+      const mapped = exercises
+        .filter((e) => Array.isArray(e.options) && typeof e.answer_key?.correct === 'string')
+        .slice(0, 8)
+        .map((e) => ({
+          id: e.id,
+          question: e.question,
+          options: e.options as string[],
+          answer: String(e.answer_key?.correct || ''),
+        }))
+
+      if (mapped.length === 0) {
+        alert('Bu bolum icin henuz quiz yok.')
+        return
+      }
+
+      setQuizQuestions(mapped)
+      setShowQuizModal(true)
+    } catch (e: any) {
+      alert(e?.message || 'Quiz acilamadi')
+    } finally {
+      setQuizLoading(false)
+    }
+  }
+
+  const loadSectionQuizStats = async () => {
+    if (!book) return
+    setSectionQuizLoading(true)
+    try {
+      const headers = await authHeaders()
+      const query = new URLSearchParams({ book_id: String(book.id), section_key: sectionKey }).toString()
+      const res = await fetch(`/api/reader/exercises?${query}`, { headers })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Istatistik alinamadi')
+
+      const attempts: ExerciseAttempt[] = Array.isArray(json.attempts) ? json.attempts : []
+      const totalAttempts = attempts.length
+      const correct = attempts.filter((a) => a.is_correct === true).length
+      const scored = attempts.filter((a) => typeof a.score === 'number')
+      const avgScore = scored.length > 0
+        ? Math.round(scored.reduce((sum, a) => sum + Number(a.score || 0), 0) / scored.length)
+        : 0
+      const successRate = totalAttempts > 0 ? Math.round((correct / totalAttempts) * 100) : 0
+
+      setSectionQuizStats({
+        attempts: totalAttempts,
+        correct,
+        successRate,
+        avgScore,
+      })
+    } catch {
+      setSectionQuizStats({ attempts: 0, correct: 0, successRate: 0, avgScore: 0 })
+    } finally {
+      setSectionQuizLoading(false)
+    }
+  }
+
+  const submitQuizAttempt = async (exerciseId: string, selected: string) => {
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(await authHeaders()),
+      }
+      await fetch('/api/reader/exercises', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'attempt', exercise_id: exerciseId, user_answer: { correct: selected } }),
+      })
+      await loadSectionQuizStats()
+    } catch {
+      // Quiz deneyimi kesilmesin diye sessizce gec
+    }
+  }
+
+  const loadGuide = async () => {
+    if (!book) return
+    setGuideLoading(true)
+    setGuideFeedback('')
+    try {
+      const headers = await authHeaders()
+      const query = new URLSearchParams({ book_id: String(book.id), section_key: sectionKey }).toString()
+      const res = await fetch(`/api/reader/guides?${query}`, { headers })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Rehber alinamadi')
+
+      const data = json.data
+      setGuide({
+        prediction: data?.prediction || '',
+        main_idea: data?.main_idea || '',
+        character_notes: data?.character_notes ? JSON.stringify(data.character_notes, null, 2) : '',
+      })
+      setShowGuidePanel(true)
+    } catch (e: any) {
+      alert(e?.message || 'Rehber acilamadi')
+    } finally {
+      setGuideLoading(false)
+    }
+  }
+
+  const saveGuide = async () => {
+    if (!book) return
+    setGuideSaving(true)
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(await authHeaders()),
+      }
+      let characterNotes: any = null
+      if (guide.character_notes.trim()) {
+        try {
+          characterNotes = JSON.parse(guide.character_notes)
+        } catch {
+          characterNotes = { notes: guide.character_notes }
+        }
+      }
+
+      const res = await fetch('/api/reader/guides', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          book_id: book.id,
+          section_key: sectionKey,
+          prediction: guide.prediction,
+          main_idea: guide.main_idea,
+          character_notes: characterNotes,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Rehber kaydedilemedi')
+      alert('Rehber notlari kaydedildi')
+    } catch (e: any) {
+      alert(e?.message || 'Kaydetme basarisiz')
+    } finally {
+      setGuideSaving(false)
+    }
+  }
+
+  const requestGuideFeedback = async () => {
+    setGuideSaving(true)
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(await authHeaders()),
+      }
+      const payload = {
+        prediction: guide.prediction,
+        main_idea: guide.main_idea,
+        character_notes: guide.character_notes,
+      }
+      const res = await fetch('/api/reader/guides', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'feedback', content: payload }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Geri bildirim alinamadi')
+      setGuideFeedback(json.feedback || '')
+    } catch (e: any) {
+      alert(e?.message || 'Geri bildirim alinamadi')
+    } finally {
+      setGuideSaving(false)
+    }
+  }
+
   // TTS
   const speakWord = (word: string) => {
     if ('speechSynthesis' in window) {
@@ -559,6 +761,36 @@ export default function ReaderPage() {
             ))}
           </div>
         )}
+
+        <div style={{ marginTop: '1rem', padding: '0.8rem', border: `1px solid ${tc.border}`, borderRadius: 12, background: tc.card }}>
+          <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Bolum Quiz Istatistigi · {sectionKey}
+          </p>
+          {sectionQuizLoading ? (
+            <p style={{ margin: '0.45rem 0 0', color: tc.sub, fontSize: '0.82rem' }}>Yukleniyor...</p>
+          ) : sectionQuizStats.attempts === 0 ? (
+            <p style={{ margin: '0.45rem 0 0', color: tc.sub, fontSize: '0.82rem' }}>Bu bolum icin henuz quiz denemesi yok.</p>
+          ) : (
+            <div style={{ marginTop: '0.45rem', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: '0.4rem' }}>
+              <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Deneme</p>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.attempts}</p>
+              </div>
+              <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Dogru</p>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.correct}</p>
+              </div>
+              <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Basari</p>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.accent }}>%{sectionQuizStats.successRate}</p>
+              </div>
+              <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Skor</p>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.avgScore}</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Kelime Paneli ── */}
@@ -700,6 +932,9 @@ export default function ReaderPage() {
             <button onClick={() => { setShowHighlights(true); setBarsVisible(true) }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.4rem' }}>
               <Highlighter size={17} color={tc.text} />
             </button>
+            <button onClick={loadGuide} disabled={guideLoading} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.4rem', opacity: guideLoading ? 0.6 : 1 }}>
+              <MessageSquare size={17} color={tc.text} />
+            </button>
             <button onClick={generateFlashcards} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.4rem' }}>
               <Zap size={17} color={tc.text} />
             </button>
@@ -727,14 +962,64 @@ export default function ReaderPage() {
               { icon: <BookOpen size={16} />, label: 'İçindekiler', action: () => { setShowTOC(true); setShowMenu(false) } },
               { icon: <Bookmark size={16} />, label: 'Yer İmleri', action: () => { setShowBookmarks(true); setShowMenu(false) } },
               { icon: <Highlighter size={16} />, label: 'Notlarım', action: () => { setShowHighlights(true); setShowMenu(false) } },
+              { icon: <MessageSquare size={16} />, label: 'Okuma Rehberi', action: () => { void loadGuide(); setShowMenu(false) } },
+              { icon: <Anchor size={16} />, label: quizLoading ? 'Quiz yukleniyor...' : 'Bolum Quizi', action: () => { void loadSectionQuiz(); setShowMenu(false) } },
               { icon: <Zap size={16} />, label: 'Flashcard Üret', action: generateFlashcards },
               { icon: <Settings size={16} />, label: 'Okuyucu Ayarları', action: () => { setShowSettings(true); setShowMenu(false) } },
             ].map((item, i) => (
-              <button key={i} onClick={item.action} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem', background: 'none', border: 'none', borderBottom: i < 4 ? `1px solid ${tc.border}` : 'none', cursor: 'pointer', color: tc.text, fontSize: '0.88rem', textAlign: 'left' }}>
+              <button key={i} onClick={item.action} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem', background: 'none', border: 'none', borderBottom: i < 6 ? `1px solid ${tc.border}` : 'none', cursor: 'pointer', color: tc.text, fontSize: '0.88rem', textAlign: 'left' }}>
                 <span style={{ color: tc.sub }}>{item.icon}</span>
                 {item.label}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Okuma Rehberi ── */}
+      {showGuidePanel && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 520, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowGuidePanel(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: tc.nav, borderRadius: '20px 20px 0 0', padding: '1.25rem', maxHeight: '78vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>Okuma Rehberi · {sectionKey}</h3>
+              <button onClick={() => setShowGuidePanel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: tc.sub }}><X size={18} /></button>
+            </div>
+
+            <div style={{ display: 'grid', gap: '0.65rem' }}>
+              <textarea
+                value={guide.prediction}
+                onChange={(e) => setGuide((g) => ({ ...g, prediction: e.target.value }))}
+                placeholder="Tahminim (sonraki bolumde ne olacak?)"
+                rows={3}
+                style={{ width: '100%', background: tc.card, border: `1px solid ${tc.border}`, borderRadius: 10, color: tc.text, padding: '0.65rem', resize: 'vertical' }}
+              />
+              <textarea
+                value={guide.main_idea}
+                onChange={(e) => setGuide((g) => ({ ...g, main_idea: e.target.value }))}
+                placeholder="Ana fikir"
+                rows={3}
+                style={{ width: '100%', background: tc.card, border: `1px solid ${tc.border}`, borderRadius: 10, color: tc.text, padding: '0.65rem', resize: 'vertical' }}
+              />
+              <textarea
+                value={guide.character_notes}
+                onChange={(e) => setGuide((g) => ({ ...g, character_notes: e.target.value }))}
+                placeholder="Karakter notlari (JSON veya duz metin)"
+                rows={4}
+                style={{ width: '100%', background: tc.card, border: `1px solid ${tc.border}`, borderRadius: 10, color: tc.text, padding: '0.65rem', resize: 'vertical', fontFamily: 'monospace', fontSize: '0.8rem' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <button onClick={saveGuide} disabled={guideSaving} style={{ border: 'none', borderRadius: 10, padding: '0.55rem 0.85rem', background: tc.accent, color: '#fff', cursor: 'pointer', opacity: guideSaving ? 0.6 : 1 }}>Kaydet</button>
+              <button onClick={requestGuideFeedback} disabled={guideSaving} style={{ border: `1px solid ${tc.border}`, borderRadius: 10, padding: '0.55rem 0.85rem', background: 'transparent', color: tc.text, cursor: 'pointer', opacity: guideSaving ? 0.6 : 1 }}>AI Geri Bildirim</button>
+            </div>
+
+            {guideFeedback && (
+              <div style={{ marginTop: '0.8rem', background: tc.card, border: `1px solid ${tc.border}`, borderRadius: 10, padding: '0.7rem' }}>
+                <p style={{ fontSize: '0.75rem', color: tc.sub, marginBottom: '0.3rem', fontWeight: 700 }}>AI Notu</p>
+                <p style={{ fontSize: '0.85rem', color: tc.text, lineHeight: 1.5 }}>{guideFeedback}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -904,6 +1189,18 @@ export default function ReaderPage() {
           </div>
         </div>
       )}
+
+      <QuizModal
+        open={showQuizModal}
+        questions={quizQuestions.map((q) => ({ question: q.question, options: q.options, answer: q.answer }))}
+        onClose={() => setShowQuizModal(false)}
+        onAnswer={({ selected, index }) => {
+          const item = quizQuestions[index]
+          if (item?.id) {
+            void submitQuizAttempt(item.id, selected)
+          }
+        }}
+      />
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }

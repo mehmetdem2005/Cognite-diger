@@ -363,7 +363,7 @@ Genre değerleri: romantic, philosophical, scifi, adventure, artistic, historica
 
     if (callProvider === 'groq') {
       const { callGroq } = await import('./providers/groq-provider')
-      result = await withTimeout(callGroq(provider.model_name || 'llama-3.1-8b-instant', {
+      result = await withTimeout(callGroq(provider.model_name || 'openai/gpt-oss-120b', {
         messages,
         maxTokens: 800,
         temperature: 0.3, // Daha deterministik

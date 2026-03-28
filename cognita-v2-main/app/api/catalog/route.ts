@@ -26,6 +26,9 @@ async function verifySuperAdmin(token: string) {
 
 export async function GET() {
   try {
+    const headers = {
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+    }
     const supabase = getServiceSupabase()
     const { data, error } = await supabase
       .from('catalog_books')
@@ -35,7 +38,7 @@ export async function GET() {
       .limit(100)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ data: data || [] })
+    return NextResponse.json({ data: data || [] }, { headers })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

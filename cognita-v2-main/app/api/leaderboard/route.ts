@@ -10,6 +10,9 @@ const supabase = createClient(
 export async function GET(req: NextRequest) {
   const period = req.nextUrl.searchParams.get('period') || 'weekly'
   const limit = req.nextUrl.searchParams.get('limit') || '10'
+  const headers = {
+    'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+  }
 
   try {
     const { data: leaderboard } = await supabase
@@ -19,7 +22,7 @@ export async function GET(req: NextRequest) {
       .order('rank', { ascending: true })
       .limit(parseInt(limit))
 
-    return NextResponse.json({ leaderboard })
+    return NextResponse.json({ leaderboard }, { headers })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch leaderboard' }, { status: 500 })
   }

@@ -58,7 +58,7 @@ VALUES
   ('deepseek',     'DeepSeek V3',            false, 'paid',         3, 'deepseek-chat',             0,   NULL),
   ('gemini_paid',  'Gemini 2.0 Flash (Ücretli)', false, 'paid',     2, 'gemini-2.0-flash',          0,   NULL),
   ('gemini_free',  'Gemini 2.0 Flash (Ücretsiz, 1500/gün)', true, 'free_limited', 4, 'gemini-2.0-flash', 100, 'groq'),
-  ('groq',         'Groq LLaMA (Ücretsiz)',  true,  'free',         5, 'llama-3.1-8b-instant',     80,   NULL)
+  ('groq',         'Groq GPT OSS 120B (Reasoning)',  true,  'free', 5, 'openai/gpt-oss-120b',      80,   NULL)
 ON CONFLICT (provider_name) DO NOTHING;
 
 -- Atomic increment function (bypasses RLS, called server-side with service role)

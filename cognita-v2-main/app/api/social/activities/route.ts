@@ -10,6 +10,9 @@ const supabase = createClient(
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId')
   const limit = req.nextUrl.searchParams.get('limit') || '10'
+  const headers = {
+    'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+  }
 
   if (!userId) {
     return NextResponse.json({ error: 'User ID required' }, { status: 400 })
@@ -25,7 +28,7 @@ export async function GET(req: NextRequest) {
     const followingIds = following?.map(f => f.following_id) || []
 
     if (followingIds.length === 0) {
-      return NextResponse.json({ activities: [] })
+      return NextResponse.json({ activities: [] }, { headers })
     }
 
     const { data: activities } = await supabase
@@ -35,7 +38,7 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(parseInt(limit))
 
-    return NextResponse.json({ activities })
+    return NextResponse.json({ activities }, { headers })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch activities' }, { status: 500 })
   }

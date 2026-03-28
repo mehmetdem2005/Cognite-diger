@@ -10,6 +10,9 @@ const supabase = createClient(
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId')
   const periodType = req.nextUrl.searchParams.get('type') || 'weekly'
+  const headers = {
+    'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
+  }
 
   if (!userId) {
     return NextResponse.json({ error: 'User ID required' }, { status: 400 })
@@ -42,7 +45,7 @@ export async function GET(req: NextRequest) {
         booksReadChange: (currentStats?.[0]?.books_finished || 0) - (previousStats?.[0]?.books_finished || 0),
         xpChange: (currentStats?.[0]?.total_xp_earned || 0) - (previousStats?.[0]?.total_xp_earned || 0)
       }
-    })
+    }, { headers })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 })
   }

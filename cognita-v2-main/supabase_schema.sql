@@ -387,7 +387,7 @@ values
   ('deepseek',    'DeepSeek V3',                                false, 'paid',         3, 'deepseek-chat',         0,   null, null),
   ('gemini_paid', 'Gemini 2.0 Flash (Ücretli)',                 false, 'paid',         2, 'gemini-2.0-flash',      0,   null, 1000000),
   ('gemini_free', 'Gemini 2.0 Flash (Ücretsiz, 1500/gün)',     true,  'free_limited', 4, 'gemini-2.0-flash',      100, 'groq', 1000000),
-  ('groq',        'Groq LLaMA (Ücretsiz)',                      true,  'free',         5, 'llama-3.1-8b-instant',  80,  null, 500000)
+  ('groq',        'Groq GPT OSS 120B (Reasoning)',              true,  'free',         5, 'openai/gpt-oss-120b',  80,  null, 500000)
 on conflict (provider_name) do nothing;
 
 -- ============================================================

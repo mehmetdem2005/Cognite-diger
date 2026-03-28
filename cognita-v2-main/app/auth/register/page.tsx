@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { isSupabaseConfigured, supabase, supabaseConfigError } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, BookOpen, Check } from 'lucide-react'
@@ -20,6 +20,7 @@ export default function RegisterPage() {
     if (!fullName || !username || !email || !password) { setError('Tüm alanları doldur'); return }
     if (password.length < 6) { setError('Şifre en az 6 karakter olmalı'); return }
     if (username.includes(' ')) { setError('Kullanıcı adında boşluk olamaz'); return }
+    if (!isSupabaseConfigured) { setError(supabaseConfigError); return }
     setLoading(true); setError('')
     const { error } = await supabase.auth.signUp({
       email, password,
@@ -80,7 +81,13 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <button className="btn-primary" onClick={handleRegister} disabled={loading} style={{ width: '100%', padding: '0.95rem', borderRadius: '12px', fontSize: '0.95rem' }}>
+        {!isSupabaseConfigured && (
+          <div style={{ padding: '0.75rem 1rem', background: 'rgba(230,57,70,0.1)', border: '1px solid rgba(230,57,70,0.2)', borderRadius: '10px', color: 'var(--red)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+            {supabaseConfigError}
+          </div>
+        )}
+
+        <button className="btn-primary" onClick={handleRegister} disabled={loading || !isSupabaseConfigured} style={{ width: '100%', padding: '0.95rem', borderRadius: '12px', fontSize: '0.95rem', opacity: loading || !isSupabaseConfigured ? 0.7 : 1 }}>
           {loading ? 'Kaydediliyor...' : 'Hesap Oluştur'}
         </button>
 

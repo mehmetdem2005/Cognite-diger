@@ -9,6 +9,9 @@ const supabase = createClient(
 // Kullanıcı Başarıları
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId')
+  const headers = {
+    'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
+  }
 
   if (!userId) {
     return NextResponse.json({ error: 'User ID required' }, { status: 400 })
@@ -30,7 +33,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       unlocked: unlockedAchievements || [],
       locked: lockedAchievements || []
-    })
+    }, { headers })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch achievements' }, { status: 500 })
   }

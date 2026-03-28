@@ -1,13 +1,18 @@
 'use client'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 
 export default function RootPage() {
   const router = useRouter()
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      router.replace('/auth/login')
+      return
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      router.push(session ? '/home' : '/auth/login')
+      router.replace(session ? '/home' : '/auth/login')
     })
   }, [])
 

@@ -11,8 +11,9 @@ function getClient(userToken?: string) {
 }
 
 // GET /api/books/[id]/content — Fetch book content from DB
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params
     const authHeader = req.headers.get('authorization')
     const token = authHeader?.replace('Bearer ', '')
     if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const { data, error } = await sb
       .from('books')
       .select('content')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single()
 

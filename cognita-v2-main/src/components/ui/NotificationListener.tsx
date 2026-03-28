@@ -37,6 +37,7 @@ function showBrowserNotif(actor: string, type: string) {
 export default function NotificationListener() {
   const { user } = useAuth()
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const setupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -46,35 +47,46 @@ export default function NotificationListener() {
 
     // Eski kanalı temizle
     if (channelRef.current) supabase.removeChannel(channelRef.current)
+    if (setupTimerRef.current) {
+      clearTimeout(setupTimerRef.current)
+      setupTimerRef.current = null
+    }
 
-    channelRef.current = supabase
-      .channel(`notif_listener_${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const n = payload.new as { type: string; message: string; from_user_id?: string }
-          interaction.notification()
+    setupTimerRef.current = setTimeout(() => {
+      channelRef.current = supabase
+        .channel(`notif_listener_${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            const n = payload.new as { type: string; message: string; from_user_id?: string }
+            interaction.notification()
 
-          // Profil ismini çek ve bildirim göster
-          if (n.from_user_id) {
-            supabase
-              .from('profiles')
-              .select('username, full_name')
-              .eq('id', n.from_user_id)
-              .single()
-              .then(({ data }) => {
-                const actor = data?.full_name || data?.username || 'Birisi'
-                showBrowserNotif(actor, n.type)
-              })
-          } else {
-            showBrowserNotif('Cognita', n.type)
-          }
-        },
-      )
-      .subscribe()
+            // Profil ismini çek ve bildirim göster
+            if (n.from_user_id) {
+              supabase
+                .from('profiles')
+                .select('username, full_name')
+                .eq('id', n.from_user_id)
+                .single()
+                .then(({ data }) => {
+                  const actor = data?.full_name || data?.username || 'Birisi'
+                  showBrowserNotif(actor, n.type)
+                })
+            } else {
+              showBrowserNotif('Cognita', n.type)
+            }
+          },
+        )
+        .subscribe()
+      setupTimerRef.current = null
+    }, 4000)
 
     return () => {
+      if (setupTimerRef.current) {
+        clearTimeout(setupTimerRef.current)
+        setupTimerRef.current = null
+      }
       if (channelRef.current) supabase.removeChannel(channelRef.current)
     }
   }, [user])

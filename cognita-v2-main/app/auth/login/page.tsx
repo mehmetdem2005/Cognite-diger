@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { isSupabaseConfigured, supabase, supabaseConfigError } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, BookOpen } from 'lucide-react'
@@ -13,11 +13,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPass, setShowPass] = useState(false)
 
+  useEffect(() => {
+    if (!isSupabaseConfigured) setError(supabaseConfigError)
+  }, [])
+
   const handleLogin = async () => {
     if (!email || !password) { setError('Tüm alanları doldur'); return }
+    if (!isSupabaseConfigured) { setError(supabaseConfigError); return }
     setLoading(true); setError('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError(error.message === 'Invalid login credentials' ? 'E-posta veya şifre hatalı' : error.message); setLoading(false) }
+    if (error) { setError(error.message === 'Invalid login credentials' ? 'E-posta veya sifre hatali' : error.message); setLoading(false) }
     else router.push('/home')
   }
 
@@ -59,7 +64,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        <button className="btn-primary" onClick={handleLogin} disabled={loading} style={{ width: '100%', padding: '0.95rem', borderRadius: '12px', fontSize: '0.95rem' }}>
+        <button className="btn-primary" onClick={handleLogin} disabled={loading || !isSupabaseConfigured} style={{ width: '100%', padding: '0.95rem', borderRadius: '12px', fontSize: '0.95rem', opacity: loading || !isSupabaseConfigured ? 0.7 : 1 }}>
           {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
         </button>
 

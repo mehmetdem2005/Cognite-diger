@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState, createContext, useContext } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { initTheme } from '@/lib/theme'
-import { supabase } from '@/lib/supabase'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import SideDrawer from '@/components/ui/SideDrawer'
 
 interface Profile {
@@ -12,6 +12,7 @@ interface Profile {
   xp?: number
   level?: number
   streak_days?: number
+  total_pages_read?: number
 }
 
 // Global drawer context — herhangi bir sayfadan açılabilsin
@@ -19,12 +20,14 @@ interface AppShellContext {
   openDrawer: () => void
   closeDrawer: () => void
   isAdmin: boolean
+  profile: Profile | null
 }
 
 export const AppShellCtx = createContext<AppShellContext>({
   openDrawer: () => {},
   closeDrawer: () => {},
   isAdmin: false,
+  profile: null,
 })
 
 export const useAppShell = () => useContext(AppShellCtx)
@@ -41,8 +44,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [prevPath, setPrevPath] = useState(pathname)
   const [transitioning, setTransitioning] = useState(false)
 
-  // Tema başlat
-  useEffect(() => { initTheme() }, [pathname])
   useEffect(() => {
     initTheme()
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -53,6 +54,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Kullanıcı oturumu
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setUserId(null)
+      setProfile(null)
+      setIsAdmin(false)
+      return
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUserId(session.user.id)
@@ -77,7 +85,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const fetchProfile = async (uid: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('full_name, username, avatar_url, xp, level, streak_days')
+      .select('full_name, username, avatar_url, xp, level, streak_days, total_pages_read')
       .eq('id', uid)
       .single()
     if (data) setProfile(data)
@@ -99,7 +107,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       const t = setTimeout(() => {
         setPrevPath(pathname)
         setTransitioning(false)
-      }, 200)
+      }, 80)
       return () => clearTimeout(t)
     }
   }, [pathname])
@@ -116,6 +124,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       openDrawer: () => setDrawerOpen(true),
       closeDrawer: () => setDrawerOpen(false),
       isAdmin,
+      profile,
     }}>
       {/* Sayfa içeriği — geçiş animasyonu */}
       <div style={{
@@ -125,8 +134,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         minHeight: '100dvh',
         overflowX: 'clip',
         opacity: transitioning ? 0 : 1,
-        transform: transitioning ? 'translateY(4px)' : 'translateY(0)',
-        transition: 'opacity 0.18s ease, transform 0.18s ease',
+        transition: 'opacity 0.08s ease',
       }}>
         {children}
       </div>

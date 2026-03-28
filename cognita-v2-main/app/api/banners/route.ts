@@ -9,6 +9,9 @@ const supabase = createClient(
 // Dinamik Bannerlar
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId')
+  const headers = {
+    'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
+  }
 
   try {
     // Aktif bannerları al
@@ -19,7 +22,7 @@ export async function GET(req: NextRequest) {
       .or(`end_date.is.null,end_date.gte.now()`)
 
     if (!userId) {
-      return NextResponse.json({ banners: banners || [] })
+      return NextResponse.json({ banners: banners || [] }, { headers })
     }
 
     // Kullanıcının streak'ini kontrol et
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ banners: finalBanners })
+    return NextResponse.json({ banners: finalBanners }, { headers })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch banners' }, { status: 500 })
   }

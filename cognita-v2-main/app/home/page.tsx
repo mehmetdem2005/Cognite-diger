@@ -1,30 +1,19 @@
 'use client'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
+import { useAppShell } from '@/components/layout/AppShell'
 import BottomNav from '@/components/layout/BottomNav'
-import SideDrawer from '@/components/ui/SideDrawer'
 import DailyQuote from '@/components/ui/DailyQuote'
 import DynamicBanners from '@/components/ui/DynamicBanners'
 import QuickActionButtons from '@/components/ui/QuickActionButtons'
-import RecommendedForYou from '@/components/ui/RecommendedForYou'
-import ChallengesSection from '@/components/ui/ChallengesSection'
-import SocialActivityFeed from '@/components/ui/SocialActivityFeed'
-import ExploreByCategory from '@/components/ui/ExploreByCategory'
-import StatsTrend from '@/components/ui/StatsTrend'
-import AchievementsShowcase from '@/components/ui/AchievementsShowcase'
-import Leaderboard from '@/components/ui/Leaderboard'
 import { Bell, Search, ChevronRight, TrendingUp, Target, Clock, Zap, Menu, BookOpen, Flame, Trophy, FileText } from 'lucide-react'
 import BookCover from '@/components/ui/BookCover'
-import { applyTheme, getTheme } from '@/lib/theme'
 
 interface Book { id: string; title: string; author: string | null; cover_url?: string | null }
 interface Session { book_id: string; progress_percent: number; updated_at: string; books: Book }
-interface Profile {
-  full_name: string | null; username: string | null; avatar_url: string | null
-  streak_days: number; total_pages_read: number; xp: number; level: number
-}
 
 const GRADIENTS = [
   'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
@@ -37,10 +26,18 @@ const GRADIENTS = [
 
 const DAILY_GOALS = [15, 30, 45, 60]
 
+const RecommendedForYou = dynamic(() => import('@/components/ui/RecommendedForYou'), { ssr: false })
+const ChallengesSection = dynamic(() => import('@/components/ui/ChallengesSection'), { ssr: false })
+const SocialActivityFeed = dynamic(() => import('@/components/ui/SocialActivityFeed'), { ssr: false })
+const ExploreByCategory = dynamic(() => import('@/components/ui/ExploreByCategory'), { ssr: false })
+const StatsTrend = dynamic(() => import('@/components/ui/StatsTrend'), { ssr: false })
+const AchievementsShowcase = dynamic(() => import('@/components/ui/AchievementsShowcase'), { ssr: false })
+const Leaderboard = dynamic(() => import('@/components/ui/Leaderboard'), { ssr: false })
+
 export default function HomePage() {
   const router = useRouter()
   const { user, loading } = useAuth()
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const { openDrawer, profile } = useAppShell()
   const [sessions, setSessions] = useState<Session[]>([])
   const [trending, setTrending] = useState<Book[]>([])
   const [newBooks, setNewBooks] = useState<Book[]>([])
@@ -49,25 +46,21 @@ export default function HomePage() {
   const [dailyGoal, setDailyGoal] = useState(30)
   const [todayMinutes, setTodayMinutes] = useState(0)
   const [showGoalPicker, setShowGoalPicker] = useState(false)
-  const [showDrawer, setShowDrawer] = useState(false)
   const [homeAnnouncement, setHomeAnnouncement] = useState<{ active: boolean; text: string }>({ active: false, text: '' })
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => {
     if (user) {
-      fetchProfile(); fetchSessions(); fetchTrending(); fetchNewBooks(); fetchUnread(); fetchCatalog()
-      fetchHomeSettings()
+      fetchSessions()
       const saved = localStorage.getItem('daily_goal')
       if (saved) setDailyGoal(Number(saved))
       const todayMins = localStorage.getItem(`today_mins_${new Date().toDateString()}`)
       if (todayMins) setTodayMinutes(Number(todayMins))
+
+      setTimeout(() => { fetchTrending(); fetchNewBooks(); fetchCatalog() }, 120)
+      setTimeout(() => { fetchUnread(); fetchHomeSettings() }, 350)
     }
   }, [user])
-
-  const fetchProfile = async () => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', user!.id).single()
-    setProfile(data)
-  }
   const fetchSessions = async () => {
     const { data } = await supabase.from('reading_sessions')
       .select('book_id, progress_percent, updated_at, books(*)')
@@ -148,7 +141,7 @@ export default function HomePage() {
             <Bell size={22} color="var(--text)" strokeWidth={1.8} />
             {unreadCount > 0 && <span style={{ position: 'absolute', top: '4px', right: '4px', width: '8px', height: '8px', background: 'var(--red)', borderRadius: '50%', border: '2px solid var(--nav-bg)' }} />}
           </button>
-          <button onClick={() => setShowDrawer(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
+          <button onClick={openDrawer} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
             <Menu size={22} color="var(--text)" strokeWidth={1.8} />
           </button>
         </div>
@@ -162,54 +155,73 @@ export default function HomePage() {
         </div>
       )}
 
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '1rem 1rem 0.85rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.85rem' }}>
-          {/* Avatar */}
-          <div onClick={() => router.push('/profile')} style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '2px solid var(--border)' }}>
-            {profile?.avatar_url
-              ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ color: 'white', fontWeight: 700, fontSize: '1.1rem' }}>{(profile?.full_name || profile?.username || 'U')[0].toUpperCase()}</span>
-            }
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{greeting()}</p>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>
-              {profile?.full_name?.split(' ')[0] || 'Okuyucu'}
-            </h2>
-          </div>
-          {/* Streak badge */}
-          {(profile?.streak_days || 0) > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(234,88,12,0.1)', borderRadius: 999, padding: '0.3rem 0.7rem', border: '1px solid rgba(234,88,12,0.2)' }}>
-              <Flame size={14} color="#ea580c" />
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ea580c' }}>{profile?.streak_days}</span>
+      {profile === null ? (
+        <>
+          <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.85rem', marginBottom: '0.85rem' }}>
+              <div className="skeleton" style={{ width: 52, height: 52, borderRadius: '50%' }} />
+              <div style={{ flex: 1 }}>
+                <div className="skeleton" style={{ height: 12, width: 80, borderRadius: 4, marginBottom: 8 }} />
+                <div className="skeleton" style={{ height: 18, width: 130, borderRadius: 4 }} />
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* XP / Level bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ flex: 1, height: '5px', background: 'var(--bg-soft)', borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${levelProgress}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', borderRadius: 3, transition: 'width 1s ease' }} />
+            <div className="skeleton" style={{ height: 5, borderRadius: 3 }} />
           </div>
-          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>Sv.{level} • {xp} XP</span>
-        </div>
-      </div>
 
-      {/* İstatistik kartları */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem', margin: '0.75rem 1rem 0' }}>
-        {[
-          { icon: <Flame size={16} color="#ea580c" />, value: profile?.streak_days || 0, label: 'Seri', bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.15)' },
-          { icon: <FileText size={16} color="var(--accent)" />, value: profile?.total_pages_read || 0, label: 'Sayfa', bg: 'rgba(64,93,230,0.08)', border: 'rgba(64,93,230,0.15)' },
-          { icon: <Zap size={16} color="#f59e0b" />, value: xp, label: 'XP', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)' },
-          { icon: <Trophy size={16} color="#a855f7" />, value: `S${level}`, label: 'Seviye', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.15)' },
-        ].map((s, i) => (
-          <div key={i} style={{ background: s.bg, borderRadius: 'var(--radius-md)', padding: '0.7rem 0.4rem', textAlign: 'center', border: `1px solid ${s.border}` }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.2rem' }}>{s.icon}</div>
-            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{s.value}</div>
-            <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '0.1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', margin: '0.75rem 1rem 0' }}>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="skeleton" style={{ borderRadius: 'var(--radius-md)', height: 72 }} />
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      ) : (
+        <>
+          <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '1rem 1rem 0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.85rem' }}>
+              <div onClick={() => router.push('/profile')} style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '2px solid var(--border)' }}>
+                {profile.avatar_url
+                  ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ color: 'white', fontWeight: 700, fontSize: '1.1rem' }}>{(profile.full_name || profile.username || 'U')[0].toUpperCase()}</span>
+                }
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{greeting()}</p>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>
+                  {profile.full_name?.split(' ')[0] || 'Okuyucu'}
+                </h2>
+              </div>
+              {(profile.streak_days || 0) > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(234,88,12,0.1)', borderRadius: 999, padding: '0.3rem 0.7rem', border: '1px solid rgba(234,88,12,0.2)' }}>
+                  <Flame size={14} color="#ea580c" />
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ea580c' }}>{profile.streak_days}</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ flex: 1, height: '5px', background: 'var(--bg-soft)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${levelProgress}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', borderRadius: 3, transition: 'width 1s ease' }} />
+              </div>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>Sv.{level} • {xp} XP</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem', margin: '0.75rem 1rem 0' }}>
+            {[
+              { icon: <Flame size={16} color="#ea580c" />, value: profile.streak_days || 0, label: 'Seri', bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.15)' },
+              { icon: <FileText size={16} color="var(--accent)" />, value: profile.total_pages_read || 0, label: 'Sayfa', bg: 'rgba(64,93,230,0.08)', border: 'rgba(64,93,230,0.15)' },
+              { icon: <Zap size={16} color="#f59e0b" />, value: xp, label: 'XP', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)' },
+              { icon: <Trophy size={16} color="#a855f7" />, value: `S${level}`, label: 'Seviye', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.15)' },
+            ].map((s, i) => (
+              <div key={i} style={{ background: s.bg, borderRadius: 'var(--radius-md)', padding: '0.7rem 0.4rem', textAlign: 'center', border: `1px solid ${s.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.2rem' }}>{s.icon}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{s.value}</div>
+                <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '0.1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Günlük hedef */}
       <div style={{ margin: '0.75rem 1rem 0', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', padding: '1rem', border: '1px solid var(--border)' }}>
@@ -373,11 +385,6 @@ export default function HomePage() {
         </div>
       )}
 
-      <SideDrawer
-        open={showDrawer}
-        onClose={() => setShowDrawer(false)}
-        profile={profile}
-      />
       <BottomNav />
     </main>
   )

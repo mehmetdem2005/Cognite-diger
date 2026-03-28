@@ -9,6 +9,9 @@ const supabase = createClient(
 // Kişiselleştirilmiş Tavsiyeler
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId')
+  const headers = {
+    'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
+  }
   
   if (!userId) {
     return NextResponse.json({ error: 'User ID required' }, { status: 400 })
@@ -29,10 +32,10 @@ export async function GET(req: NextRequest) {
         .eq('is_public', true)
         .order('rating_count', { ascending: false })
         .limit(6)
-      return NextResponse.json({ recommendations: trendingBooks })
+      return NextResponse.json({ recommendations: trendingBooks }, { headers })
     }
 
-    return NextResponse.json({ recommendations })
+    return NextResponse.json({ recommendations }, { headers })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch recommendations' }, { status: 500 })
   }

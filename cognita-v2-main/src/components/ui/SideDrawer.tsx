@@ -4,7 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import {
   X, Home, BookOpen, Sparkles, Compass, User, Settings,
   BarChart2, Trophy, FolderOpen, Bell, Moon, Sun, Monitor,
-  PenTool, Library, LogOut, Shield, Bookmark, Zap
+  PenTool, Library, LogOut, Shield, Bookmark, Zap, Users
 } from 'lucide-react'
 import { applyTheme, getTheme } from '@/lib/theme'
 import { useAuth } from '@/lib/useAuth'
@@ -31,12 +31,15 @@ const MENU_ITEMS = [
   { icon: Sparkles, label: 'The Flow', href: '/flow', section: 'main' },
   { icon: Compass, label: 'Keşfet', href: '/explore', section: 'main' },
   { icon: Library, label: 'Katalog', href: '/catalog', section: 'main' },
+  { icon: BookOpen, label: 'Kelime Defteri', href: '/vocabulary', section: 'main' },
   { icon: PenTool, label: 'Yazarlık Stüdyosu', href: '/write', section: 'create' },
   { icon: FolderOpen, label: 'Projelerim', href: '/projects', section: 'create' },
+  { icon: FolderOpen, label: 'Koleksiyonlar', href: '/collections', section: 'create' },
   { icon: Bookmark, label: 'Kaydettiklerim', href: '/library?tab=saved', section: 'create' },
   { icon: Trophy, label: 'Meydan Okumalar', href: '/challenges', section: 'social' },
   { icon: BarChart2, label: 'İstatistiklerim', href: '/stats', section: 'social' },
   { icon: Bell, label: 'Bildirimler', href: '/notifications', section: 'social' },
+  { icon: Users, label: 'Kitap Kulupleri', href: '/clubs', section: 'social' },
   { icon: User, label: 'Profilim', href: '/profile', section: 'account' },
   { icon: Settings, label: 'Ayarlar', href: '/settings', section: 'account' },
 ]
