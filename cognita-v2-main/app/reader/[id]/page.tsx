@@ -132,11 +132,12 @@ export default function ReaderPage() {
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user && id) { fetchBook(); loadLocal(); fetchReaderFeatures() } }, [user, id])
   useEffect(() => { setIsCurrentBookmarked(bookmarks.includes(currentPage)) }, [currentPage, bookmarks])
+  // Quiz istatistiklerini sadece ilk yüklemede çek, her sayfa değişiminde değil
   useEffect(() => {
     if (book && user) {
       void loadSectionQuizStats()
     }
-  }, [book, user, currentPage])
+  }, [book, user])
 
   useEffect(() => {
     return () => {
@@ -770,26 +771,22 @@ export default function ReaderPage() {
           </div>
         )}
 
+        {sectionQuizStats.attempts > 0 && (
         <div style={{ marginTop: '1rem', padding: '0.8rem', border: `1px solid ${tc.border}`, borderRadius: 12, background: tc.card }}>
           <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Bolum Quiz Istatistigi · {sectionKey}
+            Bölüm Quiz İstatistiği
           </p>
-          {sectionQuizLoading ? (
-            <p style={{ margin: '0.45rem 0 0', color: tc.sub, fontSize: '0.82rem' }}>Yukleniyor...</p>
-          ) : sectionQuizStats.attempts === 0 ? (
-            <p style={{ margin: '0.45rem 0 0', color: tc.sub, fontSize: '0.82rem' }}>Bu bolum icin henuz quiz denemesi yok.</p>
-          ) : (
-            <div style={{ marginTop: '0.45rem', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: '0.4rem' }}>
+          <div style={{ marginTop: '0.45rem', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: '0.4rem' }}>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
                 <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Deneme</p>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.attempts}</p>
               </div>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
-                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Dogru</p>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Doğru</p>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.correct}</p>
               </div>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
-                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Basari</p>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Başarı</p>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.accent }}>%{sectionQuizStats.successRate}</p>
               </div>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
@@ -797,8 +794,8 @@ export default function ReaderPage() {
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.avgScore}</p>
               </div>
             </div>
-          )}
         </div>
+        )}
       </div>
 
       {/* ── Kelime Paneli ── */}

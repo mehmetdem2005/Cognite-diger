@@ -206,7 +206,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem', margin: '0.75rem 1rem 0' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', margin: '0.75rem 1rem 0' }}>
             {[
               { icon: <Flame size={16} color="#ea580c" />, value: profile.streak_days || 0, label: 'Seri', bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.15)' },
               { icon: <FileText size={16} color="var(--accent)" />, value: profile.total_pages_read || 0, label: 'Sayfa', bg: 'rgba(64,93,230,0.08)', border: 'rgba(64,93,230,0.15)' },
