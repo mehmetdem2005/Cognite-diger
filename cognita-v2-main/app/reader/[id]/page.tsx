@@ -12,7 +12,7 @@ import {
   Anchor, ChevronUp, ChevronDown
 } from 'lucide-react'
 
-interface Book { id: string; title: string; author: string | null; total_pages: number; cover_url?: string | null }
+interface Book { id: string; title: string; author: string | null; total_pages: number; cover_url?: string | null; language?: string | null }
 interface Flashcard { question: string; answer: string }
 interface WordPanel { word: string; x: number; y: number; translation?: string; ipa?: string; meanings?: string[]; examples?: string[]; loading: boolean }
 interface SelectionToolbar { text: string; x: number; y: number }
@@ -132,11 +132,12 @@ export default function ReaderPage() {
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user && id) { fetchBook(); loadLocal(); fetchReaderFeatures() } }, [user, id])
   useEffect(() => { setIsCurrentBookmarked(bookmarks.includes(currentPage)) }, [currentPage, bookmarks])
+  // Quiz istatistiklerini sadece ilk yüklemede çek, her sayfa değişiminde değil
   useEffect(() => {
     if (book && user) {
       void loadSectionQuizStats()
     }
-  }, [book, user, currentPage])
+  }, [book, user])
 
   useEffect(() => {
     return () => {
@@ -327,6 +328,9 @@ export default function ReaderPage() {
     }
 
     try {
+      const bookLang = book?.language || 'en'
+      const isTurkishBook = bookLang === 'tr'
+      const translationTarget = isTurkishBook ? 'İngilizce' : 'Türkçe'
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -334,7 +338,7 @@ export default function ReaderPage() {
           messages: [{
             role: 'user',
             content: `"${word}" kelimesini analiz et. Sadece JSON döndür, başka hiçbir şey yazma:
-{"translation":"Türkçe anlamı","ipa":"IPA fonetik","meanings":["anlam1","anlam2","anlam3"],"examples":["örnek cümle 1","örnek cümle 2"]}`
+{"translation":"${translationTarget} anlamı","ipa":"IPA fonetik","meanings":["anlam1","anlam2","anlam3"],"examples":["örnek cümle 1","örnek cümle 2"]}`
           }]
         })
       })
@@ -346,7 +350,7 @@ export default function ReaderPage() {
     } catch {
       setWordPanel(prev => prev ? { ...prev, loading: false, translation: 'Çeviri alınamadı' } : null)
     }
-  }, [readerFeatures.translationEnabled])
+  }, [readerFeatures.translationEnabled, book])
 
   const handleWordTap = useCallback((e: React.MouseEvent) => {
     if (longPressTriggered.current) {
@@ -631,10 +635,15 @@ export default function ReaderPage() {
   }
 
   // TTS
+  const LANG_BCP47: Record<string, string> = {
+    en: 'en-US', tr: 'tr-TR', ru: 'ru-RU', de: 'de-DE',
+    fr: 'fr-FR', es: 'es-ES', ar: 'ar-SA', it: 'it-IT',
+    pt: 'pt-BR', ja: 'ja-JP', zh: 'zh-CN',
+  }
   const speakWord = (word: string) => {
     if ('speechSynthesis' in window) {
       const u = new SpeechSynthesisUtterance(word)
-      u.lang = 'en-US'
+      u.lang = LANG_BCP47[book?.language || 'en'] || 'en-US'
       window.speechSynthesis.speak(u)
     }
   }
@@ -762,26 +771,22 @@ export default function ReaderPage() {
           </div>
         )}
 
+        {sectionQuizStats.attempts > 0 && (
         <div style={{ marginTop: '1rem', padding: '0.8rem', border: `1px solid ${tc.border}`, borderRadius: 12, background: tc.card }}>
           <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Bolum Quiz Istatistigi · {sectionKey}
+            Bölüm Quiz İstatistiği
           </p>
-          {sectionQuizLoading ? (
-            <p style={{ margin: '0.45rem 0 0', color: tc.sub, fontSize: '0.82rem' }}>Yukleniyor...</p>
-          ) : sectionQuizStats.attempts === 0 ? (
-            <p style={{ margin: '0.45rem 0 0', color: tc.sub, fontSize: '0.82rem' }}>Bu bolum icin henuz quiz denemesi yok.</p>
-          ) : (
-            <div style={{ marginTop: '0.45rem', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: '0.4rem' }}>
+          <div style={{ marginTop: '0.45rem', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: '0.4rem' }}>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
                 <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Deneme</p>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.attempts}</p>
               </div>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
-                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Dogru</p>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Doğru</p>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.correct}</p>
               </div>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
-                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Basari</p>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Başarı</p>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.accent }}>%{sectionQuizStats.successRate}</p>
               </div>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
@@ -789,8 +794,8 @@ export default function ReaderPage() {
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.avgScore}</p>
               </div>
             </div>
-          )}
         </div>
+        )}
       </div>
 
       {/* ── Kelime Paneli ── */}

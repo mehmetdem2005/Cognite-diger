@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
         .eq('is_public', true)
         .order('rating_count', { ascending: false })
         .limit(6)
-      return NextResponse.json({ recommendations: trendingBooks }, { headers })
+      const wrapped = (trendingBooks || []).map(b => ({ id: b.id, book_id: b.id, book: b, score: 0.5 }))
+      return NextResponse.json({ recommendations: wrapped }, { headers })
     }
 
     return NextResponse.json({ recommendations }, { headers })
