@@ -12,7 +12,7 @@ import {
   Anchor, ChevronUp, ChevronDown
 } from 'lucide-react'
 
-interface Book { id: string; title: string; author: string | null; total_pages: number; cover_url?: string | null }
+interface Book { id: string; title: string; author: string | null; total_pages: number; cover_url?: string | null; language?: string | null }
 interface Flashcard { question: string; answer: string }
 interface WordPanel { word: string; x: number; y: number; translation?: string; ipa?: string; meanings?: string[]; examples?: string[]; loading: boolean }
 interface SelectionToolbar { text: string; x: number; y: number }
@@ -327,6 +327,9 @@ export default function ReaderPage() {
     }
 
     try {
+      const bookLang = book?.language || 'en'
+      const isTurkishBook = bookLang === 'tr'
+      const translationTarget = isTurkishBook ? 'İngilizce' : 'Türkçe'
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -334,7 +337,7 @@ export default function ReaderPage() {
           messages: [{
             role: 'user',
             content: `"${word}" kelimesini analiz et. Sadece JSON döndür, başka hiçbir şey yazma:
-{"translation":"Türkçe anlamı","ipa":"IPA fonetik","meanings":["anlam1","anlam2","anlam3"],"examples":["örnek cümle 1","örnek cümle 2"]}`
+{"translation":"${translationTarget} anlamı","ipa":"IPA fonetik","meanings":["anlam1","anlam2","anlam3"],"examples":["örnek cümle 1","örnek cümle 2"]}`
           }]
         })
       })
@@ -346,7 +349,7 @@ export default function ReaderPage() {
     } catch {
       setWordPanel(prev => prev ? { ...prev, loading: false, translation: 'Çeviri alınamadı' } : null)
     }
-  }, [readerFeatures.translationEnabled])
+  }, [readerFeatures.translationEnabled, book])
 
   const handleWordTap = useCallback((e: React.MouseEvent) => {
     if (longPressTriggered.current) {
@@ -631,10 +634,15 @@ export default function ReaderPage() {
   }
 
   // TTS
+  const LANG_BCP47: Record<string, string> = {
+    en: 'en-US', tr: 'tr-TR', ru: 'ru-RU', de: 'de-DE',
+    fr: 'fr-FR', es: 'es-ES', ar: 'ar-SA', it: 'it-IT',
+    pt: 'pt-BR', ja: 'ja-JP', zh: 'zh-CN',
+  }
   const speakWord = (word: string) => {
     if ('speechSynthesis' in window) {
       const u = new SpeechSynthesisUtterance(word)
-      u.lang = 'en-US'
+      u.lang = LANG_BCP47[book?.language || 'en'] || 'en-US'
       window.speechSynthesis.speak(u)
     }
   }

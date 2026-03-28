@@ -102,6 +102,7 @@ export default function CatalogPage() {
     { id: 'ru', label: 'Rusça' },
     { id: 'de', label: 'Almanca' },
     { id: 'fr', label: 'Fransızca' },
+    { id: 'es', label: 'İspanyolca' },
   ]
 
   if (loading || !user) return <main style={{ minHeight: '100vh', background: 'var(--bg)' }} />
