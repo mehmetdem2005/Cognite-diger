@@ -87,12 +87,30 @@ async function maybeResetDailyCounters(configs: ProviderConfig[]): Promise<Provi
 }
 
 /** Pick the best available provider */
+/** Check if the API key for a given provider is configured in env */
+function hasApiKey(providerName: string): boolean {
+  switch (providerName) {
+    case 'gemini_free':
+    case 'gemini_paid':
+      return !!process.env.GEMINI_API_KEY
+    case 'groq':
+      return !!process.env.GROQ_API_KEY
+    case 'openai':
+      return !!process.env.OPENAI_API_KEY
+    case 'deepseek':
+      return !!process.env.DEEPSEEK_API_KEY
+    default:
+      return false
+  }
+}
+
 export async function selectActiveProvider(): Promise<ProviderConfig> {
   let configs = await getProviderConfigs()
   configs = await maybeResetDailyCounters(configs)
 
   for (const cfg of configs) {
     if (!cfg.is_enabled) continue
+    if (!hasApiKey(cfg.provider_name)) continue
     const remaining = getRemaining(cfg)
     // If remaining is above threshold, this provider is good to use
     if (remaining > cfg.fallback_threshold) {
