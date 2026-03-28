@@ -4,6 +4,7 @@ import { isSupabaseConfigured, supabase, supabaseConfigError } from '@/lib/supab
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, BookOpen } from 'lucide-react'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -12,17 +13,28 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPass, setShowPass] = useState(false)
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
 
   useEffect(() => {
     if (!isSupabaseConfigured) setError(supabaseConfigError)
   }, [])
 
+  useEffect(() => {
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
+
   const handleLogin = async () => {
-    if (!email || !password) { setError('Tüm alanları doldur'); return }
+    if (!email || !password) { setError(t(locale, 'loginFillAll')); return }
     if (!isSupabaseConfigured) { setError(supabaseConfigError); return }
     setLoading(true); setError('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError(error.message === 'Invalid login credentials' ? 'E-posta veya sifre hatali' : error.message); setLoading(false) }
+    if (error) { setError(error.message === 'Invalid login credentials' ? t(locale, 'loginInvalidCredentials') : error.message); setLoading(false) }
     else router.push('/home')
   }
 
@@ -35,20 +47,20 @@ export default function LoginPage() {
           <BookOpen size={32} color="white" strokeWidth={1.5} />
         </div>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'white', fontWeight: 400 }}>cognita</h1>
-        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', marginTop: '0.25rem' }}>Kitapseverlerin dünyası</p>
+        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', marginTop: '0.25rem' }}>{t(locale, 'loginTagline')}</p>
       </div>
 
       <div style={{ flex: 1, padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.3rem' }}>Tekrar hoş geldin</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>Okuma macerana devam et</p>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.3rem' }}>{t(locale, 'loginWelcomeBack')}</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>{t(locale, 'loginContinueReading')}</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: '0.4rem' }}>E-posta</label>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: '0.4rem' }}>{t(locale, 'settingsEmail')}</label>
             <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ornek@email.com" />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: '0.4rem' }}>Şifre</label>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: '0.4rem' }}>{t(locale, 'loginPassword')}</label>
             <div style={{ position: 'relative' }}>
               <input className="input" type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key === 'Enter' && handleLogin()} style={{ paddingRight: '2.75rem' }} />
               <button onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
@@ -65,13 +77,13 @@ export default function LoginPage() {
         )}
 
         <button className="btn-primary" onClick={handleLogin} disabled={loading || !isSupabaseConfigured} style={{ width: '100%', padding: '0.95rem', borderRadius: '12px', fontSize: '0.95rem', opacity: loading || !isSupabaseConfigured ? 0.7 : 1 }}>
-          {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+          {loading ? t(locale, 'loginSubmitting') : t(locale, 'loginSubmit')}
         </button>
 
         <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Hesabın yok mu?{' '}
-            <Link href="/auth/register" style={{ color: 'var(--accent)', fontWeight: 700 }}>Kayıt Ol</Link>
+            {t(locale, 'loginNoAccount')}{' '}
+            <Link href="/auth/register" style={{ color: 'var(--accent)', fontWeight: 700 }}>{t(locale, 'loginRegister')}</Link>
           </p>
         </div>
       </div>

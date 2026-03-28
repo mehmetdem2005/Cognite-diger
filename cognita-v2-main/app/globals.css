@@ -35,6 +35,7 @@
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --focus-ring: 0 0 0 3px rgba(64, 93, 230, 0.18);
 }
 
 /* ── Dark Theme ── */
@@ -143,6 +144,47 @@ textarea.input { resize: none; line-height: 1.6; }
 .btn-primary:active { transform: scale(0.97); opacity: 0.9; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.68rem 1.1rem;
+  background: var(--bg-soft);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.86rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease, transform 0.1s ease, background 0.15s ease;
+}
+.btn-secondary:hover { border-color: var(--border-strong); }
+.btn-secondary:active { transform: scale(0.98); }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.8rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.btn-ghost:hover { background: var(--bg-soft); color: var(--text); }
+
+button:focus-visible,
+.input:focus-visible,
+select.input:focus-visible,
+textarea.input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 /* ── Cards ── */
 .card {
   background: var(--bg-card);
@@ -157,6 +199,19 @@ textarea.input { resize: none; line-height: 1.6; }
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
   padding: 1rem;
+}
+
+.section-title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.section-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
 }
 
 /* ── Tags ── */

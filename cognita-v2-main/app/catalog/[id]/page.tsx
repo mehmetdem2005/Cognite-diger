@@ -6,8 +6,9 @@ import { useAuth } from '@/lib/useAuth'
 import { ArrowLeft, BookOpen, BookMarked, Globe, BarChart2, Clock, Send } from 'lucide-react'
 import { interaction } from '@/lib/interaction'
 import BookCover from '@/components/ui/BookCover'
-import { BOOK_CATEGORIES } from '@/lib/categories'
+import { BOOK_CATEGORIES, getCategoryLabel } from '@/lib/categories'
 import { cognitaAPI } from '@/lib/api'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 interface CatalogBook {
   id: string; title: string; author: string | null; cover_url: string | null
@@ -37,6 +38,7 @@ export default function CatalogBookPage() {
   const { id } = useParams()
   const router = useRouter()
   const { user, loading } = useAuth()
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
   const [book, setBook] = useState<CatalogBook | null>(null)
   const [userBookId, setUserBookId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -64,6 +66,15 @@ export default function CatalogBookPage() {
   useEffect(() => { if (userBookId) fetchComments() }, [userBookId])
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
   useEffect(() => { if (activeTab === 'chat' && !activeProviderDisplay) fetchActiveProvider() }, [activeTab])
+  useEffect(() => {
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
 
   const fetchBook = async () => {
     const { data } = await supabase
@@ -150,7 +161,7 @@ export default function CatalogBookPage() {
       if (data.activeProvider) setActiveProviderDisplay(data.activeProvider)
       setChatMessages(prev => [...prev, { role: 'ai', text: data.response }])
     } catch {
-      setChatMessages(prev => [...prev, { role: 'ai', text: 'Backend şu an uyanıyor olabilir (50sn bekle), tekrar dene.' }])
+      setChatMessages(prev => [...prev, { role: 'ai', text: t(locale, 'catalogBackendWaking') }])
     }
     setChatLoading(false)
   }
@@ -164,7 +175,7 @@ export default function CatalogBookPage() {
       const data = await cognitaAPI.analyzeBook(content, book?.title || '')
       setAnalysis(data)
     } catch (err: any) {
-      const msg = err?.message || 'Analiz yapılamadı'
+      const msg = err?.message || t(locale, 'catalogAnalyzeFailed')
       setAnalysis({ summary: msg, themes: [], concepts: [], mood: '-', difficulty: '-', target_audience: '-' })
     }
     setAnalysisLoading(false)
@@ -174,8 +185,8 @@ export default function CatalogBookPage() {
   if (!book) return (
     <main style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
       <BookOpen size={40} color="var(--text-muted)" />
-      <p style={{ color: 'var(--text-muted)' }}>Kitap bulunamadı.</p>
-      <button onClick={() => router.back()} className="btn-primary" style={{ padding: '0.6rem 1.2rem', borderRadius: '10px' }}>Geri Dön</button>
+      <p style={{ color: 'var(--text-muted)' }}>{t(locale, 'catalogBookNotFound')}</p>
+      <button onClick={() => router.back()} className="btn-primary" style={{ padding: '0.6rem 1.2rem', borderRadius: '10px' }}>{t(locale, 'commonBack')}</button>
     </main>
   )
 
@@ -184,6 +195,7 @@ export default function CatalogBookPage() {
   const levelColor = book.level ? (LEVEL_COLOR[book.level] || 'var(--accent)') : 'var(--accent)'
   const color = GRADIENTS[book.title.charCodeAt(0) % GRADIENTS.length]
   const catLabels = (book.categories || []).map(cid => BOOK_CATEGORIES.find(c => c.id === cid)).filter(Boolean)
+  const dateLocale = locale === 'en' ? 'en-US' : locale === 'de' ? 'de-DE' : locale === 'fr' ? 'fr-FR' : locale === 'es' ? 'es-ES' : 'tr-TR'
 
   return (
     <main style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: '100px' }}>
@@ -193,10 +205,10 @@ export default function CatalogBookPage() {
         <div style={{ position: 'absolute', inset: '-10px', background: book.cover_url ? `url(${book.cover_url}) center/cover no-repeat` : color, filter: 'blur(24px) brightness(0.4) saturate(1.4)', transform: 'scale(1.15)' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.65) 100%)' }} />
         <button onClick={() => router.back()} style={{ position: 'absolute', top: '1rem', left: '1rem', zIndex: 10, background: 'rgba(0,0,0,0.32)', backdropFilter: 'blur(10px)', border: 'none', borderRadius: '999px', padding: '0.45rem 0.9rem', color: 'white', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>
-          <ArrowLeft size={15} /> Geri
+          <ArrowLeft size={15} /> {t(locale, 'commonBack')}
         </button>
         <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 10, background: 'rgba(0,0,0,0.32)', backdropFilter: 'blur(10px)', borderRadius: '999px', padding: '0.3rem 0.75rem', fontSize: '0.72rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-          📚 Katalog
+          📚 {t(locale, 'catalogTitle')}
         </div>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '1rem' }}>
           <BookCover title={book.title} coverUrl={book.cover_url} width={130} height={185} borderRadius={12} style={{ boxShadow: '0 20px 56px rgba(0,0,0,0.55)', border: '2px solid rgba(255,255,255,0.12)' }} />
@@ -210,15 +222,15 @@ export default function CatalogBookPage() {
         <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'wrap' }}>
           {langLabel && <span style={{ fontSize: '0.75rem', padding: '0.3rem 0.7rem', borderRadius: '999px', background: 'rgba(64,93,230,0.1)', color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Globe size={12} /> {langLabel}</span>}
           {book.level && <span style={{ fontSize: '0.75rem', padding: '0.3rem 0.7rem', borderRadius: '999px', background: `${levelColor}18`, color: levelColor, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem' }}><BarChart2 size={12} /> {book.level}</span>}
-          {book.total_pages > 0 && <span style={{ fontSize: '0.75rem', padding: '0.3rem 0.7rem', borderRadius: '999px', background: 'var(--bg-soft)', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}><BookOpen size={12} /> {book.total_pages} sayfa</span>}
-          {readingTime > 0 && <span style={{ fontSize: '0.75rem', padding: '0.3rem 0.7rem', borderRadius: '999px', background: 'var(--bg-soft)', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Clock size={12} /> ~{readingTime < 60 ? `${readingTime} dk` : `${Math.floor(readingTime/60)} sa`}</span>}
+          {book.total_pages > 0 && <span style={{ fontSize: '0.75rem', padding: '0.3rem 0.7rem', borderRadius: '999px', background: 'var(--bg-soft)', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}><BookOpen size={12} /> {book.total_pages} {t(locale, 'catalogPageUnit')}</span>}
+          {readingTime > 0 && <span style={{ fontSize: '0.75rem', padding: '0.3rem 0.7rem', borderRadius: '999px', background: 'var(--bg-soft)', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Clock size={12} /> ~{readingTime < 60 ? `${readingTime} ${t(locale, 'catalogMinuteShort')}` : `${Math.floor(readingTime/60)} ${t(locale, 'catalogHourShort')}`}</span>}
         </div>
       </div>
 
       {/* ── Description ── */}
       {book.description && (
         <div style={{ padding: '1rem 1.25rem', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>Hakkında</p>
+          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>{t(locale, 'catalogAbout')}</p>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.92rem', color: 'var(--text)', lineHeight: 1.7 }}>{book.description}</p>
         </div>
       )}
@@ -226,11 +238,11 @@ export default function CatalogBookPage() {
       {/* ── Categories ── */}
       {catLabels.length > 0 && (
         <div style={{ padding: '1rem 1.25rem', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.6rem' }}>Kategoriler</p>
+          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.6rem' }}>{t(locale, 'catalogCategories')}</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
             {catLabels.map(c => (
               <span key={c!.id} style={{ fontSize: '0.78rem', padding: '0.3rem 0.75rem', borderRadius: '999px', background: 'var(--bg-soft)', color: 'var(--text)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                {c!.icon} {c!.label}
+                {c!.icon} {getCategoryLabel(c!.id, locale)}
               </span>
             ))}
           </div>
@@ -240,9 +252,9 @@ export default function CatalogBookPage() {
       {/* ── Tabs ── */}
       <div style={{ display: 'flex', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 50 }}>
         {[
-          { id: 'comments', label: '💬 Yorumlar' },
-          { id: 'chat', label: '🤖 AI Sohbet' },
-          { id: 'analysis', label: '🧠 Analiz' },
+          { id: 'comments', label: `💬 ${t(locale, 'catalogTabComments')}` },
+          { id: 'chat', label: `🤖 ${t(locale, 'catalogTabChat')}` },
+          { id: 'analysis', label: `🧠 ${t(locale, 'catalogTabAnalysis')}` },
         ].map(tab => (
           <button key={tab.id} onClick={() => tab.id === 'analysis' ? handleAnalysis() : setActiveTab(tab.id as any)} style={{ flex: 1, padding: '0.8rem 0.4rem', background: 'transparent', border: 'none', borderBottom: `2.5px solid ${activeTab === tab.id ? 'var(--accent)' : 'transparent'}`, color: activeTab === tab.id ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.78rem', fontWeight: activeTab === tab.id ? 700 : 400, cursor: 'pointer' }}>
             {tab.label}
@@ -257,30 +269,30 @@ export default function CatalogBookPage() {
           !userBookId ? (
             <div className="empty-state">
               <div className="empty-state-icon">💬</div>
-              <p className="empty-state-title">Yorum yapmak için kitabı ekle</p>
-              <p className="empty-state-desc">Aşağıdaki butona basarak kitabı kütüphanene ekle, ardından yorum yapabilirsin.</p>
+              <p className="empty-state-title">{t(locale, 'catalogCommentAddPromptTitle')}</p>
+              <p className="empty-state-desc">{t(locale, 'catalogCommentAddPromptDesc')}</p>
             </div>
           ) : (
             <>
               <div style={{ marginBottom: '1.1rem' }}>
-                <textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Düşüncelerini paylaş..." rows={3} className="input" style={{ marginBottom: '0.6rem', resize: 'none' }} />
+                <textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder={t(locale, 'catalogCommentPlaceholder')} rows={3} className="input" style={{ marginBottom: '0.6rem', resize: 'none' }} />
                 <button onClick={handleComment} disabled={sending || !newComment.trim()} className="btn-primary" style={{ padding: '0.65rem 1.4rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: sending || !newComment.trim() ? 0.5 : 1 }}>
-                  <Send size={14} /> {sending ? 'Gönderiliyor...' : 'Yorum Yap'}
+                  <Send size={14} /> {sending ? t(locale, 'catalogCommentSending') : t(locale, 'catalogCommentSubmit')}
                 </button>
               </div>
               {comments.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-state-icon">💬</div>
-                  <p className="empty-state-title">Henüz yorum yok</p>
-                  <p className="empty-state-desc">İlk yorumu sen yap!</p>
+                  <p className="empty-state-title">{t(locale, 'catalogCommentEmptyTitle')}</p>
+                  <p className="empty-state-desc">{t(locale, 'catalogCommentEmptyDesc')}</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                   {comments.map(c => (
                     <div key={c.id} className="card" style={{ padding: '0.9rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent)' }}>@{c.profiles?.username || 'anonim'}</span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{new Date(c.created_at).toLocaleDateString('tr-TR')}</span>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent)' }}>@{c.profiles?.username || t(locale, 'commonAnonymous')}</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{new Date(c.created_at).toLocaleDateString(dateLocale)}</span>
                       </div>
                       <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.92rem', lineHeight: 1.6, color: 'var(--text-soft)' }}>{c.content}</p>
                     </div>
@@ -296,8 +308,8 @@ export default function CatalogBookPage() {
             <div style={{ padding: '0.75rem', background: 'rgba(64,93,230,0.08)', borderRadius: '12px', border: '1px solid rgba(64,93,230,0.15)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <div>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, marginBottom: '0.2rem' }}>🤖 AI Kitap Asistanı</p>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Bu kitap hakkında her şeyi sorabilirsin.</p>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, marginBottom: '0.2rem' }}>🤖 {t(locale, 'catalogAiAssistantTitle')}</p>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t(locale, 'catalogAiAssistantDesc')}</p>
                 </div>
                 {activeProviderDisplay && (
                   <span style={{ fontSize: '0.66rem', padding: '0.2rem 0.5rem', borderRadius: '999px', background: 'rgba(64,93,230,0.12)', color: 'var(--accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>
@@ -311,13 +323,13 @@ export default function CatalogBookPage() {
                     onClick={() => handleGroqModelChange('fast')}
                     style={{ flex: 1, padding: '0.4rem 0.5rem', borderRadius: '8px', border: `1.5px solid ${groqModel === 'fast' ? 'var(--accent)' : 'var(--border)'}`, background: groqModel === 'fast' ? 'rgba(64,93,230,0.1)' : 'transparent', color: groqModel === 'fast' ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.72rem', fontWeight: groqModel === 'fast' ? 700 : 400, cursor: 'pointer' }}
                   >
-                    ⚡ Hızlı Mod <span style={{ opacity: 0.6, fontWeight: 400 }}>(8B)</span>
+                    ⚡ {t(locale, 'catalogGroqFast')} <span style={{ opacity: 0.6, fontWeight: 400 }}>(8B)</span>
                   </button>
                   <button
                     onClick={() => handleGroqModelChange('quality')}
                     style={{ flex: 1, padding: '0.4rem 0.5rem', borderRadius: '8px', border: `1.5px solid ${groqModel === 'quality' ? 'var(--accent)' : 'var(--border)'}`, background: groqModel === 'quality' ? 'rgba(64,93,230,0.1)' : 'transparent', color: groqModel === 'quality' ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.72rem', fontWeight: groqModel === 'quality' ? 700 : 400, cursor: 'pointer' }}
                   >
-                    🎯 Kaliteli Mod <span style={{ opacity: 0.6, fontWeight: 400 }}>(70B)</span>
+                    🎯 {t(locale, 'catalogGroqQuality')} <span style={{ opacity: 0.6, fontWeight: 400 }}>(70B)</span>
                   </button>
                 </div>
               )}
@@ -325,7 +337,7 @@ export default function CatalogBookPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', minHeight: '200px', maxHeight: '420px', overflowY: 'auto' }}>
               {chatMessages.length === 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                  {['Ana tema nedir?', 'Karakterleri anlat', 'Önemli alıntılar'].map(q => (
+                  {[t(locale, 'catalogQuestionTheme'), t(locale, 'catalogQuestionCharacters'), t(locale, 'catalogQuestionQuotes')].map(q => (
                     <button key={q} onClick={() => setChatInput(q)} style={{ padding: '0.35rem 0.75rem', background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer' }}>{q}</button>
                   ))}
                 </div>
@@ -347,7 +359,7 @@ export default function CatalogBookPage() {
               <div ref={chatEndRef} />
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <input className="input" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Kitap hakkında sor..." onKeyDown={e => e.key === 'Enter' && handleChat()} style={{ flex: 1 }} />
+              <input className="input" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder={t(locale, 'catalogChatPlaceholder')} onKeyDown={e => e.key === 'Enter' && handleChat()} style={{ flex: 1 }} />
               <button onClick={handleChat} disabled={chatLoading || !chatInput.trim()} style={{ padding: '0 1rem', background: 'linear-gradient(135deg,var(--accent),var(--accent-2,#764ba2))', border: 'none', borderRadius: '12px', color: 'white', cursor: 'pointer', flexShrink: 0, opacity: chatLoading || !chatInput.trim() ? 0.5 : 1 }}>
                 <Send size={16} />
               </button>
@@ -359,16 +371,16 @@ export default function CatalogBookPage() {
           analysisLoading ? (
             <div className="empty-state">
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🧠</div>
-              <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>AI analiz yapıyor...</p>
+              <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{t(locale, 'catalogAnalysisLoading')}</p>
             </div>
           ) : analysis ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div className="card" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Özet</p>
+                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>{t(locale, 'catalogSummary')}</p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.95rem', lineHeight: 1.75, color: 'var(--text-soft)' }}>{analysis.summary}</p>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                {[{ label: 'Atmosfer', value: analysis.mood }, { label: 'Zorluk', value: analysis.difficulty }, { label: 'Hedef', value: analysis.target_audience }].map(s => (
+                {[{ label: t(locale, 'catalogMood'), value: analysis.mood }, { label: t(locale, 'catalogDifficulty'), value: analysis.difficulty }, { label: t(locale, 'catalogTarget'), value: analysis.target_audience }].map(s => (
                   <div key={s.label} className="card-soft" style={{ padding: '0.75rem', textAlign: 'center' }}>
                     <p style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.3rem' }}>{s.label}</p>
                     <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)' }}>{s.value}</p>
@@ -377,7 +389,7 @@ export default function CatalogBookPage() {
               </div>
               {analysis.themes?.length > 0 && (
                 <div className="card" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', marginBottom: '0.6rem' }}>Temalar</p>
+                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{t(locale, 'catalogThemes')}</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                     {analysis.themes.map((t, i) => <span key={i} className="tag tag-accent">{t}</span>)}
                   </div>
@@ -387,7 +399,7 @@ export default function CatalogBookPage() {
           ) : (
             <div className="empty-state">
               <div className="empty-state-icon">🧠</div>
-              <p className="empty-state-title">Analiz hazırlanıyor...</p>
+              <p className="empty-state-title">{t(locale, 'catalogAnalysisPreparing')}</p>
             </div>
           )
         )}
@@ -396,9 +408,9 @@ export default function CatalogBookPage() {
       {/* ── Fixed bottom CTA ── */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '1rem', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))', background: 'var(--nav-bg)', borderTop: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}>
         <button onClick={handleRead} disabled={adding} className="btn-primary" style={{ width: '100%', padding: '1rem', borderRadius: '16px', fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: adding ? 0.7 : 1 }}>
-          {adding ? 'Kütüphaneye ekleniyor...' : userBookId
-            ? <><BookOpen size={18} /> Okumaya Devam Et</>
-            : <><BookMarked size={18} /> Kütüphaneye Ekle &amp; Oku</>
+          {adding ? t(locale, 'catalogReadingInProgress') : userBookId
+            ? <><BookOpen size={18} /> {t(locale, 'catalogContinueReadingCta')}</>
+            : <><BookMarked size={18} /> {t(locale, 'catalogAddAndReadCta')}</>
           }
         </button>
       </div>

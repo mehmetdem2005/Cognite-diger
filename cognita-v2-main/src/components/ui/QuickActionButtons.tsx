@@ -1,6 +1,8 @@
 'use client'
 import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { Plus, Shuffle, Upload } from 'lucide-react'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 interface Props {
   userId?: string
@@ -8,28 +10,39 @@ interface Props {
 
 export default function QuickActionButtons({ userId }: Props) {
   const router = useRouter()
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
+
+  useEffect(() => {
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
 
   const buttons = [
     {
       icon: Plus,
-      label: 'Yeni Kitap\nBaşla',
+      label: t(locale, 'quickActionNewBook'),
       color: 'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
       onClick: () => router.push('/library'),
-      tooltip: 'Kütüphanenizdeki herhangi bir kitapla başlayın'
+      tooltip: t(locale, 'quickActionNewBookHint')
     },
     {
       icon: Shuffle,
-      label: 'Rastgele\nKitap',
+      label: t(locale, 'quickActionRandomBook'),
       color: 'linear-gradient(135deg, #F093FB 0%, #F5576C 100%)',
       onClick: () => router.push('/explore?random=true'),
-      tooltip: 'Rastgele bir kitap keşfedin'
+      tooltip: t(locale, 'quickActionRandomBookHint')
     },
     {
       icon: Upload,
-      label: 'Kitap\nYükle',
+      label: t(locale, 'quickActionUploadBook'),
       color: 'linear-gradient(135deg, #4FACFE 0%, #00F2FE 100%)',
       onClick: () => router.push('/write'),
-      tooltip: 'Yeni bir kitap veya yazı yükleyin'
+      tooltip: t(locale, 'quickActionUploadBookHint')
     }
   ]
 

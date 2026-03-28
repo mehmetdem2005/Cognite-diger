@@ -44,6 +44,20 @@ uvicorn main:app --reload --port 8000
 2. Copy & paste: `supabase_schema.sql`
 3. Run
 4. Tekrar: `supabase/extended_schema.sql`
+5. Localization profile alanları için: `supabase/localization_migration.sql`
+
+### ✅ Localization Migration (CLI)
+Pooler veya Postgres bağlantı URL'in varsa migration'ı terminalden de uygulayabilirsin:
+
+```bash
+DATABASE_URL="postgresql://..." npm run db:migrate:localization
+DATABASE_URL="postgresql://..." npm run db:verify:localization
+```
+
+Notlar:
+- Script, sırayla `DATABASE_URL`, `SUPABASE_DB_URL`, `POSTGRES_URL` değişkenlerini dener.
+- `psql` yoksa `docker` içindeki `postgres:16-alpine` ile çalışır.
+- Mevcut bu container'da Supabase pooler bağlantısı genelde direct host yerine daha sorunsuz çalışır.
 
 ### 🎉 Frontend Start
 ```bash
@@ -69,4 +83,7 @@ npm run dev
 - `.env.example` - Template (commit etme)
 - `supabase_schema.sql` - Ana veritabanı şeması
 - `supabase/extended_schema.sql` - Yeni features için şema
+- `supabase/localization_migration.sql` - Dil tercihleri ve localization alanları
+- `scripts/db/apply_localization_migration.sh` - Localization migration uygulama script'i
+- `scripts/db/verify_localization_schema.sh` - Localization schema doğrulama script'i
 - `backend/render.yaml` - Render deployment config

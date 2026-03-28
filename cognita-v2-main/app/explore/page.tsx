@@ -5,8 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import BottomNav from '@/components/layout/BottomNav'
 import { Search, Grid, List, ChevronRight, SlidersHorizontal } from 'lucide-react'
-import { BOOK_CATEGORIES } from '@/lib/categories'
+import { BOOK_CATEGORIES, getCategoryLabel } from '@/lib/categories'
 import BookCover from '@/components/ui/BookCover'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 interface Book {
   id: string; title: string; author: string | null
@@ -30,6 +31,7 @@ const GRADIENTS = [
 export default function ExplorePage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
   const [books, setBooks] = useState<Book[]>([])
   const [search, setSearch] = useState('')
   const [fetching, setFetching] = useState(true)
@@ -39,6 +41,15 @@ export default function ExplorePage() {
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { fetchBooks() }, [])
+  useEffect(() => {
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
 
   const fetchBooks = async () => {
     const [{ data: userBooks }, catalogRes] = await Promise.all([
@@ -70,7 +81,7 @@ export default function ExplorePage() {
     <main style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: '80px', overflowX: 'hidden' }}>
       <header style={{ background: 'var(--nav-bg)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100, overflowX: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.9rem 1rem 0.5rem' }}>
-          <h1 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)' }}>Keşfet</h1>
+          <h1 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'navExplore')}</h1>
           <div style={{ display: 'flex', gap: '0.25rem' }}>
             <button onClick={() => setShowCategories(!showCategories)} style={{ background: showCategories ? 'var(--bg-soft)' : 'transparent', border: 'none', borderRadius: '8px', padding: '0.4rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
               <SlidersHorizontal size={18} />
@@ -86,14 +97,14 @@ export default function ExplorePage() {
 
         <div style={{ padding: '0 1rem 0.5rem', position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: '1.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Kitap, yazar, konu ara..." style={{ paddingLeft: '2.25rem' }} />
+          <input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder={t(locale, 'exploreSearchPlaceholder')} style={{ paddingLeft: '2.25rem' }} />
         </div>
 
         {/* Hızlı kategori scroll */}
         <div className="hide-scrollbar" style={{ display: 'flex', gap: '0.4rem', padding: '0 1rem 0.75rem', overflowX: 'auto' }}>
           {BOOK_CATEGORIES.slice(0, 10).map(c => (
             <button key={c.id} onClick={() => setCategory(c.id)} style={{ flexShrink: 0, padding: '0.3rem 0.75rem', borderRadius: '999px', border: 'none', background: category === c.id ? 'var(--text)' : 'var(--bg-soft)', color: category === c.id ? 'var(--bg)' : 'var(--text-muted)', fontSize: '0.78rem', fontWeight: category === c.id ? 700 : 400, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}>
-              <span>{c.icon}</span> {c.label}
+              <span>{c.icon}</span> {getCategoryLabel(c.id, locale)}
             </button>
           ))}
         </div>
@@ -102,12 +113,12 @@ export default function ExplorePage() {
       {/* Tüm kategoriler */}
       {showCategories && (
         <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '1rem' }}>
-          <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Tüm Kategoriler</p>
+          <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>{t(locale, 'exploreAllCategories')}</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
             {BOOK_CATEGORIES.map(c => (
               <button key={c.id} onClick={() => { setCategory(c.id); setShowCategories(false) }} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 0.75rem', borderRadius: '10px', border: `1.5px solid ${category === c.id ? 'var(--accent)' : 'var(--border)'}`, background: category === c.id ? 'rgba(64,93,230,0.1)' : 'var(--bg-soft)', color: category === c.id ? 'var(--accent)' : 'var(--text)', fontSize: '0.78rem', fontWeight: category === c.id ? 700 : 400, cursor: 'pointer', minWidth: 0 }}>
                 <span style={{ fontSize: '1rem', flexShrink: 0 }}>{c.icon}</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{c.label}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{getCategoryLabel(c.id, locale)}</span>
               </button>
             ))}
           </div>
@@ -118,8 +129,8 @@ export default function ExplorePage() {
       {category !== 'all' && (
         <div style={{ padding: '0.75rem 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ fontSize: '1.2rem' }}>{activeCategory?.icon}</span>
-          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{activeCategory?.label}</span>
-          <button onClick={() => setCategory('all')} style={{ marginLeft: 'auto', background: 'var(--bg-soft)', border: 'none', borderRadius: '999px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', color: 'var(--text-muted)', cursor: 'pointer' }}>✕ Temizle</button>
+          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{activeCategory ? getCategoryLabel(activeCategory.id, locale) : ''}</span>
+          <button onClick={() => setCategory('all')} style={{ marginLeft: 'auto', background: 'var(--bg-soft)', border: 'none', borderRadius: '999px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', color: 'var(--text-muted)', cursor: 'pointer' }}>✕ {t(locale, 'exploreClearFilter')}</button>
         </div>
       )}
 
@@ -131,8 +142,8 @@ export default function ExplorePage() {
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">{activeCategory?.icon || '🔍'}</div>
-            <p className="empty-state-title">Henüz kitap yok</p>
-            <p className="empty-state-desc">{category !== 'all' ? `${activeCategory?.label} kategorisinde` : 'Bu aramada'} sonuç bulunamadı</p>
+            <p className="empty-state-title">{t(locale, 'exploreEmptyTitle')}</p>
+            <p className="empty-state-desc">{category !== 'all' ? `${activeCategory ? getCategoryLabel(activeCategory.id, locale) : ''} ${t(locale, 'exploreEmptyDescCategory')}` : t(locale, 'exploreEmptyDescSearch')}</p>
           </div>
         ) : viewMode === 'grid' ? (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -141,7 +152,7 @@ export default function ExplorePage() {
                 <div style={{ position: 'relative', aspectRatio: '2/3', overflow: 'hidden' }}>
                   <BookCover title={book.title} coverUrl={book.cover_url} width={300} height={450} borderRadius={0} index={i} style={{ width: '100%', height: '100%', boxShadow: 'none' }} />
                   <div style={{ position: 'absolute', bottom: '0.4rem', right: '0.4rem', background: 'rgba(0,0,0,0.4)', borderRadius: '6px', padding: '0.15rem 0.5rem', fontSize: '0.62rem', color: 'white' }}>
-                    {book.isCatalog ? '📚 Katalog' : `@${book.profiles?.username || 'anonim'}`}
+                    {book.isCatalog ? `📚 ${t(locale, 'catalogTitle')}` : `@${book.profiles?.username || t(locale, 'commonAnonymous')}`}
                   </div>
                 </div>
                 <div style={{ padding: '0.75rem' }}>
@@ -151,7 +162,7 @@ export default function ExplorePage() {
                     <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                       {book.tags.slice(0, 2).map(tag => {
                         const cat = BOOK_CATEGORIES.find(c => c.id === tag)
-                        return cat ? <span key={tag} className="tag" style={{ fontSize: '0.62rem', padding: '0.1rem 0.4rem' }}>{cat.icon} {cat.label}</span> : null
+                        return cat ? <span key={tag} className="tag" style={{ fontSize: '0.62rem', padding: '0.1rem 0.4rem' }}>{cat.icon} {getCategoryLabel(cat.id, locale)}</span> : null
                       })}
                     </div>
                   )}
@@ -167,7 +178,7 @@ export default function ExplorePage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '0.15rem' }}>{book.title}</p>
                   {book.author && <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>{book.author}</p>}
-                  <p style={{ fontSize: '0.7rem', color: book.isCatalog ? 'var(--text-muted)' : 'var(--accent)', fontWeight: 500 }}>{book.isCatalog ? '📚 Katalog' : `@${book.profiles?.username || 'anonim'}`}</p>
+                  <p style={{ fontSize: '0.7rem', color: book.isCatalog ? 'var(--text-muted)' : 'var(--accent)', fontWeight: 500 }}>{book.isCatalog ? `📚 ${t(locale, 'catalogTitle')}` : `@${book.profiles?.username || t(locale, 'commonAnonymous')}`}</p>
                 </div>
                 <ChevronRight size={16} color="var(--border)" />
               </div>

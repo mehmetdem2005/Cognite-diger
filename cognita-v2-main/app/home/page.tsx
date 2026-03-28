@@ -11,6 +11,7 @@ import DynamicBanners from '@/components/ui/DynamicBanners'
 import QuickActionButtons from '@/components/ui/QuickActionButtons'
 import { Bell, Search, ChevronRight, TrendingUp, Target, Clock, Zap, Menu, BookOpen, Flame, Trophy, FileText } from 'lucide-react'
 import BookCover from '@/components/ui/BookCover'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 interface Book { id: string; title: string; author: string | null; cover_url?: string | null }
 interface Session { book_id: string; progress_percent: number; updated_at: string; books: Book }
@@ -47,6 +48,8 @@ export default function HomePage() {
   const [todayMinutes, setTodayMinutes] = useState(0)
   const [showGoalPicker, setShowGoalPicker] = useState(false)
   const [homeAnnouncement, setHomeAnnouncement] = useState<{ active: boolean; text: string }>({ active: false, text: '' })
+  const [showDeferredSections, setShowDeferredSections] = useState(false)
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => {
@@ -61,6 +64,54 @@ export default function HomePage() {
       setTimeout(() => { fetchUnread(); fetchHomeSettings() }, 350)
     }
   }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const warmRoutes = [
+      '/profile',
+      '/library',
+      '/catalog',
+      '/explore',
+      '/flow',
+      '/notifications',
+    ]
+    warmRoutes.forEach((route) => router.prefetch(route))
+  }, [user, router])
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const idle = (window as any).requestIdleCallback as undefined | ((cb: () => void, opts?: { timeout: number }) => number)
+    const cancelIdle = (window as any).cancelIdleCallback as undefined | ((id: number) => void)
+
+    const markReady = () => {
+      if (!cancelled) setShowDeferredSections(true)
+    }
+
+    let idleId: number | undefined
+    if (idle) {
+      idleId = idle(markReady, { timeout: 900 })
+    } else {
+      timeoutId = setTimeout(markReady, 320)
+    }
+
+    return () => {
+      cancelled = true
+      if (idleId !== undefined && cancelIdle) cancelIdle(idleId)
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [user])
+
+  useEffect(() => {
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
   const fetchSessions = async () => {
     const { data } = await supabase.from('reading_sessions')
       .select('book_id, progress_percent, updated_at, books(*)')
@@ -106,10 +157,10 @@ export default function HomePage() {
 
   const greeting = () => {
     const h = new Date().getHours()
-    if (h < 6) return 'Gece geç saatlerde 🌙'
-    if (h < 12) return 'Günaydın 👋'
-    if (h < 18) return 'İyi günler 👋'
-    return 'İyi akşamlar 🌙'
+    if (h < 6) return `${t(locale, 'homeGreetingLateNight')} 🌙`
+    if (h < 12) return `${t(locale, 'homeGreetingMorning')} 👋`
+    if (h < 18) return `${t(locale, 'homeGreetingAfternoon')} 👋`
+    return `${t(locale, 'homeGreetingEvening')} 🌙`
   }
 
   const goalProgress = Math.min(100, (todayMinutes / dailyGoal) * 100)
@@ -150,7 +201,7 @@ export default function HomePage() {
       {/* Profil + Selam */}
       {homeAnnouncement.active && homeAnnouncement.text.trim() && (
         <div style={{ margin: '0.65rem 1rem 0', background: 'rgba(64,93,230,0.1)', border: '1px solid rgba(64,93,230,0.25)', borderRadius: '12px', padding: '0.7rem 0.85rem' }}>
-          <p style={{ fontSize: '0.78rem', color: 'var(--accent)', fontWeight: 700, marginBottom: '0.2rem' }}>📢 Duyuru</p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--accent)', fontWeight: 700, marginBottom: '0.2rem' }}>📢 {t(locale, 'homeAnnouncementLabel')}</p>
           <p style={{ fontSize: '0.8rem', color: 'var(--text)', lineHeight: 1.4 }}>{homeAnnouncement.text}</p>
         </div>
       )}
@@ -178,16 +229,16 @@ export default function HomePage() {
         <>
           <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '1rem 1rem 0.85rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.85rem' }}>
-              <div onClick={() => router.push('/profile')} style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '2px solid var(--border)' }}>
+              <div onClick={() => router.push('/profile')} style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '2px solid var(--border)', transform: 'translateZ(0)', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', isolation: 'isolate' }}>
                 {profile.avatar_url
-                  ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transform: 'translateZ(0)', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }} />
                   : <span style={{ color: 'white', fontWeight: 700, fontSize: '1.1rem' }}>{(profile.full_name || profile.username || 'U')[0].toUpperCase()}</span>
                 }
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{greeting()}</p>
                 <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>
-                  {profile.full_name?.split(' ')[0] || 'Okuyucu'}
+                  {profile.full_name?.split(' ')[0] || t(locale, 'homeReaderFallback')}
                 </h2>
               </div>
               {(profile.streak_days || 0) > 0 && (
@@ -208,10 +259,10 @@ export default function HomePage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', margin: '0.75rem 1rem 0' }}>
             {[
-              { icon: <Flame size={16} color="#ea580c" />, value: profile.streak_days || 0, label: 'Seri', bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.15)' },
-              { icon: <FileText size={16} color="var(--accent)" />, value: profile.total_pages_read || 0, label: 'Sayfa', bg: 'rgba(64,93,230,0.08)', border: 'rgba(64,93,230,0.15)' },
+              { icon: <Flame size={16} color="#ea580c" />, value: profile.streak_days || 0, label: t(locale, 'homeStatStreak'), bg: 'rgba(234,88,12,0.08)', border: 'rgba(234,88,12,0.15)' },
+              { icon: <FileText size={16} color="var(--accent)" />, value: profile.total_pages_read || 0, label: t(locale, 'homeStatPages'), bg: 'rgba(64,93,230,0.08)', border: 'rgba(64,93,230,0.15)' },
               { icon: <Zap size={16} color="#f59e0b" />, value: xp, label: 'XP', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)' },
-              { icon: <Trophy size={16} color="#a855f7" />, value: `S${level}`, label: 'Seviye', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.15)' },
+              { icon: <Trophy size={16} color="#a855f7" />, value: `S${level}`, label: t(locale, 'homeStatLevel'), bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.15)' },
             ].map((s, i) => (
               <div key={i} style={{ background: s.bg, borderRadius: 'var(--radius-md)', padding: '0.7rem 0.4rem', textAlign: 'center', border: `1px solid ${s.border}` }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.2rem' }}>{s.icon}</div>
@@ -228,10 +279,10 @@ export default function HomePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <Target size={15} color="var(--accent)" />
-            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)' }}>Günlük Hedef</span>
+            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'homeDailyGoal')}</span>
           </div>
           <button onClick={() => setShowGoalPicker(!showGoalPicker)} style={{ background: 'rgba(64,93,230,0.1)', border: 'none', borderRadius: 999, padding: '0.2rem 0.7rem', fontSize: '0.72rem', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
-            {dailyGoal} dk
+            {dailyGoal} {t(locale, 'homeMinutesShort')}
           </button>
         </div>
         {showGoalPicker && (
@@ -239,7 +290,7 @@ export default function HomePage() {
             {DAILY_GOALS.map(g => (
               <button key={g} onClick={() => { setDailyGoal(g); localStorage.setItem('daily_goal', String(g)); setShowGoalPicker(false) }}
                 style={{ flex: 1, padding: '0.35rem', borderRadius: 8, border: `1.5px solid ${dailyGoal === g ? 'var(--accent)' : 'var(--border)'}`, background: dailyGoal === g ? 'rgba(64,93,230,0.1)' : 'transparent', color: dailyGoal === g ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
-                {g}dk
+                {g}{t(locale, 'homeMinutesShort')}
               </button>
             ))}
           </div>
@@ -248,9 +299,9 @@ export default function HomePage() {
           <div style={{ height: '100%', width: `${goalProgress}%`, background: goalProgress >= 100 ? 'linear-gradient(90deg, #22c55e, #16a34a)' : 'linear-gradient(90deg, var(--accent), var(--accent-2))', borderRadius: 4, transition: 'width 0.5s ease' }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{todayMinutes} / {dailyGoal} dakika</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{todayMinutes} / {dailyGoal} {t(locale, 'homeMinutesWord')}</span>
           <span style={{ fontSize: '0.72rem', fontWeight: 700, color: goalProgress >= 100 ? 'var(--green)' : 'var(--accent)' }}>
-            {goalProgress >= 100 ? '🎉 Tamamlandı!' : `%${Math.round(goalProgress)}`}
+            {goalProgress >= 100 ? `🎉 ${t(locale, 'homeGoalCompleted')}` : `%${Math.round(goalProgress)}`}
           </span>
         </div>
       </div>
@@ -265,7 +316,7 @@ export default function HomePage() {
       <QuickActionButtons userId={user?.id} />
 
       {/* Senin İçin Önerilen */}
-      {user && <RecommendedForYou userId={user.id} />}
+      {user && showDeferredSections && <RecommendedForYou userId={user.id} />}
 
       {/* Kaldığın Yerden */}
       {sessions.length > 0 && (
@@ -273,9 +324,9 @@ export default function HomePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem 0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <Clock size={15} color="var(--accent)" />
-              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Kaldığın Yerden</span>
+              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'homeContinueReading')}</span>
             </div>
-            <button onClick={() => router.push('/library')} style={{ background: 'none', border: 'none', fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>Tümü</button>
+            <button onClick={() => router.push('/library')} style={{ background: 'none', border: 'none', fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>{t(locale, 'commonAll')}</button>
           </div>
           {sessions.map((s, i) => (
             <div key={s.book_id} onClick={() => router.push(`/reader/${s.book_id}`)}
@@ -283,7 +334,7 @@ export default function HomePage() {
               <BookCover title={(s.books as any)?.title || ''} coverUrl={(s.books as any)?.cover_url} width={44} height={60} borderRadius={8} index={i} style={{ boxShadow: 'var(--shadow-md)', flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '0.1rem' }}>{(s.books as any)?.title}</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(s.books as any)?.author || 'Yazar bilinmiyor'}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(s.books as any)?.author || t(locale, 'homeUnknownAuthor')}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <div style={{ flex: 1, height: '3px', background: 'var(--bg-soft)', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: `${s.progress_percent}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', borderRadius: 2 }} />
@@ -291,7 +342,7 @@ export default function HomePage() {
                   <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>%{Math.round(s.progress_percent)}</span>
                 </div>
               </div>
-              <div style={{ padding: '0.45rem 0.7rem', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', borderRadius: 10, color: 'white', fontSize: '0.72rem', fontWeight: 700, flexShrink: 0 }}>Devam</div>
+              <div style={{ padding: '0.45rem 0.7rem', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', borderRadius: 10, color: 'white', fontSize: '0.72rem', fontWeight: 700, flexShrink: 0 }}>{t(locale, 'homeContinueButton')}</div>
             </div>
           ))}
         </div>
@@ -303,9 +354,9 @@ export default function HomePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem 0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <BookOpen size={15} color="#a855f7" />
-              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Klasik Eserler</span>
+              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'homeClassics')}</span>
             </div>
-            <button onClick={() => router.push('/catalog')} style={{ background: 'none', border: 'none', fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>Tümü</button>
+            <button onClick={() => router.push('/catalog')} style={{ background: 'none', border: 'none', fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>{t(locale, 'commonAll')}</button>
           </div>
           <div className="hide-scrollbar" style={{ display: 'flex', gap: '0.9rem', overflowX: 'auto', padding: '0 1rem 1rem' }}>
             {catalogBooks.map((book, i) => (
@@ -320,22 +371,22 @@ export default function HomePage() {
       )}
 
       {/* Aktif Zorluklar */}
-      {user && <ChallengesSection userId={user.id} />}
+      {user && showDeferredSections && <ChallengesSection userId={user.id} />}
 
       {/* Kategorilere Göre Keşfet */}
-      <ExploreByCategory userId={user?.id} />
+      {showDeferredSections && <ExploreByCategory userId={user?.id} />}
 
       {/* Haftalık İstatistikler */}
-      {user && <StatsTrend userId={user.id} />}
+      {user && showDeferredSections && <StatsTrend userId={user.id} />}
 
       {/* Başarılar Vitrin */}
-      {user && <AchievementsShowcase userId={user.id} />}
+      {user && showDeferredSections && <AchievementsShowcase userId={user.id} />}
 
       {/* Sosyal Aktiviteleri */}
-      {user && <SocialActivityFeed userId={user.id} />}
+      {user && showDeferredSections && <SocialActivityFeed userId={user.id} />}
 
       {/* Liderlik Tablosu */}
-      {user && <Leaderboard userId={user.id} />}
+      {user && showDeferredSections && <Leaderboard userId={user.id} />}
 
       {/* Yeni Eklenenler */}
       {newBooks.length > 0 && (
@@ -343,9 +394,9 @@ export default function HomePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem 0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <Zap size={15} color="#f59e0b" />
-              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Topluluktan</span>
+              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'homeCommunity')}</span>
             </div>
-            <button onClick={() => router.push('/explore')} style={{ background: 'none', border: 'none', fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>Tümü</button>
+            <button onClick={() => router.push('/explore')} style={{ background: 'none', border: 'none', fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>{t(locale, 'commonAll')}</button>
           </div>
           <div className="hide-scrollbar" style={{ display: 'flex', gap: '0.9rem', overflowX: 'auto', padding: '0 1rem 1rem' }}>
             {newBooks.map((book, i) => (
@@ -365,7 +416,7 @@ export default function HomePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem 0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <TrendingUp size={15} color="var(--red)" />
-              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Trend</span>
+              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'homeTrend')}</span>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -376,7 +427,7 @@ export default function HomePage() {
                 <BookCover title={book.title} coverUrl={book.cover_url} width={38} height={52} borderRadius={6} index={i} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</p>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{book.author || 'Yazar bilinmiyor'}</p>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{book.author || t(locale, 'homeUnknownAuthor')}</p>
                 </div>
                 <ChevronRight size={15} color="var(--border)" />
               </div>

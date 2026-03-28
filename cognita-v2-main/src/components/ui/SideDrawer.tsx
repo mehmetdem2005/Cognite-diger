@@ -10,6 +10,7 @@ import { applyTheme, getTheme } from '@/lib/theme'
 import { useAuth } from '@/lib/useAuth'
 import { useState } from 'react'
 import BookCover from '@/components/ui/BookCover'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 interface Props {
   open: boolean
@@ -26,29 +27,29 @@ interface Props {
 }
 
 const MENU_ITEMS = [
-  { icon: Home, label: 'Ana Sayfa', href: '/home', section: 'main' },
-  { icon: BookOpen, label: 'Kitaplarım', href: '/library', section: 'main' },
-  { icon: Sparkles, label: 'The Flow', href: '/flow', section: 'main' },
-  { icon: Compass, label: 'Keşfet', href: '/explore', section: 'main' },
-  { icon: Library, label: 'Katalog', href: '/catalog', section: 'main' },
-  { icon: BookOpen, label: 'Kelime Defteri', href: '/vocabulary', section: 'main' },
-  { icon: PenTool, label: 'Yazarlık Stüdyosu', href: '/write', section: 'create' },
-  { icon: FolderOpen, label: 'Projelerim', href: '/projects', section: 'create' },
-  { icon: FolderOpen, label: 'Koleksiyonlar', href: '/collections', section: 'create' },
-  { icon: Bookmark, label: 'Kaydettiklerim', href: '/library?tab=saved', section: 'create' },
-  { icon: Trophy, label: 'Meydan Okumalar', href: '/challenges', section: 'social' },
-  { icon: BarChart2, label: 'İstatistiklerim', href: '/stats', section: 'social' },
-  { icon: Bell, label: 'Bildirimler', href: '/notifications', section: 'social' },
-  { icon: Users, label: 'Kitap Kulupleri', href: '/clubs', section: 'social' },
-  { icon: User, label: 'Profilim', href: '/profile', section: 'account' },
-  { icon: Settings, label: 'Ayarlar', href: '/settings', section: 'account' },
+  { icon: Home, labelKey: 'drawerHome', href: '/home', section: 'main' },
+  { icon: BookOpen, labelKey: 'drawerMyBooks', href: '/library', section: 'main' },
+  { icon: Sparkles, labelKey: 'drawerFlow', href: '/flow', section: 'main' },
+  { icon: Compass, labelKey: 'drawerExplore', href: '/explore', section: 'main' },
+  { icon: Library, labelKey: 'drawerCatalog', href: '/catalog', section: 'main' },
+  { icon: BookOpen, labelKey: 'drawerVocabulary', href: '/vocabulary', section: 'main' },
+  { icon: PenTool, labelKey: 'drawerWriterStudio', href: '/write', section: 'create' },
+  { icon: FolderOpen, labelKey: 'drawerProjects', href: '/projects', section: 'create' },
+  { icon: FolderOpen, labelKey: 'drawerCollections', href: '/collections', section: 'create' },
+  { icon: Bookmark, labelKey: 'drawerSaved', href: '/library?tab=saved', section: 'create' },
+  { icon: Trophy, labelKey: 'drawerChallenges', href: '/challenges', section: 'social' },
+  { icon: BarChart2, labelKey: 'drawerStats', href: '/stats', section: 'social' },
+  { icon: Bell, labelKey: 'drawerNotifications', href: '/notifications', section: 'social' },
+  { icon: Users, labelKey: 'drawerClubs', href: '/clubs', section: 'social' },
+  { icon: User, labelKey: 'drawerProfile', href: '/profile', section: 'account' },
+  { icon: Settings, labelKey: 'drawerSettings', href: '/settings', section: 'account' },
 ]
 
 const SECTIONS = [
-  { key: 'main', label: 'Keşfet' },
-  { key: 'create', label: 'Üret' },
-  { key: 'social', label: 'Topluluk' },
-  { key: 'account', label: 'Hesap' },
+  { key: 'main', labelKey: 'drawerSectionMain' },
+  { key: 'create', labelKey: 'drawerSectionCreate' },
+  { key: 'social', labelKey: 'drawerSectionSocial' },
+  { key: 'account', labelKey: 'drawerSectionAccount' },
 ]
 
 export default function SideDrawer({ open, onClose, profile, isAdmin = false }: Props) {
@@ -56,6 +57,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
   const pathname = usePathname()
   const { signOut } = useAuth() as any
   const [theme, setTheme] = useState(() => typeof window !== 'undefined' ? getTheme() : 'light')
+  const [locale, setLocale] = useState<Locale>(() => typeof window !== 'undefined' ? getStoredLocale() : 'tr')
   const drawerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -66,6 +68,16 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
     }
     return () => { document.body.style.overflow = '' }
   }, [open])
+
+  useEffect(() => {
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
 
   const handleNav = (href: string) => {
     router.push(href)
@@ -161,10 +173,10 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
           </div>
 
           <p style={{ color: 'white', fontWeight: 700, fontSize: '1rem', marginBottom: '0.15rem' }}>
-            {profile?.full_name || profile?.username || 'Kullanıcı'}
+            {profile?.full_name || profile?.username || t(locale, 'drawerDefaultUser')}
           </p>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', marginBottom: '1rem' }}>
-            @{profile?.username || 'anonim'} • Lv.{profile?.level || 1}
+            @{profile?.username || t(locale, 'drawerAnon')} • Lv.{profile?.level || 1}
           </p>
 
           {/* XP bar */}
@@ -192,7 +204,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
           {/* Streak */}
           {(profile?.streak_days || 0) > 0 && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(255,255,255,0.15)', borderRadius: 999, padding: '0.2rem 0.6rem', fontSize: '0.72rem', color: 'white' }}>
-              🔥 {profile?.streak_days} günlük seri
+              🔥 {profile?.streak_days} {t(locale, 'drawerStreakSuffix')}
             </div>
           )}
         </div>
@@ -204,7 +216,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
             return (
               <div key={section.key}>
                 <p style={{ padding: '0.5rem 1.25rem 0.3rem', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  {section.label}
+                  {t(locale, section.labelKey)}
                 </p>
                 {items.map(item => {
                   const Icon = item.icon
@@ -224,7 +236,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
                     >
                       <Icon size={18} color={active ? 'var(--accent)' : 'var(--text-soft)'} strokeWidth={active ? 2.5 : 1.8} />
                       <span style={{ fontSize: '0.88rem', fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)' }}>
-                        {item.label}
+                        {t(locale, item.labelKey)}
                       </span>
                     </button>
                   )
@@ -241,7 +253,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.7rem 1.25rem', background: 'transparent', border: 'none', cursor: 'pointer', borderLeft: '3px solid transparent' }}
             >
               <Shield size={18} color="var(--text-soft)" strokeWidth={1.8} />
-              <span style={{ fontSize: '0.88rem', color: 'var(--text)' }}>Admin Panel</span>
+              <span style={{ fontSize: '0.88rem', color: 'var(--text)' }}>{t(locale, 'adminPanelTitle')}</span>
             </button>
           )}
         </div>
@@ -249,12 +261,12 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
         {/* Alt bölüm - tema + çıkış */}
         <div style={{ borderTop: '1px solid var(--border)', padding: '1rem 1.25rem' }}>
           {/* Tema seçici */}
-          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tema</p>
+          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t(locale, 'settingsThemeLabel')}</p>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             {[
-              { value: 'light', icon: <Sun size={14} />, label: 'Açık' },
-              { value: 'dark', icon: <Moon size={14} />, label: 'Koyu' },
-              { value: 'system', icon: <Monitor size={14} />, label: 'Sistem' },
+              { value: 'light', icon: <Sun size={14} />, label: t(locale, 'settingsThemeLight') },
+              { value: 'dark', icon: <Moon size={14} />, label: t(locale, 'settingsThemeDark') },
+              { value: 'system', icon: <Monitor size={14} />, label: t(locale, 'settingsThemeSystem') },
             ].map(t => (
               <button
                 key={t.value}
@@ -284,7 +296,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
             }}
           >
             <LogOut size={18} color="var(--red)" strokeWidth={1.8} />
-            <span style={{ fontSize: '0.88rem', color: 'var(--red)', fontWeight: 600 }}>Çıkış Yap</span>
+            <span style={{ fontSize: '0.88rem', color: 'var(--red)', fontWeight: 600 }}>{t(locale, 'settingsSignOut')}</span>
           </button>
         </div>
       </div>

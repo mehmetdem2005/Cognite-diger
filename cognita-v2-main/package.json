@@ -11,6 +11,8 @@
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "analyze": "ANALYZE=true next build",
+    "db:migrate:localization": "bash scripts/db/apply_localization_migration.sh",
+    "db:verify:localization": "bash scripts/db/verify_localization_schema.sh",
     "db:migrate:linga": "bash scripts/db/apply_linga_migrations.sh",
     "db:verify:linga": "bash scripts/db/verify_linga_schema.sh"
   },

@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/useAuth'
 import BottomNav from '@/components/layout/BottomNav'
 import { ArrowLeft, Flame, BookOpen, Trophy, Zap, TrendingUp, Clock } from 'lucide-react'
 import { BOOK_CATEGORIES } from '@/lib/categories'
+import { t, getStoredLocale, type Locale } from '@/lib/i18n'
 
 interface Profile {
   full_name: string | null; username: string | null
@@ -33,12 +34,22 @@ function getLast7Days() {
 export default function StatsPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
   const [profile, setProfile] = useState<Profile | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
   const [fetching, setFetching] = useState(true)
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user) fetchData() }, [user])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.locale) setLocale(detail.locale as Locale)
+    }
+    window.addEventListener('cognita-language-changed', handler)
+    return () => window.removeEventListener('cognita-language-changed', handler)
+  }, [])
 
   const fetchData = async () => {
     const [{ data: prof }, { data: sess }] = await Promise.all([
@@ -88,7 +99,7 @@ export default function StatsPage() {
         <button onClick={() => router.back()} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
           <ArrowLeft size={22} color="var(--text)" />
         </button>
-        <h1 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>İstatistikler</h1>
+        <h1 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'statsTitle')}</h1>
       </header>
 
       <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -97,7 +108,7 @@ export default function StatsPage() {
         <div style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', borderRadius: '20px', padding: '1.25rem', color: 'white' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
             <div>
-              <p style={{ fontSize: '0.78rem', opacity: 0.8, marginBottom: '0.2rem' }}>Seviye {profile?.level || 1}</p>
+              <p style={{ fontSize: '0.78rem', opacity: 0.8, marginBottom: '0.2rem' }}>{t(locale, 'statsLevelLabel')} {profile?.level || 1}</p>
               <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>{profile?.xp || 0} XP</h2>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '12px', padding: '0.5rem 0.9rem', fontSize: '1.5rem' }}>
@@ -105,7 +116,7 @@ export default function StatsPage() {
             </div>
           </div>
           <div style={{ marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.72rem', opacity: 0.75 }}>Sonraki seviyeye</span>
+            <span style={{ fontSize: '0.72rem', opacity: 0.75 }}>{t(locale, 'statsNextLevel')}</span>
             <span style={{ fontSize: '0.72rem', opacity: 0.75 }}>{xpProgress}%</span>
           </div>
           <div style={{ height: '6px', background: 'rgba(255,255,255,0.25)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -116,10 +127,10 @@ export default function StatsPage() {
         {/* Ana istatistikler */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
           {[
-            { icon: <Flame size={20} color="var(--accent)" />, label: 'Gün Serisi', value: profile?.streak_days || 0, unit: 'gün', highlight: todayRead },
-            { icon: <BookOpen size={20} color="#43E97B" />, label: 'Biten Kitap', value: finished, unit: 'kitap', highlight: false },
-            { icon: <TrendingUp size={20} color="var(--accent-2)" />, label: 'Toplam Sayfa', value: profile?.total_pages_read || 0, unit: 'sayfa', highlight: false },
-            { icon: <Clock size={20} color="#F093FB" />, label: 'Okuma Süresi', value: totalMinutes >= 60 ? Math.floor(totalMinutes / 60) : totalMinutes, unit: totalMinutes >= 60 ? 'saat' : 'dk', highlight: false },
+            { icon: <Flame size={20} color="var(--accent)" />, label: t(locale, 'statsStreakDays'), value: profile?.streak_days || 0, unit: t(locale, 'statsUnitDays'), highlight: todayRead },
+            { icon: <BookOpen size={20} color="#43E97B" />, label: t(locale, 'statsBooksDone'), value: finished, unit: t(locale, 'statsUnitBooks'), highlight: false },
+            { icon: <TrendingUp size={20} color="var(--accent-2)" />, label: t(locale, 'statsTotalPages'), value: profile?.total_pages_read || 0, unit: t(locale, 'statsUnitPages'), highlight: false },
+            { icon: <Clock size={20} color="#F093FB" />, label: t(locale, 'statsReadTime'), value: totalMinutes >= 60 ? Math.floor(totalMinutes / 60) : totalMinutes, unit: totalMinutes >= 60 ? t(locale, 'statsUnitHours') : t(locale, 'statsUnitMin'), highlight: false },
           ].map((s, i) => (
             <div key={i} style={{ background: 'var(--bg-card)', borderRadius: '16px', padding: '1rem', border: `1px solid ${s.highlight ? 'var(--accent)' : 'var(--border)'}`, boxShadow: s.highlight ? '0 0 0 2px rgba(64,93,230,0.15)' : 'none' }}>
               <div style={{ marginBottom: '0.5rem' }}>{s.icon}</div>
@@ -131,12 +142,12 @@ export default function StatsPage() {
 
         {/* Kitap durumu */}
         <div style={{ background: 'var(--bg-card)', borderRadius: '16px', padding: '1.25rem', border: '1px solid var(--border)' }}>
-          <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Kitap Durumu</p>
+          <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>{t(locale, 'statsBookStatus')}</p>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             {[
-              { label: 'Bitti', count: finished, color: '#43E97B' },
-              { label: 'Devam', count: reading, color: 'var(--accent)' },
-              { label: 'Bekliyor', count: notStarted, color: 'var(--text-muted)' },
+              { label: t(locale, 'statsFinished'), count: finished, color: '#43E97B' },
+              { label: t(locale, 'statsContinuing'), count: reading, color: 'var(--accent)' },
+              { label: t(locale, 'statsWaiting'), count: notStarted, color: 'var(--text-muted)' },
             ].map(s => (
               <div key={s.label} style={{ flex: 1, textAlign: 'center', padding: '0.75rem 0.5rem', borderRadius: '12px', background: 'var(--bg-soft)' }}>
                 <p style={{ fontSize: '1.4rem', fontWeight: 800, color: s.color }}>{s.count}</p>
@@ -155,7 +166,7 @@ export default function StatsPage() {
 
         {/* Haftalık aktivite */}
         <div style={{ background: 'var(--bg-card)', borderRadius: '16px', padding: '1.25rem', border: '1px solid var(--border)' }}>
-          <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Son 7 Gün</p>
+          <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>{t(locale, 'statsWeek7')}</p>
           <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-end', justifyContent: 'space-between' }}>
             {last7.map((day, i) => {
               const active = weekActivity[i]
@@ -171,7 +182,7 @@ export default function StatsPage() {
             })}
           </div>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.75rem', textAlign: 'center' }}>
-            {weekActivity.filter(Boolean).length} / 7 gün aktif
+            {weekActivity.filter(Boolean).length} {t(locale, 'statsWeekActiveSuffix')}
           </p>
         </div>
 
@@ -182,10 +193,10 @@ export default function StatsPage() {
               <Zap size={24} color="var(--accent)" />
             </div>
             <div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Ortalama Okuma Hızı</p>
-              <p style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text)' }}>{Math.round(avgWpm)} <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>kelime/dk</span></p>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>{t(locale, 'statsAvgSpeed')}</p>
+              <p style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text)' }}>{Math.round(avgWpm)} <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>{t(locale, 'statsSpeedUnit')}</span></p>
               <p style={{ fontSize: '0.72rem', color: 'var(--accent)', marginTop: '0.1rem' }}>
-                {avgWpm < 150 ? 'Dikkatli okuyucu' : avgWpm < 250 ? 'Ortalama hız' : avgWpm < 400 ? 'Hızlı okuyucu' : '⚡ Süper hızlı!'}
+                {avgWpm < 150 ? t(locale, 'statsSpeedSlow') : avgWpm < 250 ? t(locale, 'statsSpeedAvg') : avgWpm < 400 ? t(locale, 'statsSpeedFast') : t(locale, 'statsSpeedSuper')}
               </p>
             </div>
           </div>
@@ -194,7 +205,7 @@ export default function StatsPage() {
         {/* En çok okunan türler */}
         {topCats.length > 0 && (
           <div style={{ background: 'var(--bg-card)', borderRadius: '16px', padding: '1.25rem', border: '1px solid var(--border)' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Favori Türler</p>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>{t(locale, 'statsFavGenres')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               {topCats.map(([catId, count], i) => {
                 const cat = BOOK_CATEGORIES.find(c => c.id === catId)
@@ -207,7 +218,7 @@ export default function StatsPage() {
                       <span style={{ fontSize: '0.85rem', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         <span>{cat.icon}</span> {cat.label}
                       </span>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{count} kitap</span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{count} {t(locale, 'statsGenreUnit')}</span>
                     </div>
                     <div style={{ height: '6px', background: 'var(--bg-soft)', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, background: i === 0 ? 'linear-gradient(90deg, var(--accent), var(--accent-2))' : 'var(--border-strong)', borderRadius: '3px', transition: 'width 0.8s ease' }} />
@@ -221,17 +232,17 @@ export default function StatsPage() {
 
         {/* Rozetler özet */}
         <div style={{ background: 'var(--bg-card)', borderRadius: '16px', padding: '1.25rem', border: '1px solid var(--border)' }}>
-          <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Başarılar</p>
+          <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>{t(locale, 'statsAchievements')}</p>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             {[
-              { icon: '📖', title: 'İlk Kitap', earned: sessions.length >= 1 },
-              { icon: '🔥', title: '3 Gün Seri', earned: (profile?.streak_days || 0) >= 3 },
-              { icon: '⚡', title: 'Haftalık', earned: (profile?.streak_days || 0) >= 7 },
-              { icon: '📚', title: '100 Sayfa', earned: (profile?.total_pages_read || 0) >= 100 },
-              { icon: '🏆', title: '500 Sayfa', earned: (profile?.total_pages_read || 0) >= 500 },
-              { icon: '💎', title: 'Elit', earned: (profile?.total_pages_read || 0) >= 1000 },
-              { icon: '🚀', title: 'Hızlı', earned: (profile?.xp || 0) >= 500 },
-              { icon: '🌟', title: 'Seviye 5', earned: (profile?.level || 1) >= 5 },
+              { icon: '📖', title: t(locale, 'statsBadge1'), earned: sessions.length >= 1 },
+              { icon: '🔥', title: t(locale, 'statsBadge2'), earned: (profile?.streak_days || 0) >= 3 },
+              { icon: '⚡', title: t(locale, 'statsBadge3'), earned: (profile?.streak_days || 0) >= 7 },
+              { icon: '📚', title: t(locale, 'statsBadge4'), earned: (profile?.total_pages_read || 0) >= 100 },
+              { icon: '🏆', title: t(locale, 'statsBadge5'), earned: (profile?.total_pages_read || 0) >= 500 },
+              { icon: '💸', title: t(locale, 'statsBadge6'), earned: (profile?.total_pages_read || 0) >= 1000 },
+              { icon: '🚀', title: t(locale, 'statsBadge7'), earned: (profile?.xp || 0) >= 500 },
+              { icon: '🌟', title: t(locale, 'statsBadge8'), earned: (profile?.level || 1) >= 5 },
             ].map(badge => (
               <div key={badge.title} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', opacity: badge.earned ? 1 : 0.3, filter: badge.earned ? 'none' : 'grayscale(1)' }}>
                 <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: badge.earned ? 'rgba(64,93,230,0.1)' : 'var(--bg-soft)', border: `1.5px solid ${badge.earned ? 'var(--accent)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>

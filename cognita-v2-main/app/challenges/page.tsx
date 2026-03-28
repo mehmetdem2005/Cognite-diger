@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import BottomNav from '@/components/layout/BottomNav'
 import { Target, Calendar } from 'lucide-react'
+import { t, getStoredLocale, type Locale } from '@/lib/i18n'
 
 interface Challenge { id: string; title: string; description: string; goal_pages: number; goal_books: number; end_date: string }
 interface Profile { full_name: string | null; username: string | null; xp: number; level: number; streak_days: number; total_pages_read: number }
@@ -12,6 +13,7 @@ interface Profile { full_name: string | null; username: string | null; xp: numbe
 export default function ChallengesPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
   const [challenges, setChallenges] = useState<Challenge[]>([])
   const [joined, setJoined] = useState<string[]>([])
   const [leaderboard, setLeaderboard] = useState<Profile[]>([])
@@ -20,6 +22,15 @@ export default function ChallengesPage() {
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user) { fetchChallenges(); fetchJoined(); fetchLeaderboard() } }, [user])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.locale) setLocale(detail.locale as Locale)
+    }
+    window.addEventListener('cognita-language-changed', handler)
+    return () => window.removeEventListener('cognita-language-changed', handler)
+  }, [])
 
   const fetchChallenges = async () => {
     const { data } = await supabase.from('challenges').select('*').eq('is_active', true)
@@ -60,9 +71,9 @@ export default function ChallengesPage() {
   return (
     <main style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: '80px' }}>
       <header style={{ background: 'var(--nav-bg)', borderBottom: '1px solid var(--border)', padding: '0.9rem 1rem 0', position: 'sticky', top: 0, zIndex: 100 }}>
-        <h1 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.75rem' }}>🏆 Yarışmalar</h1>
+        <h1 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.75rem' }}>{t(locale, 'challengesTitle')}</h1>
         <div style={{ display: 'flex' }}>
-          {[{ id: 'challenges', label: '⚡ Challenge' }, { id: 'leaderboard', label: '🏅 Sıralama' }].map(tab => (
+          {[{ id: 'challenges', label: t(locale, 'challengesTabChallenges') }, { id: 'leaderboard', label: t(locale, 'challengesTabLeaderboard') }].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} style={{ flex: 1, padding: '0.6rem', background: 'transparent', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? 'var(--accent)' : 'transparent'}`, color: activeTab === tab.id ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.85rem', fontWeight: activeTab === tab.id ? 700 : 400, cursor: 'pointer' }}>
               {tab.label}
             </button>
@@ -82,23 +93,23 @@ export default function ChallengesPage() {
                   <div style={{ padding: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
                       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem', fontWeight: 500, color: 'var(--text)', flex: 1 }}>{ch.title}</h3>
-                      {isJoined && <span className="tag tag-green" style={{ flexShrink: 0, marginLeft: '0.5rem' }}>✓ Katıldın</span>}
+                      {isJoined && <span className="tag tag-green" style={{ flexShrink: 0, marginLeft: '0.5rem' }}>{t(locale, 'challengesJoined')}</span>}
                     </div>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: 1.5 }}>{ch.description}</p>
                     <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                      {ch.goal_pages > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: 'var(--text-soft)' }}><Target size={13} color="var(--accent)" /> {ch.goal_pages} sayfa</div>}
-                      {ch.goal_books > 0 && <div style={{ fontSize: '0.78rem', color: 'var(--text-soft)' }}>📚 {ch.goal_books} kitap</div>}
+                      {ch.goal_pages > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: 'var(--text-soft)' }}><Target size={13} color="var(--accent)" /> {ch.goal_pages} {t(locale, 'challengesGoalPages')}</div>}
+                      {ch.goal_books > 0 && <div style={{ fontSize: '0.78rem', color: 'var(--text-soft)' }}>📚 {ch.goal_books} {t(locale, 'challengesGoalBooks')}</div>}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: daysLeft <= 3 ? 'var(--red)' : 'var(--text-soft)' }}>
-                        <Calendar size={13} /> {daysLeft} gün kaldı
+                        <Calendar size={13} /> {daysLeft} {t(locale, 'challengesDaysLeft')}
                       </div>
                     </div>
                     {!isJoined ? (
                       <button onClick={() => handleJoin(ch.id)} disabled={joining === ch.id} style={{ width: '100%', padding: '0.7rem', background: COLORS[i % COLORS.length], border: 'none', borderRadius: '10px', color: 'white', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer' }}>
-                        {joining === ch.id ? 'Katılıyor...' : "⚡ Challenge'a Katıl"}
+                        {joining === ch.id ? t(locale, 'challengesJoining') : t(locale, 'challengesJoinButton')}
                       </button>
                     ) : (
                       <div style={{ padding: '0.6rem', background: 'var(--bg-soft)', borderRadius: '8px', textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                        Okuma sayfalarından ilerleme takip ediliyor 📖
+                        {t(locale, 'challengesTracking')}
                       </div>
                     )}
                   </div>
@@ -113,8 +124,8 @@ export default function ChallengesPage() {
             {leaderboard.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-icon">🏆</div>
-                <p className="empty-state-title">Henüz kimse yok</p>
-                <p className="empty-state-desc">İlk okumayı sen başlat!</p>
+                <p className="empty-state-title">{t(locale, 'challengesNoLeaderboard')}</p>
+                <p className="empty-state-desc">{t(locale, 'challengesFirstRead')}</p>
               </div>
             ) : (
               <>
@@ -150,8 +161,8 @@ export default function ChallengesPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.full_name || profile.username}</p>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>🔥 {profile.streak_days} gün</span>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>📄 {profile.total_pages_read} sayfa</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>🔥 {profile.streak_days} {t(locale, 'challengesDayUnit')}</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>📄 {profile.total_pages_read} {t(locale, 'challengesPageUnit')}</span>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>

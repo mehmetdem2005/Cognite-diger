@@ -5,8 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import BottomNav from '@/components/layout/BottomNav'
 import { ArrowLeft, BookOpen, Search, Plus, Check } from 'lucide-react'
-import { BOOK_CATEGORIES } from '@/lib/categories'
+import { BOOK_CATEGORIES, getCategoryLabel } from '@/lib/categories'
 import { interaction } from '@/lib/interaction'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 const GRADIENTS = [
   'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
@@ -32,9 +33,19 @@ export default function CatalogPage() {
   const [selectedLanguage, setSelectedLanguage] = useState('all')
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState<string | null>(null)
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user) { fetchBooks(); fetchAdded() } }, [user])
+  useEffect(() => {
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
 
   const fetchBooks = async () => {
     const res = await fetch('/api/catalog')
@@ -96,12 +107,12 @@ export default function CatalogPage() {
   })
 
   const languages = [
-    { id: 'all', label: 'Tümü' },
-    { id: 'tr', label: 'Türkçe' },
-    { id: 'en', label: 'İngilizce' },
-    { id: 'ru', label: 'Rusça' },
-    { id: 'de', label: 'Almanca' },
-    { id: 'fr', label: 'Fransızca' },
+    { id: 'all', label: t(locale, 'commonAll') },
+    { id: 'tr', label: t(locale, 'adminLangTr') },
+    { id: 'en', label: t(locale, 'adminLangEn') },
+    { id: 'ru', label: t(locale, 'adminLangRu') },
+    { id: 'de', label: t(locale, 'adminLangDe') },
+    { id: 'fr', label: t(locale, 'adminLangFr') },
     { id: 'es', label: 'İspanyolca' },
   ]
 
@@ -113,15 +124,15 @@ export default function CatalogPage() {
         <button onClick={() => router.back()} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
           <ArrowLeft size={22} color="var(--text)" />
         </button>
-        <h1 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', flex: 1 }}>Katalog</h1>
-        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{filtered.length} kitap</span>
+        <h1 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', flex: 1 }}>{t(locale, 'catalogTitle')}</h1>
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{filtered.length} {t(locale, 'catalogBookCountSuffix')}</span>
       </header>
 
       <div style={{ padding: '1rem' }}>
         {/* Arama */}
         <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
           <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
-          <input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Kitap veya yazar ara..." style={{ paddingLeft: '2.2rem' }} />
+          <input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder={t(locale, 'catalogSearchPlaceholder')} style={{ paddingLeft: '2.2rem' }} />
         </div>
 
         {/* Dil filtresi */}
@@ -137,7 +148,7 @@ export default function CatalogPage() {
         <div className="hide-scrollbar" style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', marginBottom: '1rem', paddingBottom: '0.25rem' }}>
           {BOOK_CATEGORIES.map(c => (
             <button key={c.id} onClick={() => setSelectedCategory(c.id)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', borderRadius: '999px', border: `1.5px solid ${selectedCategory === c.id ? 'var(--accent)' : 'var(--border)'}`, background: selectedCategory === c.id ? 'rgba(64,93,230,0.1)' : 'transparent', color: selectedCategory === c.id ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.78rem', fontWeight: selectedCategory === c.id ? 700 : 400, cursor: 'pointer' }}>
-              <span>{c.icon}</span> {c.label}
+              <span>{c.icon}</span> {getCategoryLabel(c.id, locale)}
             </button>
           ))}
         </div>
@@ -146,7 +157,7 @@ export default function CatalogPage() {
         {filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
             <BookOpen size={40} color="var(--text-muted)" style={{ margin: '0 auto 0.75rem' }} />
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Henüz katalogda kitap yok.</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t(locale, 'catalogEmpty')}</p>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
@@ -172,7 +183,7 @@ export default function CatalogPage() {
                     <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</p>
                     {book.author && <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</p>}
                     <button onClick={() => handleAdd(book)} disabled={isAdded || isAdding} style={{ width: '100%', padding: '0.45rem', borderRadius: '10px', border: 'none', background: isAdded ? 'rgba(67,233,123,0.15)' : 'var(--accent)', color: isAdded ? '#16a34a' : 'white', fontSize: '0.78rem', fontWeight: 700, cursor: isAdded ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', opacity: isAdding ? 0.6 : 1 }}>
-                      {isAdded ? <><Check size={13} /> Eklendi</> : isAdding ? 'Ekleniyor...' : <><Plus size={13} /> Kütüphaneye Ekle</>}
+                      {isAdded ? <><Check size={13} /> {t(locale, 'adminAdded')}</> : isAdding ? t(locale, 'catalogAdding') : <><Plus size={13} /> {t(locale, 'catalogAddToLibrary')}</>}
                     </button>
                   </div>
                 </div>

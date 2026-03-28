@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import BottomNav from '@/components/layout/BottomNav'
 import { Plus, X, ChevronRight, FolderOpen, Target, BookOpen } from 'lucide-react'
+import { t, getStoredLocale, type Locale } from '@/lib/i18n'
 
 interface Project {
   id: string
@@ -39,8 +40,17 @@ export default function ProjectsPage() {
   const [goalBooks, setGoalBooks] = useState('')
   const [deadline, setDeadline] = useState('')
   const [saving, setSaving] = useState(false)
+  const [locale, setLocale] = useState<Locale>(() => getStoredLocale())
 
-  useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
+  useEffect(() => {
+    const handler = () => setLocale(getStoredLocale())
+    window.addEventListener('cognita-language-changed', handler)
+    window.addEventListener('storage', handler)
+    return () => {
+      window.removeEventListener('cognita-language-changed', handler)
+      window.removeEventListener('storage', handler)
+    }
+  }, [])
   useEffect(() => { if (user) fetchProjects() }, [user])
 
   const fetchProjects = async () => {
@@ -102,7 +112,7 @@ export default function ProjectsPage() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Projeyi sil?')) return
+    if (!confirm(t(locale, 'projectsDeleteConfirm'))) return
     await supabase.from('projects').delete().eq('id', id)
     fetchProjects()
   }
@@ -121,11 +131,11 @@ export default function ProjectsPage() {
       <header style={{ background: 'var(--nav-bg)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.9rem 1rem' }}>
           <div>
-            <h1 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)' }}>Projelerim</h1>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{projects.length} proje</p>
+            <h1 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'projectsTitle')}</h1>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{projects.length} {t(locale, 'projectsSuffix')}</p>
           </div>
           <button onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.45rem 0.9rem', background: 'var(--text)', border: 'none', borderRadius: '20px', color: 'var(--bg)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
-            <Plus size={15} /> Yeni
+            <Plus size={15} /> {t(locale, 'projectsNew')}
           </button>
         </div>
       </header>
@@ -134,10 +144,10 @@ export default function ProjectsPage() {
         {projects.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
-            <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.4rem' }}>Henüz proje yok</p>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Kitaplarını gruplara ayırarak okuma projeler oluştur</p>
+            <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.4rem' }}>{t(locale, 'projectsEmptyTitle')}</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>{t(locale, 'projectsEmptyDesc')}</p>
             <button onClick={() => setShowCreate(true)} style={{ padding: '0.65rem 1.5rem', background: 'linear-gradient(135deg, #405DE6, #833AB4)', border: 'none', borderRadius: '20px', color: 'white', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer' }}>
-              + İlk Projeyi Oluştur
+              {t(locale, 'projectsEmptyButton')}
             </button>
           </div>
         ) : (
@@ -167,16 +177,16 @@ export default function ProjectsPage() {
                       )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          <BookOpen size={12} /> {project.book_count} kitap
+                          <BookOpen size={12} /> {project.book_count} {t(locale, 'projectsBookUnit')}
                         </span>
                         {project.completed_count !== undefined && project.completed_count > 0 && (
                           <span style={{ fontSize: '0.75rem', color: '#43E97B', fontWeight: 600 }}>
-                            ✓ {project.completed_count} tamamlandı
+                            ✓ {project.completed_count} {t(locale, 'projectsCompleted')}
                           </span>
                         )}
                         {project.goal_books && (
                           <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: project.color, fontWeight: 600 }}>
-                            <Target size={11} /> Hedef: {project.goal_books} kitap
+                            <Target size={11} /> {t(locale, 'projectsGoalPrefix')} {project.goal_books} {t(locale, 'projectsBookUnit')}
                           </span>
                         )}
                         {project.deadline && (
@@ -203,13 +213,13 @@ export default function ProjectsPage() {
           <div style={{ width: '100%', background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '1.5rem', maxHeight: '92vh', overflowY: 'auto' }}>
             <div style={{ width: '40px', height: '4px', background: 'var(--border)', borderRadius: '2px', margin: '0 auto 1.25rem' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>Yeni Proje</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'projectsModalTitle')}</h3>
               <button onClick={() => setShowCreate(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={22} /></button>
             </div>
 
             {/* Emoji seç */}
             <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Simge</label>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{t(locale, 'projectsModalEmoji')}</label>
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                 {EMOJIS.map(e => (
                   <button key={e} onClick={() => setSelectedEmoji(e)} style={{ width: '42px', height: '42px', borderRadius: '10px', border: `2px solid ${selectedEmoji === e ? selectedColor : 'var(--border)'}`, background: selectedEmoji === e ? `${selectedColor}20` : 'var(--bg-soft)', fontSize: '1.2rem', cursor: 'pointer' }}>{e}</button>
@@ -219,7 +229,7 @@ export default function ProjectsPage() {
 
             {/* Renk seç */}
             <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Renk</label>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{t(locale, 'projectsModalColor')}</label>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {COLORS.map(c => (
                   <button key={c} onClick={() => setSelectedColor(c)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: c, border: `3px solid ${selectedColor === c ? 'var(--text)' : 'transparent'}`, cursor: 'pointer' }} />
@@ -228,30 +238,30 @@ export default function ProjectsPage() {
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Proje Adı *</label>
-              <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Örn: 2025 Okuma Listesi" />
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'projectsModalNameLabel')}</label>
+              <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder={t(locale, 'projectsModalNamePlaceholder')} />
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Açıklama</label>
-              <input className="input" value={description} onChange={e => setDescription(e.target.value)} placeholder="Bu proje hakkında kısa bir açıklama..." />
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'projectsModalDescLabel')}</label>
+              <input className="input" value={description} onChange={e => setDescription(e.target.value)} placeholder={t(locale, 'projectsModalDescPlaceholder')} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
-                  <Target size={12} style={{ display: 'inline', marginRight: '0.3rem' }} />Hedef (kitap sayısı)
+                  <Target size={12} style={{ display: 'inline', marginRight: '0.3rem' }} />{t(locale, 'projectsModalGoalLabel')}
                 </label>
                 <input className="input" type="number" min="1" value={goalBooks} onChange={e => setGoalBooks(e.target.value)} placeholder="10" />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>📅 Bitiş Tarihi</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'projectsModalDeadline')}</label>
                 <input className="input" type="date" value={deadline} onChange={e => setDeadline(e.target.value)} style={{ colorScheme: 'dark' }} />
               </div>
             </div>
 
             <button onClick={handleCreate} disabled={saving || !title.trim()} style={{ width: '100%', padding: '0.95rem', background: `linear-gradient(135deg, ${selectedColor}, ${COLORS[(COLORS.indexOf(selectedColor) + 1) % COLORS.length]})`, border: 'none', borderRadius: '14px', color: 'white', fontSize: '0.95rem', fontWeight: 600, cursor: saving || !title.trim() ? 'not-allowed' : 'pointer', opacity: saving || !title.trim() ? 0.6 : 1 }}>
-              {saving ? 'Oluşturuluyor...' : 'Proje Oluştur'}
+              {saving ? t(locale, 'projectsModalCreating') : t(locale, 'projectsModalCreate')}
             </button>
           </div>
         </div>

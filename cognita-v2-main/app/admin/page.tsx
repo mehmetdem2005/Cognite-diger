@@ -7,8 +7,9 @@ import { getAdminByUserId, getAllAdmins,
 
 canManageCatalog, canManageAdmins, type Admin, type AdminRole } from '@/lib/adminAuth'
 import GutenbergBulkImport from '@/components/ui/GutenbergBulkImport'
-import { BOOK_CATEGORIES } from '@/lib/categories'
+import { BOOK_CATEGORIES, getCategoryLabel } from '@/lib/categories'
 import { ArrowLeft, Plus, X, Edit2, Trash2, BookOpen, Users, MessageSquare, Send, Upload, Image, Check, Download, Search as SearchIcon, Cpu, ToggleLeft, ToggleRight, RefreshCw, ExternalLink, ChevronUp, ChevronDown, LayoutDashboard, Shield, PenSquare, Headphones, BellRing } from 'lucide-react'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 interface ProviderConfig {
   id: string
@@ -56,10 +57,10 @@ const SkeletonRow = () => (
     </div>
   </div>
 )
-const NoResults = ({ q }: { q: string }) => (
+const NoResults = ({ q, locale }: { q: string; locale: Locale }) => (
   <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
     <BookOpen size={32} color="var(--border)" style={{ marginBottom: '0.75rem' }} />
-    <p>"{q}" için sonuç bulunamadı.</p>
+    <p>"{q}" {t(locale, 'adminSearchNoResults')}</p>
   </div>
 )
 const CoverThumb = ({ src, i }: { src?: string; i: number }) => (
@@ -92,9 +93,51 @@ interface DashboardCounters {
   total_admins: number
 }
 
+function getAdminTabMeta(locale: Locale) {
+  return {
+    dashboard: {
+      label: t(locale, 'adminTabDashboardLabel'),
+      shortLabel: t(locale, 'adminTabDashboardShort'),
+      description: t(locale, 'adminTabDashboardDesc'),
+      icon: <LayoutDashboard size={15} />,
+    },
+    catalog: {
+      label: t(locale, 'adminTabCatalogLabel'),
+      shortLabel: t(locale, 'adminTabCatalogShort'),
+      description: t(locale, 'adminTabCatalogDesc'),
+      icon: <BookOpen size={15} />,
+    },
+    admins: {
+      label: t(locale, 'adminTabAdminsLabel'),
+      shortLabel: t(locale, 'adminTabAdminsShort'),
+      description: t(locale, 'adminTabAdminsDesc'),
+      icon: <Users size={15} />,
+    },
+    messages: {
+      label: t(locale, 'adminTabMessagesLabel'),
+      shortLabel: t(locale, 'adminTabMessagesShort'),
+      description: t(locale, 'adminTabMessagesDesc'),
+      icon: <MessageSquare size={15} />,
+    },
+    product: {
+      label: t(locale, 'adminTabProductLabel'),
+      shortLabel: t(locale, 'adminTabProductShort'),
+      description: t(locale, 'adminTabProductDesc'),
+      icon: <Shield size={15} />,
+    },
+    'ai-providers': {
+      label: t(locale, 'adminTabAiLabel'),
+      shortLabel: t(locale, 'adminTabAiShort'),
+      description: t(locale, 'adminTabAiDesc'),
+      icon: <Cpu size={15} />,
+    },
+  } as const
+}
+
 export default function AdminPanel() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
   const [admin, setAdmin] = useState<Admin | null>(null)
   const [checking, setChecking] = useState(true)
   const [tab, setTab] = useState<'dashboard' | 'catalog' | 'admins' | 'messages' | 'ai-providers' | 'product'>('dashboard')
@@ -167,18 +210,30 @@ export default function AdminPanel() {
   const [providerActionMsg, setProviderActionMsg] = useState<string | null>(null)
   const [syncingBalance, setSyncingBalance] = useState<string | null>(null)
   const [deepseekBalance, setDeepseekBalance] = useState<{ total_balance: string; currency: string; is_available: boolean } | null>(null)
+  const tabMeta = getAdminTabMeta(locale)
+  const errorPrefix = t(locale, 'adminErrorPrefix')
+
+  useEffect(() => {
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
 
   const ADVANCED_SETTINGS = [
-    { key: 'policy_terms_version', label: 'Kullanım Şartları Sürümü', type: 'text', group: 'policies' },
-    { key: 'policy_privacy_summary', label: 'Gizlilik Özeti', type: 'textarea', group: 'policies' },
-    { key: 'user_announcement_active', label: 'Kullanıcı Duyurusu Aktif (1/0)', type: 'number', group: 'announcements' },
-    { key: 'user_announcement_banner', label: 'Duyuru Metni', type: 'textarea', group: 'announcements' },
-    { key: 'writer_ai_assist_enabled', label: 'Yazarlıkta AI Asistan (1/0)', type: 'number', group: 'writer' },
-    { key: 'writer_auto_save_interval_sec', label: 'Yazarlık Otomatik Kaydetme (sn)', type: 'number', group: 'writer' },
-    { key: 'reader_long_press_panel_enabled', label: 'Reader Basılı Tut Paneli (1/0)', type: 'number', group: 'reader' },
-    { key: 'reader_translation_enabled', label: 'Reader Çeviri (1/0)', type: 'number', group: 'reader' },
-    { key: 'reader_tts_enabled', label: 'Reader Seslendirme (1/0)', type: 'number', group: 'reader' },
-    { key: 'reader_word_examples_enabled', label: 'Reader Örnek Cümle (1/0)', type: 'number', group: 'reader' },
+    { key: 'policy_terms_version', label: t(locale, 'adminSettingTermsVersion'), type: 'text', group: 'policies' },
+    { key: 'policy_privacy_summary', label: t(locale, 'adminSettingPrivacySummary'), type: 'textarea', group: 'policies' },
+    { key: 'user_announcement_active', label: t(locale, 'adminSettingAnnouncementActive'), type: 'number', group: 'announcements' },
+    { key: 'user_announcement_banner', label: t(locale, 'adminSettingAnnouncementText'), type: 'textarea', group: 'announcements' },
+    { key: 'writer_ai_assist_enabled', label: t(locale, 'adminSettingWriterAiAssist'), type: 'number', group: 'writer' },
+    { key: 'writer_auto_save_interval_sec', label: t(locale, 'adminSettingWriterAutosave'), type: 'number', group: 'writer' },
+    { key: 'reader_long_press_panel_enabled', label: t(locale, 'adminSettingReaderLongPress'), type: 'number', group: 'reader' },
+    { key: 'reader_translation_enabled', label: t(locale, 'adminSettingReaderTranslation'), type: 'number', group: 'reader' },
+    { key: 'reader_tts_enabled', label: t(locale, 'adminSettingReaderTts'), type: 'number', group: 'reader' },
+    { key: 'reader_word_examples_enabled', label: t(locale, 'adminSettingReaderExamples'), type: 'number', group: 'reader' },
   ] as const
 
   useEffect(() => {
@@ -243,12 +298,12 @@ export default function AdminPanel() {
       })
       const json = await res.json()
       if (json.error) {
-        setProviderActionMsg(`Hata: ${json.error}`)
+        setProviderActionMsg(`${errorPrefix}: ${json.error}`)
       } else {
         setProviderConfigs(json.data || [])
       }
     } catch (e: any) {
-      setProviderActionMsg(`Hata: ${e.message}`)
+      setProviderActionMsg(`${errorPrefix}: ${e.message}`)
     }
     setProviderLoading(false)
   }
@@ -270,14 +325,14 @@ export default function AdminPanel() {
         setSettingsDraft(draft)
       }
     } catch (e: any) {
-      setSettingsFetchError(e.message || 'Bilinmeyen hata')
+      setSettingsFetchError(e.message || errorPrefix)
     }
     setSettingsLoading(false)
   }
 
   const DEFAULT_SETTINGS = [
-    { key: 'daily_ai_requests_per_user', value: '10', description: 'Kullanıcı başına günlük AI kitap analizi limiti' },
-    { key: 'max_books_per_user', value: '50', description: 'Kullanıcı başına maksimum kitap sayısı' },
+    { key: 'daily_ai_requests_per_user', value: '10', description: t(locale, 'adminDefaultDailyAiRequestsDesc') },
+    { key: 'max_books_per_user', value: '50', description: t(locale, 'adminDefaultMaxBooksDesc') },
   ]
 
   const handleSeedDefaults = async () => {
@@ -293,10 +348,10 @@ export default function AdminPanel() {
         })
       }
       await fetchAppSettings()
-      setSettingsMsg('Varsayılan ayarlar yüklendi ✓')
+      setSettingsMsg(`${t(locale, 'adminDefaultsLoaded')} ✓`)
       setTimeout(() => setSettingsMsg(null), 2000)
     } catch (e: any) {
-      setSettingsMsg(`Hata: ${e.message}`)
+      setSettingsMsg(`${errorPrefix}: ${e.message}`)
     }
     setSeedingDefaults(false)
   }
@@ -313,14 +368,14 @@ export default function AdminPanel() {
       })
       const json = await res.json()
       if (json.error) {
-        setSettingsMsg(`Hata: ${json.error}`)
+        setSettingsMsg(`${errorPrefix}: ${json.error}`)
       } else {
         setAppSettings(prev => prev.map(s => s.key === key ? { ...s, value: settingsDraft[key] } : s))
-        setSettingsMsg('Kaydedildi ✓')
+        setSettingsMsg(`${t(locale, 'saved')} ✓`)
         setTimeout(() => setSettingsMsg(null), 2000)
       }
     } catch (e: any) {
-      setSettingsMsg(`Hata: ${e.message}`)
+      setSettingsMsg(`${errorPrefix}: ${e.message}`)
     }
     setSavingKey(null)
   }
@@ -331,16 +386,16 @@ export default function AdminPanel() {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
       const defaults = [
-        { key: 'policy_terms_version', value: 'v1.0', description: 'Kullanım şartları sürümü' },
-        { key: 'policy_privacy_summary', value: 'Verileriniz yalnızca ürün deneyimini iyileştirmek için kullanılır.', description: 'Kullanıcıya gösterilen kısa gizlilik özeti' },
-        { key: 'user_announcement_active', value: '0', description: 'Duyuru banner aktif mi? 1/0' },
-        { key: 'user_announcement_banner', value: '', description: 'Üst banner kullanıcı duyuru metni' },
-        { key: 'writer_ai_assist_enabled', value: '1', description: 'Yazarlık ekranında AI yardımcı özellikleri' },
-        { key: 'writer_auto_save_interval_sec', value: '20', description: 'Yazarlık otomatik kaydetme süresi' },
-        { key: 'reader_long_press_panel_enabled', value: '1', description: 'Reader uzun bas paneli aktif' },
-        { key: 'reader_translation_enabled', value: '1', description: 'Reader çeviri özelliği aktif' },
-        { key: 'reader_tts_enabled', value: '1', description: 'Reader seslendirme özelliği aktif' },
-        { key: 'reader_word_examples_enabled', value: '1', description: 'Kelime panelinde örnek cümle gösterimi' },
+        { key: 'policy_terms_version', value: 'v1.0', description: t(locale, 'adminSeedTermsVersionDesc') },
+        { key: 'policy_privacy_summary', value: t(locale, 'adminSeedPrivacySummaryValue'), description: t(locale, 'adminSeedPrivacySummaryDesc') },
+        { key: 'user_announcement_active', value: '0', description: t(locale, 'adminSeedAnnouncementActiveDesc') },
+        { key: 'user_announcement_banner', value: '', description: t(locale, 'adminSeedAnnouncementBannerDesc') },
+        { key: 'writer_ai_assist_enabled', value: '1', description: t(locale, 'adminSeedWriterAiAssistDesc') },
+        { key: 'writer_auto_save_interval_sec', value: '20', description: t(locale, 'adminSeedWriterAutosaveDesc') },
+        { key: 'reader_long_press_panel_enabled', value: '1', description: t(locale, 'adminSeedReaderLongPressDesc') },
+        { key: 'reader_translation_enabled', value: '1', description: t(locale, 'adminSeedReaderTranslationDesc') },
+        { key: 'reader_tts_enabled', value: '1', description: t(locale, 'adminSeedReaderTtsDesc') },
+        { key: 'reader_word_examples_enabled', value: '1', description: t(locale, 'adminSeedReaderExamplesDesc') },
       ]
 
       await Promise.all(defaults.map((s) => fetch('/api/admin/settings', {
@@ -350,10 +405,10 @@ export default function AdminPanel() {
       })))
 
       await fetchAppSettings()
-      setSettingsMsg('Gelişmiş ürün ayarları yüklendi ✓')
+      setSettingsMsg(`${t(locale, 'adminAdvancedDefaultsLoaded')} ✓`)
       setTimeout(() => setSettingsMsg(null), 2500)
     } catch (e: any) {
-      setSettingsMsg(`Hata: ${e.message}`)
+      setSettingsMsg(`${errorPrefix}: ${e.message}`)
     }
     setSeedingDefaults(false)
   }
@@ -395,7 +450,7 @@ export default function AdminPanel() {
         body: JSON.stringify({ provider_name: providerName, is_enabled: !currentEnabled }),
       })
       await fetchProviderConfigs()
-      setProviderActionMsg(`${currentEnabled ? 'Kapatıldı' : 'Açıldı'}`)
+      setProviderActionMsg(currentEnabled ? t(locale, 'adminProviderDisabled') : t(locale, 'adminProviderEnabled'))
       setTimeout(() => setProviderActionMsg(null), 2000)
     } catch {}
     setTogglingProvider(null)
@@ -411,7 +466,7 @@ export default function AdminPanel() {
         body: JSON.stringify({ provider_name: providerName }),
       })
       await fetchProviderConfigs()
-      setProviderActionMsg('Günlük sayaç sıfırlandı')
+      setProviderActionMsg(t(locale, 'adminDailyCounterReset'))
       setTimeout(() => setProviderActionMsg(null), 2000)
     } catch {}
   }
@@ -427,16 +482,16 @@ export default function AdminPanel() {
       const data = await res.json()
       if (providerName === 'deepseek' && data.total_balance !== undefined) {
         setDeepseekBalance({ total_balance: data.total_balance, currency: data.currency, is_available: data.is_available })
-        setProviderActionMsg(`DeepSeek bakiye: ${data.total_balance} ${data.currency}`)
+        setProviderActionMsg(`${t(locale, 'adminBalancePrefix')}: ${data.total_balance} ${data.currency}`)
         setTimeout(() => setProviderActionMsg(null), 4000)
       } else if (data.billing_url) {
         window.open(data.billing_url, '_blank')
       } else if (data.error) {
-        setProviderActionMsg(`Hata: ${data.error}`)
+        setProviderActionMsg(`${errorPrefix}: ${data.error}`)
         setTimeout(() => setProviderActionMsg(null), 3000)
       }
     } catch {
-      setProviderActionMsg('Senkronizasyon başarısız')
+      setProviderActionMsg(t(locale, 'adminSyncFailed'))
       setTimeout(() => setProviderActionMsg(null), 2000)
     } finally {
       setSyncingBalance(null)
@@ -470,7 +525,7 @@ export default function AdminPanel() {
       if (!coverFile && !coverPreview) {
         handleGenerateCover(title, bookAuthor, bookDesc)
       }
-    } catch { alert('PDF okunamadı.') }
+    } catch { alert(t(locale, 'adminPdfReadFailed')) }
     setPdfParsing(false)
     setPdfProgress(0)
   }
@@ -576,7 +631,7 @@ export default function AdminPanel() {
   }
 
   const handleDeleteBook = async (id: string) => {
-    if (!confirm('Kitabı katalogdan sil?')) return
+    if (!confirm(t(locale, 'adminDeleteBookConfirm'))) return
     await supabase.from('catalog_books').delete().eq('id', id)
     fetchBooks()
   }
@@ -589,19 +644,19 @@ export default function AdminPanel() {
       .select('id')
       .eq('email', newAdminEmail.trim())
       .single()
-    if (!profile) { alert('Bu email ile kayıtlı kullanıcı bulunamadı.'); setAddingAdmin(false); return }
+    if (!profile) { alert(t(locale, 'adminUserNotFoundByEmail')); setAddingAdmin(false); return }
     const { error } = await supabase.from('admins').insert({
       user_id: profile.id,
       role: newAdminRole,
       invited_by: admin.id,
     })
-    if (error) alert('Admin eklenemedi: ' + error.message)
+    if (error) alert(`${t(locale, 'adminAddFailed')}: ${error.message}`)
     else { setNewAdminEmail(''); fetchAdmins() }
     setAddingAdmin(false)
   }
 
   const handleRemoveAdmin = async (adminId: string) => {
-    if (!confirm('Bu admini kaldır?')) return
+    if (!confirm(t(locale, 'adminRemoveConfirm'))) return
     await supabase.from('admins').delete().eq('id', adminId)
     fetchAdmins()
   }
@@ -681,14 +736,14 @@ const token = session.data.session?.access_token
     fetchBooks()
   }
 
-  if (loading || checking) return <main style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p style={{ color: 'var(--text-muted)' }}>Yükleniyor...</p></main>
+  if (loading || checking) return <main style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p style={{ color: 'var(--text-muted)' }}>{t(locale, 'settingsUploading')}</p></main>
 
   if (!admin) return (
     <main style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', padding: '2rem' }}>
       <BookOpen size={48} color="var(--text-muted)" />
-      <h2 style={{ color: 'var(--text)', fontWeight: 700 }}>Erişim Yok</h2>
-      <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Bu sayfaya erişim için admin yetkisi gerekiyor.</p>
-      <button onClick={() => router.push('/home')} className="btn-primary" style={{ padding: '0.7rem 1.5rem', borderRadius: '12px' }}>Ana Sayfaya Dön</button>
+      <h2 style={{ color: 'var(--text)', fontWeight: 700 }}>{t(locale, 'adminAccessDeniedTitle')}</h2>
+      <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{t(locale, 'adminAccessDeniedDesc')}</p>
+      <button onClick={() => router.push('/home')} className="btn-primary" style={{ padding: '0.7rem 1.5rem', borderRadius: '12px' }}>{t(locale, 'adminBackHome')}</button>
     </main>
   )
 
@@ -699,26 +754,35 @@ const token = session.data.session?.access_token
         <button onClick={() => router.back()} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
           <ArrowLeft size={22} color="var(--text)" />
         </button>
-        <h1 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', flex: 1 }}>Admin Panel</h1>
+        <h1 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', flex: 1 }}>{t(locale, 'adminPanelTitle')}</h1>
         <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: '999px', background: admin.role === 'super_admin' ? 'rgba(64,93,230,0.15)' : 'rgba(67,233,123,0.15)', color: admin.role === 'super_admin' ? 'var(--accent)' : '#16a34a', fontWeight: 700 }}>
-          {admin.role === 'super_admin' ? 'Süper Admin' : admin.role === 'admin' ? 'Admin' : 'Moderatör'}
+          {admin.role === 'super_admin' ? t(locale, 'adminRoleSuper') : admin.role === 'admin' ? t(locale, 'adminRoleAdmin') : t(locale, 'adminRoleMod')}
         </span>
       </header>
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', overflowX: 'auto' }}>
         {[
-          { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={15} /> },
-          { id: 'catalog', label: 'Katalog', icon: <BookOpen size={15} /> },
-          { id: 'admins', label: 'Adminler', icon: <Users size={15} /> },
-          { id: 'messages', label: 'Mesajlar', icon: <MessageSquare size={15} /> },
-          ...(admin.role === 'super_admin' ? [{ id: 'product', label: 'Ürün', icon: <Shield size={15} /> }] : []),
-          ...(admin.role === 'super_admin' ? [{ id: 'ai-providers', label: 'AI', icon: <Cpu size={15} /> }] : []),
+          { id: 'dashboard' },
+          { id: 'catalog' },
+          { id: 'admins' },
+          { id: 'messages' },
+          ...(admin.role === 'super_admin' ? [{ id: 'product' }] : []),
+          ...(admin.role === 'super_admin' ? [{ id: 'ai-providers' }] : []),
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id as any)} style={{ flex: 1, minWidth: '70px', padding: '0.85rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.82rem', fontWeight: tab === t.id ? 700 : 400, color: tab === t.id ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === t.id ? '2px solid var(--accent)' : '2px solid transparent', whiteSpace: 'nowrap' }}>
-            {t.icon} {t.label}
+          <button key={t.id} onClick={() => setTab(t.id as any)} style={{ flex: 1, minWidth: '88px', padding: '0.8rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === t.id ? '2px solid var(--accent)' : '2px solid transparent', whiteSpace: 'nowrap' }}>
+            {tabMeta[t.id as keyof typeof tabMeta].icon} {tabMeta[t.id as keyof typeof tabMeta].shortLabel}
           </button>
         ))}
+      </div>
+
+      <div style={{ padding: '0.75rem 1rem 0.25rem' }}>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 700, marginBottom: '0.15rem' }}>
+          {tabMeta[tab].label}
+        </p>
+        <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+          {tabMeta[tab].description}
+        </p>
       </div>
 
       <div style={{ padding: '1rem' }}>
@@ -728,12 +792,12 @@ const token = session.data.session?.access_token
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginBottom: '1rem' }}>
               {[
-                { label: 'Toplam Üye', value: dashboard?.total_users ?? '-', icon: <Users size={14} color="var(--accent)" /> },
-                { label: 'Bugün Yeni', value: dashboard?.new_users_today ?? '-', icon: <BellRing size={14} color="#16a34a" /> },
-                { label: 'Aktif 24s', value: dashboard?.active_users_24h ?? '-', icon: <LayoutDashboard size={14} color="#f59e0b" /> },
-                { label: 'Günlük Seans', value: dashboard?.reading_sessions_today ?? '-', icon: <BookOpen size={14} color="#7c3aed" /> },
-                { label: 'Public Kitap', value: dashboard?.public_books ?? '-', icon: <BookOpen size={14} color="var(--accent)" /> },
-                { label: 'Public Highlight', value: dashboard?.public_highlights ?? '-', icon: <MessageSquare size={14} color="#db2777" /> },
+                { label: t(locale, 'adminMetricTotalUsers'), value: dashboard?.total_users ?? '-', icon: <Users size={14} color="var(--accent)" /> },
+                { label: t(locale, 'adminMetricNewToday'), value: dashboard?.new_users_today ?? '-', icon: <BellRing size={14} color="#16a34a" /> },
+                { label: t(locale, 'adminMetricActive24h'), value: dashboard?.active_users_24h ?? '-', icon: <LayoutDashboard size={14} color="#f59e0b" /> },
+                { label: t(locale, 'adminMetricDailySessions'), value: dashboard?.reading_sessions_today ?? '-', icon: <BookOpen size={14} color="#7c3aed" /> },
+                { label: t(locale, 'adminMetricPublicBooks'), value: dashboard?.public_books ?? '-', icon: <BookOpen size={14} color="var(--accent)" /> },
+                { label: t(locale, 'adminMetricPublicHighlights'), value: dashboard?.public_highlights ?? '-', icon: <MessageSquare size={14} color="#db2777" /> },
               ].map((item, idx) => (
                 <div key={idx} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '0.8rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.25rem' }}>{item.icon}<span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{item.label}</span></div>
@@ -743,17 +807,17 @@ const token = session.data.session?.access_token
             </div>
 
             <div style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border)', padding: '1rem', marginBottom: '0.8rem' }}>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 700, marginBottom: '0.65rem' }}>Yöneticilik Kapasitesi</p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 700, marginBottom: '0.65rem' }}>{t(locale, 'adminCapacityTitle')}</p>
               <div style={{ display: 'grid', gap: '0.5rem' }}>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Rol: <strong style={{ color: 'var(--text)' }}>{admin.role}</strong></div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Katalog yönetimi: <strong style={{ color: canManageCatalog(admin.role) ? '#16a34a' : '#dc2626' }}>{canManageCatalog(admin.role) ? 'Açık' : 'Kapalı'}</strong></div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Admin yönetimi: <strong style={{ color: canManageAdmins(admin.role) ? '#16a34a' : '#dc2626' }}>{canManageAdmins(admin.role) ? 'Açık' : 'Kapalı'}</strong></div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>AI sağlayıcıları: <strong style={{ color: admin.role === 'super_admin' ? '#16a34a' : '#dc2626' }}>{admin.role === 'super_admin' ? 'Açık' : 'Kapalı'}</strong></div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t(locale, 'adminRoleLabel')}: <strong style={{ color: 'var(--text)' }}>{admin.role}</strong></div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t(locale, 'adminCatalogPermission')}: <strong style={{ color: canManageCatalog(admin.role) ? '#16a34a' : '#dc2626' }}>{canManageCatalog(admin.role) ? t(locale, 'adminOn') : t(locale, 'adminOff')}</strong></div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t(locale, 'adminUsersPermission')}: <strong style={{ color: canManageAdmins(admin.role) ? '#16a34a' : '#dc2626' }}>{canManageAdmins(admin.role) ? t(locale, 'adminOn') : t(locale, 'adminOff')}</strong></div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t(locale, 'adminAiPermission')}: <strong style={{ color: admin.role === 'super_admin' ? '#16a34a' : '#dc2626' }}>{admin.role === 'super_admin' ? t(locale, 'adminOn') : t(locale, 'adminOff')}</strong></div>
               </div>
             </div>
 
             <button onClick={fetchDashboard} style={{ width: '100%', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-soft)', padding: '0.7rem', cursor: 'pointer', color: 'var(--text)', fontWeight: 700 }}>
-              Dashboard Yenile
+              {t(locale, 'adminRefreshDashboard')}
             </button>
           </div>
         )}
@@ -764,10 +828,10 @@ const token = session.data.session?.access_token
             {canManageCatalog(admin.role) && (
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
                 <button onClick={() => { resetBookForm(); setShowAddBook(true) }} className="btn-primary" style={{ flex: 1, padding: '0.85rem', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <Plus size={18} /> Manuel Ekle
+                  <Plus size={18} /> {t(locale, 'adminManualAdd')}
                 </button>
                 <button onClick={() => setShowGutenberg(true)} style={{ flex: 1, padding: '0.85rem', borderRadius: '14px', background: 'var(--bg-soft)', border: '1.5px solid var(--border)', color: 'var(--text)', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
-                  <Download size={18} /> Gutenberg'den Al
+                  <Download size={18} /> {t(locale, 'adminImportGutenberg')}
                 </button>
               </div>
             )}
@@ -787,7 +851,7 @@ const token = session.data.session?.access_token
                   <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{book.title}</p>
                   {book.author && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{book.author}</p>}
                   <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.68rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: book.is_published ? 'rgba(67,233,123,0.15)' : 'rgba(255,100,100,0.1)', color: book.is_published ? '#16a34a' : '#dc2626' }}>{book.is_published ? 'Yayında' : 'Taslak'}</span>
+                    <span style={{ fontSize: '0.68rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: book.is_published ? 'rgba(67,233,123,0.15)' : 'rgba(255,100,100,0.1)', color: book.is_published ? '#16a34a' : '#dc2626' }}>{book.is_published ? t(locale, 'adminPublished') : t(locale, 'adminDraft')}</span>
                     <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{book.language.toUpperCase()}</span>
                     {book.level && <span style={{ fontSize: '0.68rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: 'rgba(64,93,230,0.1)', color: 'var(--accent)' }}>{book.level}</span>}
                   </div>
@@ -812,18 +876,18 @@ const token = session.data.session?.access_token
           <div>
             <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '0.9rem' }}>
               <button onClick={handleSeedAdvancedDefaults} disabled={seedingDefaults} style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', border: 'none', background: 'var(--accent)', color: 'white', fontWeight: 700, cursor: 'pointer', opacity: seedingDefaults ? 0.6 : 1 }}>
-                {seedingDefaults ? 'Yükleniyor...' : 'Gelişmiş Varsayılanları Kur'}
+                {seedingDefaults ? t(locale, 'adminLoading') : t(locale, 'adminSeedAdvancedDefaults')}
               </button>
               <button onClick={fetchAppSettings} style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-soft)', color: 'var(--text)', fontWeight: 700, cursor: 'pointer' }}>
-                Ayarları Yenile
+                {t(locale, 'adminRefreshSettings')}
               </button>
             </div>
 
             {[
-              { id: 'policies', title: 'Politikalar', icon: <Shield size={14} color="var(--accent)" /> },
-              { id: 'announcements', title: 'Kullanıcı Bilgilendirmeleri', icon: <BellRing size={14} color="#16a34a" /> },
-              { id: 'writer', title: 'Yazarlık Bölümü', icon: <PenSquare size={14} color="#7c3aed" /> },
-              { id: 'reader', title: 'Okuma Bölümü', icon: <Headphones size={14} color="#db2777" /> },
+              { id: 'policies', title: t(locale, 'adminGroupPolicies'), icon: <Shield size={14} color="var(--accent)" /> },
+              { id: 'announcements', title: t(locale, 'adminGroupAnnouncements'), icon: <BellRing size={14} color="#16a34a" /> },
+              { id: 'writer', title: t(locale, 'adminGroupWriter'), icon: <PenSquare size={14} color="#7c3aed" /> },
+              { id: 'reader', title: t(locale, 'adminGroupReader'), icon: <Headphones size={14} color="#db2777" /> },
             ].map(group => {
               const groupSettings = ADVANCED_SETTINGS.filter(setting => setting.group === group.id)
               return (
@@ -852,7 +916,7 @@ const token = session.data.session?.access_token
                           />
                         )}
                         <button onClick={() => handleSaveSetting(setting.key)} disabled={savingKey === setting.key} style={{ padding: '0.4rem 0.85rem', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', opacity: savingKey === setting.key ? 0.5 : 1 }}>
-                          {savingKey === setting.key ? 'Kaydediliyor...' : 'Kaydet'}
+                          {savingKey === setting.key ? t(locale, 'adminSaving') : t(locale, 'adminSave')}
                         </button>
                       </div>
                     )
@@ -868,17 +932,17 @@ const token = session.data.session?.access_token
           <div>
             {canManageAdmins(admin.role) && (
               <div style={{ background: 'var(--bg-card)', borderRadius: '16px', padding: '1rem', marginBottom: '1rem' }}>
-                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.75rem' }}>Yeni Admin Ekle</p>
-                <input className="input" value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)} placeholder="Email adresi" style={{ marginBottom: '0.5rem' }} />
+                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.75rem' }}>{t(locale, 'adminAddAdminTitle')}</p>
+                <input className="input" value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)} placeholder={t(locale, 'adminEmailAddress')} style={{ marginBottom: '0.5rem' }} />
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   {(['admin', 'moderator'] as AdminRole[]).map(r => (
                     <button key={r} onClick={() => setNewAdminRole(r)} style={{ flex: 1, padding: '0.55rem', borderRadius: '10px', border: `2px solid ${newAdminRole === r ? 'var(--accent)' : 'var(--border)'}`, background: newAdminRole === r ? 'rgba(64,93,230,0.1)' : 'transparent', color: newAdminRole === r ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
-                      {r === 'admin' ? 'Admin' : 'Moderatör'}
+                      {r === 'admin' ? t(locale, 'adminRoleAdmin') : t(locale, 'adminModerator')}
                     </button>
                   ))}
                 </div>
                 <button onClick={handleAddAdmin} disabled={addingAdmin || !newAdminEmail.trim()} className="btn-primary" style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', opacity: addingAdmin || !newAdminEmail.trim() ? 0.5 : 1 }}>
-                  {addingAdmin ? 'Ekleniyor...' : 'Admin Ekle'}
+                  {addingAdmin ? t(locale, 'adminAdding') : t(locale, 'adminAddAdminButton')}
                 </button>
               </div>
             )}
@@ -894,11 +958,11 @@ const token = session.data.session?.access_token
                   )}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)' }}>{(a.profiles as any)?.full_name || (a.profiles as any)?.username || 'İsimsiz'}</p>
+                  <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)' }}>{(a.profiles as any)?.full_name || (a.profiles as any)?.username || t(locale, 'adminUnnamed')}</p>
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{(a.profiles as any)?.email}</p>
                 </div>
                 <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.55rem', borderRadius: '999px', background: a.role === 'super_admin' ? 'rgba(64,93,230,0.15)' : a.role === 'admin' ? 'rgba(67,233,123,0.15)' : 'rgba(255,180,0,0.15)', color: a.role === 'super_admin' ? 'var(--accent)' : a.role === 'admin' ? '#16a34a' : '#d97706', fontWeight: 700 }}>
-                  {a.role === 'super_admin' ? 'Süper' : a.role === 'admin' ? 'Admin' : 'Mod'}
+                  {a.role === 'super_admin' ? t(locale, 'adminRoleSuperShort') : a.role === 'admin' ? t(locale, 'adminRoleAdmin') : t(locale, 'adminRoleModShort')}
                 </span>
                 {canManageAdmins(admin.role) && a.user_id !== user!.id && (
                   <button onClick={() => handleRemoveAdmin(a.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.3rem' }}>
@@ -914,38 +978,38 @@ const token = session.data.session?.access_token
         {tab === 'messages' && (
           <div>
             <div style={{ background: 'var(--bg-card)', borderRadius: '16px', padding: '1rem', marginBottom: '1rem' }}>
-              <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.75rem' }}>Mesaj Gönder</p>
+              <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.75rem' }}>{t(locale, 'adminSendMessageTitle')}</p>
               <select value={msgTarget} onChange={e => setMsgTarget(e.target.value)} className="input" style={{ marginBottom: '0.5rem' }}>
-                <option value="broadcast">Tüm Adminler (Duyuru)</option>
+                <option value="broadcast">{t(locale, 'adminBroadcastAll')}</option>
                 {admins.filter(a => a.user_id !== user!.id).map(a => (
-                  <option key={a.id} value={a.id}>{(a.profiles as any)?.full_name || (a.profiles as any)?.username || 'Admin'}</option>
+                  <option key={a.id} value={a.id}>{(a.profiles as any)?.full_name || (a.profiles as any)?.username || t(locale, 'adminAdminFallback')}</option>
                 ))}
               </select>
-              <textarea className="input" value={msgContent} onChange={e => setMsgContent(e.target.value)} placeholder="Mesajınızı yazın..." rows={3} style={{ resize: 'none', marginBottom: '0.5rem' }} />
+              <textarea className="input" value={msgContent} onChange={e => setMsgContent(e.target.value)} placeholder={t(locale, 'adminMessagePlaceholder')} rows={3} style={{ resize: 'none', marginBottom: '0.5rem' }} />
               <button onClick={handleSendMessage} disabled={sendingMsg || !msgContent.trim()} className="btn-primary" style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', opacity: sendingMsg || !msgContent.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                <Send size={15} /> Gönder
+                <Send size={15} /> {t(locale, 'adminSend')}
               </button>
             </div>
             {messages.map(msg => {
-              const senderName = msg.from_admin?.profiles?.full_name || msg.from_admin?.profiles?.username || 'Admin'
+              const senderName = msg.from_admin?.profiles?.full_name || msg.from_admin?.profiles?.username || t(locale, 'adminAdminFallback')
               const isMyMsg = msg.from_admin_id === admin?.id
               const canMarkRead = !msg.is_read && (msg.to_admin_id === admin?.id || msg.is_broadcast) && !isMyMsg
               return (
                 <div key={msg.id} style={{ padding: '0.75rem', background: 'var(--bg-card)', borderRadius: '14px', marginBottom: '0.6rem', borderLeft: `3px solid ${msg.is_broadcast ? 'var(--accent)' : msg.is_read ? 'var(--border)' : '#f59e0b'}`, opacity: msg.is_read ? 0.75 : 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent)' }}>
-                      {senderName}{msg.is_broadcast ? ' → Herkese' : ''}
-                      {msg.is_read && <span style={{ marginLeft: '0.4rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>✓ okundu</span>}
+                      {senderName}{msg.is_broadcast ? ` → ${t(locale, 'adminToEveryone')}` : ''}
+                      {msg.is_read && <span style={{ marginLeft: '0.4rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>✓ {t(locale, 'adminRead')}</span>}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{new Date(msg.created_at).toLocaleString('tr-TR')}</span>
                       {canMarkRead && (
-                        <button onClick={() => handleMarkRead(msg.id)} title="Okundu işaretle" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.1rem', color: '#10b981' }}>
+                        <button onClick={() => handleMarkRead(msg.id)} title={t(locale, 'adminMarkRead')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.1rem', color: '#10b981' }}>
                           <Check size={14} />
                         </button>
                       )}
                       {(isMyMsg || admin?.role === 'super_admin') && (
-                        <button onClick={() => handleDeleteMessage(msg.id)} title="Sil" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.1rem', color: '#dc2626' }}>
+                        <button onClick={() => handleDeleteMessage(msg.id)} title={t(locale, 'adminDelete')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.1rem', color: '#dc2626' }}>
                           <Trash2 size={14} />
                         </button>
                       )}
@@ -962,18 +1026,18 @@ const token = session.data.session?.access_token
         {tab === 'ai-providers' && admin.role === 'super_admin' && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Hangi AI sağlayıcıların kullanılacağını yönet</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t(locale, 'adminProviderManageHint')}</p>
               <button onClick={fetchProviderConfigs} disabled={providerLoading} style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.35rem 0.6rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                <RefreshCw size={13} style={{ animation: providerLoading ? 'spin 1s linear infinite' : 'none' }} /> Yenile
+                <RefreshCw size={13} style={{ animation: providerLoading ? 'spin 1s linear infinite' : 'none' }} /> {t(locale, 'adminRefresh')}
               </button>
             </div>
 
             {/* Sub-tabs */}
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
               {([
-                { id: 'free', label: 'Ücretsiz' },
-                { id: 'paid', label: 'Ücretli' },
-                { id: 'settings', label: 'Kullanıcı Limitleri' },
+                { id: 'free', label: t(locale, 'adminSubtabFree') },
+                { id: 'paid', label: t(locale, 'adminSubtabPaid') },
+                { id: 'settings', label: t(locale, 'adminSubtabLimits') },
               ] as const).map(st => (
                 <button key={st.id} onClick={() => setProviderSubTab(st.id)} style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: `2px solid ${providerSubTab === st.id ? 'var(--accent)' : 'var(--border)'}`, background: providerSubTab === st.id ? 'rgba(64,93,230,0.08)' : 'transparent', color: providerSubTab === st.id ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.82rem', fontWeight: providerSubTab === st.id ? 700 : 400, cursor: 'pointer' }}>
                   {st.label}
@@ -981,7 +1045,7 @@ const token = session.data.session?.access_token
               ))}
             </div>
 
-            {providerLoading && <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>Yükleniyor...</p>}
+            {providerLoading && <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>{t(locale, 'settingsUploading')}</p>}
 
             {/* ÜCRETSIZ SÜRÜMLER */}
             {providerSubTab === 'free' && !providerLoading && (
@@ -1021,13 +1085,13 @@ const token = session.data.session?.access_token
                           <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                               <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)' }}>{p.display_name}</span>
-                              <span style={{ fontSize: '0.66rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: 'rgba(67,233,123,0.1)', color: '#16a34a', fontWeight: 600 }}>ÜCRETSİZ</span>
+                              <span style={{ fontSize: '0.66rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: 'rgba(67,233,123,0.1)', color: '#16a34a', fontWeight: 600 }}>{t(locale, 'adminSubtabFree').toUpperCase()}</span>
                               {p.fallback_to && (
                                 <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>→ {p.fallback_to}</span>
                               )}
                             </div>
                             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                              Model: {p.model_name} · Öncelik: {p.priority} · Toplam: {p.total_requests_made.toLocaleString()} istek
+                              {t(locale, 'adminModel')}: {p.model_name} · {t(locale, 'adminPriority')}: {p.priority} · {t(locale, 'adminTotalRequests')}: {p.total_requests_made.toLocaleString()} {t(locale, 'adminRequestWord')}
                             </p>
                           </div>
                           {/* Toggle */}
@@ -1047,7 +1111,7 @@ const token = session.data.session?.access_token
                           <div style={{ marginBottom: '0.65rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.73rem', marginBottom: '0.3rem' }}>
                               <span style={{ color: tokenPct !== null && tokenPct > 85 ? '#ef4444' : 'var(--text-muted)', fontWeight: 600 }}>
-                                Token: {tokenUsed.toLocaleString()} / {tokenLimit.toLocaleString()}
+                                {t(locale, 'adminToken')}: {tokenUsed.toLocaleString()} / {tokenLimit.toLocaleString()}
                               </span>
                               <span style={{ color: tokenPct !== null && tokenPct > 85 ? '#ef4444' : tokenPct !== null && tokenPct > 65 ? '#f59e0b' : '#16a34a', fontWeight: 700 }}>
                                 %{tokenPct ?? 0}
@@ -1064,7 +1128,7 @@ const token = session.data.session?.access_token
                           <div style={{ marginBottom: '0.5rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.73rem', marginBottom: '0.3rem' }}>
                               <span style={{ color: isLow ? '#ef4444' : 'var(--text-muted)', fontWeight: 600 }}>
-                                İstek: {used.toLocaleString()} / {dailyLimit.toLocaleString()}
+                                {t(locale, 'adminRequests')}: {used.toLocaleString()} / {dailyLimit.toLocaleString()}
                               </span>
                               <span style={{ color: reqPct !== null && reqPct > 85 ? '#ef4444' : reqPct !== null && reqPct > 65 ? '#f59e0b' : '#16a34a', fontWeight: 700 }}>
                                 %{reqPct ?? 0}
@@ -1079,14 +1143,14 @@ const token = session.data.session?.access_token
                         {/* Alt bilgi satırı */}
                         <div style={{ marginTop: '0.35rem' }}>
                           <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                            Son sıfırlama: {p.last_reset_date} · Toplam token: {(p.total_tokens_used ?? 0).toLocaleString()}
+                            {t(locale, 'adminLastReset')}: {p.last_reset_date} · {t(locale, 'adminTotalTokens')}: {(p.total_tokens_used ?? 0).toLocaleString()}
                           </span>
                         </div>
                       </div>
                     )
                   })}
                 {providerConfigs.filter(p => p.provider_category !== 'paid').length === 0 && (
-                  <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem', padding: '2rem' }}>Ücretsiz sağlayıcı bulunamadı.</p>
+                  <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem', padding: '2rem' }}>{t(locale, 'adminNoFreeProvider')}</p>
                 )}
               </div>
             )}
@@ -1113,10 +1177,10 @@ const token = session.data.session?.access_token
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)' }}>{p.display_name}</span>
-                            <span style={{ fontSize: '0.66rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: 'rgba(64,93,230,0.1)', color: 'var(--accent)', fontWeight: 600 }}>ÜCRETLİ</span>
+                            <span style={{ fontSize: '0.66rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: 'rgba(64,93,230,0.1)', color: 'var(--accent)', fontWeight: 600 }}>{t(locale, 'adminSubtabPaid').toUpperCase()}</span>
                           </div>
                           <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                            Model: {p.model_name} · Öncelik: {p.priority} · Toplam: {p.total_requests_made.toLocaleString()} istek
+                            {t(locale, 'adminModel')}: {p.model_name} · {t(locale, 'adminPriority')}: {p.priority} · {t(locale, 'adminTotalRequests')}: {p.total_requests_made.toLocaleString()} {t(locale, 'adminRequestWord')}
                           </p>
                         </div>
                         <button
@@ -1139,7 +1203,7 @@ const token = session.data.session?.access_token
                             style={{ flex: 1, padding: '0.45rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '0.72rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', opacity: syncingBalance === p.provider_name ? 0.5 : 1 }}
                           >
                             <RefreshCw size={11} style={{ animation: syncingBalance === p.provider_name ? 'spin 1s linear infinite' : 'none' }} />
-                            {deepseekBalance && p.provider_name === 'deepseek' ? `${deepseekBalance.total_balance} ${deepseekBalance.currency}` : 'Bakiyeyi Sorgula'}
+                            {deepseekBalance && p.provider_name === 'deepseek' ? `${deepseekBalance.total_balance} ${deepseekBalance.currency}` : t(locale, 'adminQueryBalance')}
                           </button>
                         )}
                         <a
@@ -1153,14 +1217,14 @@ const token = session.data.session?.access_token
                           style={{ flex: 1, padding: '0.45rem', borderRadius: '8px', border: '1px solid rgba(64,93,230,0.3)', background: 'rgba(64,93,230,0.05)', color: 'var(--accent)', fontSize: '0.72rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', textDecoration: 'none' }}
                         >
                           <ExternalLink size={11} />
-                          {p.provider_name === 'openai' ? 'OpenAI Bakiye' : p.provider_name === 'deepseek' ? 'DeepSeek Yükle' : 'Google Billing'}
+                          {p.provider_name === 'openai' ? t(locale, 'adminOpenAIBalance') : p.provider_name === 'deepseek' ? t(locale, 'adminDeepSeekTopUp') : t(locale, 'adminGoogleBilling')}
                         </a>
                       </div>
                     </div>
                   )
                 })}
                 {providerConfigs.filter(p => p.provider_category === 'paid').length === 0 && (
-                  <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem', padding: '2rem' }}>Ücretli sağlayıcı bulunamadı.</p>
+                  <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem', padding: '2rem' }}>{t(locale, 'adminNoPaidProvider')}</p>
                 )}
               </div>
             )}
@@ -1169,21 +1233,21 @@ const token = session.data.session?.access_token
             {/* KULLANICI LİMİTLERİ */}
             {providerSubTab === 'settings' && (
               <div>
-                {settingsLoading && <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>Yükleniyor...</p>}
+                {settingsLoading && <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>{t(locale, 'adminLoading')}</p>}
                 {!settingsLoading && settingsFetchError && (
                   <div style={{ background: 'rgba(239,68,68,0.1)', border: '1.5px solid rgba(239,68,68,0.3)', borderRadius: '16px', padding: '1.25rem', marginBottom: '0.75rem', textAlign: 'center' }}>
-                    <p style={{ fontSize: '0.82rem', color: '#ef4444', marginBottom: '0.75rem' }}>Ayarlar yüklenemedi: {settingsFetchError}</p>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>app_settings tablosu mevcut olmayabilir. SQL migration'ı çalıştırın veya varsayılan değerleri yükleyin.</p>
+                    <p style={{ fontSize: '0.82rem', color: '#ef4444', marginBottom: '0.75rem' }}>{t(locale, 'adminSettingsLoadFailed')}: {settingsFetchError}</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>{t(locale, 'adminSettingsMigrationHint')}</p>
                     <button onClick={handleSeedDefaults} disabled={seedingDefaults} style={{ padding: '0.5rem 1.25rem', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', opacity: seedingDefaults ? 0.6 : 1 }}>
-                      {seedingDefaults ? 'Yükleniyor...' : 'Varsayılan Ayarları Yükle'}
+                      {seedingDefaults ? t(locale, 'adminLoading') : t(locale, 'adminLoadDefaultSettings')}
                     </button>
                   </div>
                 )}
                 {!settingsLoading && !settingsFetchError && appSettings.length === 0 && (
                   <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border)', borderRadius: '16px', padding: '1.5rem', textAlign: 'center' }}>
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Henüz hiç ayar tanımlanmamış.</p>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>{t(locale, 'adminNoSettingsDefined')}</p>
                     <button onClick={handleSeedDefaults} disabled={seedingDefaults} style={{ padding: '0.5rem 1.25rem', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', opacity: seedingDefaults ? 0.6 : 1 }}>
-                      {seedingDefaults ? 'Yükleniyor...' : 'Varsayılan Ayarları Yükle'}
+                      {seedingDefaults ? t(locale, 'adminLoading') : t(locale, 'adminLoadDefaultSettings')}
                     </button>
                   </div>
                 )}
@@ -1204,13 +1268,13 @@ const token = session.data.session?.access_token
                         disabled={savingKey === s.key}
                         style={{ padding: '0.5rem 1rem', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', opacity: savingKey === s.key ? 0.6 : 1, whiteSpace: 'nowrap' }}
                       >
-                        {savingKey === s.key ? '...' : 'Kaydet'}
+                        {savingKey === s.key ? '...' : t(locale, 'adminSave')}
                       </button>
                     </div>
                   </div>
                 ))}
                 {settingsMsg && (
-                  <div style={{ position: 'fixed', bottom: '5rem', left: '50%', transform: 'translateX(-50%)', background: settingsMsg.startsWith('Hata') ? '#ef4444' : 'var(--accent)', color: 'white', padding: '0.6rem 1.25rem', borderRadius: '12px', fontSize: '0.82rem', fontWeight: 600, zIndex: 20000 }}>
+                  <div style={{ position: 'fixed', bottom: '5rem', left: '50%', transform: 'translateX(-50%)', background: settingsMsg.startsWith(errorPrefix) ? '#ef4444' : 'var(--accent)', color: 'white', padding: '0.6rem 1.25rem', borderRadius: '12px', fontSize: '0.82rem', fontWeight: 600, zIndex: 20000 }}>
                     {settingsMsg}
                   </div>
                 )}
@@ -1236,37 +1300,37 @@ const token = session.data.session?.access_token
               </button>
               <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <SearchIcon size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '0.75rem', pointerEvents: 'none' }} />
-                <input ref={gutenbergInputRef} className="input" value={gutenbergQuery} onChange={e => handleSearchInput(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') { setGutenbergQuery(''); setGutenbergResults([]) } }} placeholder="Kitap adı veya yazar ara..." autoComplete="off" autoFocus style={{ width: '100%', paddingLeft: '2.25rem', paddingRight: gutenbergQuery ? '2.25rem' : '0.75rem', height: '38px', borderRadius: '12px' }} />
+                <input ref={gutenbergInputRef} className="input" value={gutenbergQuery} onChange={e => handleSearchInput(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') { setGutenbergQuery(''); setGutenbergResults([]) } }} placeholder={t(locale, 'adminSearchPlaceholder')} autoComplete="off" autoFocus style={{ width: '100%', paddingLeft: '2.25rem', paddingRight: gutenbergQuery ? '2.25rem' : '0.75rem', height: '38px', borderRadius: '12px' }} />
                 {gutenbergQuery && <button onClick={() => { setGutenbergQuery(''); setGutenbergResults([]); gutenbergInputRef.current?.focus() }} style={{ position: 'absolute', right: '0.6rem', background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.2rem', display: 'flex' }}><X size={15} color="var(--text-muted)" /></button>}
               </div>
             </div>
             {gutenbergLoading && <div style={{ height: '2px', background: 'var(--border)', overflow: 'hidden' }}><div style={{ height: '100%', background: 'var(--accent)', animation: 'loadingBar 1s ease-in-out infinite', transformOrigin: 'left' }} /></div>}
             <div style={{ paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>70.000+ ücretsiz klasik kitap · tam metin</p>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t(locale, 'adminClassicLibraryHint')}</p>
               <button
                 onClick={async () => {
-                  if (!confirm('30 klasik kitap otomatik eklensin mi? Bu işlem ~5 dakika sürer.')) return
+                  if (!confirm(t(locale, 'adminBulkAddConfirm'))) return
                   const res = await fetch('/api/gutenberg-bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 30 }) })
                   const data = await res.json()
-                  if (data.ok) alert(`✅ ${data.results.success} kitap eklendi!`)
-                  else alert('Hata: ' + data.error)
+                  if (data.ok) alert(`✅ ${data.results.success} ${t(locale, 'adminBooksAddedSuffix')}`)
+                  else alert(`${t(locale, 'adminErrorPrefix')}: ${data.error}`)
                 }}
                 style={{ padding: '0.3rem 0.75rem', borderRadius: '999px', background: 'var(--accent)', border: 'none', color: 'white', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
               >
-                ⚡ Hepsini Ekle
+                ⚡ {t(locale, 'adminBulkAddButton')}
               </button>
-              {gutenbergResults.length > 0 && <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{gutenbergResults.length} sonuç</p>}
+              {gutenbergResults.length > 0 && <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{gutenbergResults.length} {t(locale, 'adminResultWord')}</p>}
             </div>
           </div>
 
           <div style={{ overflowY: 'auto', flex: 1, padding: '0.5rem 1rem' }}>
             {gutenbergLoading && gutenbergResults.length === 0 && [1,2,3,4,5].map(n => <SkeletonRow key={n} />)}
-            {!gutenbergLoading && gutenbergResults.length === 0 && gutenbergQuery.trim() && <NoResults q={gutenbergQuery} />}
+            {!gutenbergLoading && gutenbergResults.length === 0 && gutenbergQuery.trim() && <NoResults q={gutenbergQuery} locale={locale} />}
             {!gutenbergLoading && gutenbergResults.length === 0 && !gutenbergQuery.trim() && (
               <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
                 <BookOpen size={40} color="var(--border)" style={{ marginBottom: '0.75rem' }} />
-                <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.35rem' }}>Kitap Ara</p>
-                <p style={{ fontSize: '0.8rem' }}>Yazar veya kitap adı yazın</p>
+                <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.35rem' }}>{t(locale, 'adminSearchBookTitle')}</p>
+                <p style={{ fontSize: '0.8rem' }}>{t(locale, 'adminSearchBookSubtitle')}</p>
               </div>
             )}
             {gutenbergResults.map((book, i) => {
@@ -1280,17 +1344,17 @@ const token = session.data.session?.access_token
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</p>
                     {author && <p style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>{author}</p>}
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{book.download_count.toLocaleString()} indirme</p>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{book.download_count.toLocaleString()} {t(locale, 'adminDownloadWord')}</p>
                   </div>
                   <button onClick={() => !done && !importingKey && importGutenbergBook(book)} disabled={active || done} style={{ flexShrink: 0, padding: '0.45rem 0.85rem', borderRadius: '10px', border: 'none', background: done ? 'rgba(67,233,123,0.15)' : active ? 'var(--bg-soft)' : 'var(--accent)', color: done ? '#16a34a' : active ? 'var(--text-muted)' : 'white', fontSize: '0.78rem', fontWeight: 700, cursor: done || !!importingKey ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', minWidth: '72px', justifyContent: 'center' }}>
-                    {done ? <><Check size={13} /> Eklendi</> : active ? <>⏳ Çekiyor</> : <><Plus size={13} /> Ekle</>}
+                    {done ? <><Check size={13} /> {t(locale, 'adminAdded')}</> : active ? <>⏳ {t(locale, 'adminFetching')}</> : <><Plus size={13} /> {t(locale, 'adminAdd')}</>}
                   </button>
                 </div>
               )
             })}
             <div style={{ height: '2rem' }} />
           </div>
-          {importError && <div style={{ position: 'fixed', bottom: '5rem', left: '50%', transform: 'translateX(-50%)', background: '#ef4444', color: 'white', padding: '0.6rem 1.25rem', borderRadius: '12px', fontSize: '0.82rem', fontWeight: 600, zIndex: 20000, maxWidth: '90vw', textAlign: 'center' }}>Hata: {importError}</div>}
+          {importError && <div style={{ position: 'fixed', bottom: '5rem', left: '50%', transform: 'translateX(-50%)', background: '#ef4444', color: 'white', padding: '0.6rem 1.25rem', borderRadius: '12px', fontSize: '0.82rem', fontWeight: 600, zIndex: 20000, maxWidth: '90vw', textAlign: 'center' }}>{t(locale, 'adminErrorPrefix')}: {importError}</div>}
         </div>
       )}
 
@@ -1301,13 +1365,13 @@ const token = session.data.session?.access_token
             <div style={{ overflowY: 'auto', flex: 1, padding: '1.5rem 1.5rem 0' }}>
               <div style={{ width: '40px', height: '4px', background: 'var(--border)', borderRadius: '2px', margin: '0 auto 1.25rem' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>{editingBook ? 'Kitabı Düzenle' : 'Kataloğa Kitap Ekle'}</h3>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>{editingBook ? t(locale, 'adminEditBookTitle') : t(locale, 'adminAddCatalogBookTitle')}</h3>
                 <button onClick={() => { setShowAddBook(false); resetBookForm() }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={22} /></button>
               </div>
 
               {/* Kapak */}
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Kapak Resmi</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'adminCoverImageLabel')}</label>
                 <input ref={coverRef} type="file" accept="image/*" onChange={e => e.target.files?.[0] && handleCoverSelect(e.target.files[0])} style={{ display: 'none' }} />
                 <button onClick={() => coverRef.current?.click()} style={{ width: '100%', padding: '0.75rem', border: `2px dashed ${coverPreview ? 'var(--accent)' : 'var(--border)'}`, borderRadius: '12px', background: 'var(--bg-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   {coverPreview
@@ -1316,20 +1380,20 @@ const token = session.data.session?.access_token
                       ? <RefreshCw size={22} color="var(--accent)" style={{ animation: 'spin 1s linear infinite' }} />
                       : <Image size={22} color="var(--text-muted)" />}
                   <span style={{ fontSize: '0.85rem', color: coverPreview || generatingCover ? 'var(--accent)' : 'var(--text-muted)', fontWeight: coverPreview ? 600 : 400 }}>
-                    {generatingCover ? 'AI kapak oluşturuluyor...' : coverPreview ? (generatedCoverUrl ? 'AI kapak oluşturuldu (değiştir)' : 'Kapak seçildi (değiştir)') : 'Galeriden kapak seç'}
+                    {generatingCover ? t(locale, 'adminGeneratingCover') : coverPreview ? (generatedCoverUrl ? t(locale, 'adminAiCoverGeneratedChange') : t(locale, 'adminCoverSelectedChange')) : t(locale, 'adminSelectCoverFromGallery')}
                   </span>
                 </button>
               </div>
 
               {/* PDF */}
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>İçerik (PDF veya metin)</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'adminContentPdfOrText')}</label>
                 <input ref={pdfRef} type="file" accept=".pdf,application/pdf" onChange={e => e.target.files?.[0] && handlePdfUpload(e.target.files[0])} style={{ display: 'none' }} />
                 <button onClick={() => !pdfParsing && pdfRef.current?.click()} style={{ width: '100%', padding: '0.75rem', border: `2px dashed ${pdfFile ? 'var(--accent)' : 'var(--border)'}`, borderRadius: '12px', background: 'var(--bg-soft)', cursor: pdfParsing ? 'default' : 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0.5rem', marginBottom: '0.5rem', overflow: 'hidden' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <Upload size={18} color={pdfFile ? 'var(--accent)' : 'var(--text-muted)'} />
                     <span style={{ fontSize: '0.85rem', color: pdfFile ? 'var(--accent)' : 'var(--text-muted)', flex: 1, textAlign: 'left' }}>
-                      {pdfParsing ? `PDF okunuyor... %${pdfProgress}` : pdfFile ? `✓ ${pdfFile.name}` : 'PDF yükle'}
+                      {pdfParsing ? `${t(locale, 'adminPdfReadingProgress')} %${pdfProgress}` : pdfFile ? `✓ ${pdfFile.name}` : t(locale, 'adminUploadPdf')}
                     </span>
                     {pdfParsing && <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700 }}>{pdfProgress}%</span>}
                   </div>
@@ -1339,20 +1403,20 @@ const token = session.data.session?.access_token
                     </div>
                   )}
                 </button>
-                <textarea className="input" value={bookContent} onChange={e => setBookContent(e.target.value)} placeholder="veya metni buraya yapıştır..." rows={3} style={{ resize: 'none' }} />
+                <textarea className="input" value={bookContent} onChange={e => setBookContent(e.target.value)} placeholder={t(locale, 'adminPasteTextPlaceholder')} rows={3} style={{ resize: 'none' }} />
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Başlık *</label>
-                <input className="input" value={bookTitle} onChange={e => setBookTitle(e.target.value)} placeholder="Kitap adı" />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'adminBookTitleLabel')}</label>
+                <input className="input" value={bookTitle} onChange={e => setBookTitle(e.target.value)} placeholder={t(locale, 'adminBookTitlePlaceholder')} />
               </div>
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Yazar</label>
-                <input className="input" value={bookAuthor} onChange={e => setBookAuthor(e.target.value)} placeholder="Yazar adı" />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'adminAuthorLabel')}</label>
+                <input className="input" value={bookAuthor} onChange={e => setBookAuthor(e.target.value)} placeholder={t(locale, 'adminAuthorPlaceholder')} />
               </div>
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Açıklama</label>
-                <textarea className="input" value={bookDesc} onChange={e => setBookDesc(e.target.value)} placeholder="Kitap hakkında..." rows={2} style={{ resize: 'none' }} />
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'adminDescriptionLabel')}</label>
+                <textarea className="input" value={bookDesc} onChange={e => setBookDesc(e.target.value)} placeholder={t(locale, 'adminDescriptionPlaceholder')} rows={2} style={{ resize: 'none' }} />
               </div>
 
               {/* AI Sınıflandır */}
@@ -1361,26 +1425,26 @@ const token = session.data.session?.access_token
                 disabled={autoClassifying || !bookTitle.trim()}
                 style={{ width: '100%', marginBottom: '1rem', padding: '0.7rem', borderRadius: '12px', border: '1.5px solid var(--accent)', background: 'rgba(64,93,230,0.08)', color: 'var(--accent)', fontSize: '0.85rem', fontWeight: 700, cursor: bookTitle.trim() ? 'pointer' : 'not-allowed', opacity: bookTitle.trim() ? 1 : 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
               >
-                {autoClassifying ? '⏳ Sınıflandırılıyor...' : '🤖 AI ile Otomatik Sınıflandır'}
+                {autoClassifying ? `⏳ ${t(locale, 'adminAutoClassifying')}` : `🤖 ${t(locale, 'adminAutoClassify')}`}
               </button>
 
               {/* Dil & Seviye */}
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Dil</label>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'adminLanguageLabel')}</label>
                   <select className="input" value={bookLanguage} onChange={e => setBookLanguage(e.target.value)}>
-                    <option value="tr">Türkçe</option>
-                    <option value="en">İngilizce</option>
-                    <option value="ru">Rusça</option>
-                    <option value="de">Almanca</option>
-                    <option value="fr">Fransızca</option>
-                    <option value="es">İspanyolca</option>
+                    <option value="tr">{t(locale, 'adminLangTr')}</option>
+                    <option value="en">{t(locale, 'adminLangEn')}</option>
+                    <option value="ru">{t(locale, 'adminLangRu')}</option>
+                    <option value="de">{t(locale, 'adminLangDe')}</option>
+                    <option value="fr">{t(locale, 'adminLangFr')}</option>
+                    <option value="es">{t(locale, 'adminLangEs')}</option>
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Seviye</label>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'levelLabel')}</label>
                   <select className="input" value={bookLevel} onChange={e => setBookLevel(e.target.value)}>
-                    <option value="">Belirtme</option>
+                    <option value="">{t(locale, 'adminLevelOptional')}</option>
                     {['A1','A2','B1','B2','C1','C2'].map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
                 </div>
@@ -1388,11 +1452,11 @@ const token = session.data.session?.access_token
 
               {/* Kategoriler */}
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Kategori</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{t(locale, 'adminCategoryLabel')}</label>
                 <div className="hide-scrollbar" style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
                   {BOOK_CATEGORIES.filter(c => c.id !== 'all').map(c => (
                     <button key={c.id} onClick={() => setBookCategories(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id])} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', borderRadius: '999px', border: `1.5px solid ${bookCategories.includes(c.id) ? 'var(--accent)' : 'var(--border)'}`, background: bookCategories.includes(c.id) ? 'rgba(64,93,230,0.1)' : 'transparent', color: bookCategories.includes(c.id) ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.78rem', fontWeight: bookCategories.includes(c.id) ? 700 : 400, cursor: 'pointer' }}>
-                      <span>{c.icon}</span> {c.label}
+                      <span>{c.icon}</span> {getCategoryLabel(c.id, locale)}
                     </button>
                   ))}
                 </div>
@@ -1400,13 +1464,13 @@ const token = session.data.session?.access_token
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <input type="checkbox" checked={bookPublished} onChange={e => setBookPublished(e.target.checked)} id="published" style={{ accentColor: 'var(--accent)', width: '16px', height: '16px' }} />
-                <label htmlFor="published" style={{ fontSize: '0.85rem', color: 'var(--text)' }}>Yayınla (hemen görünsün)</label>
+                <label htmlFor="published" style={{ fontSize: '0.85rem', color: 'var(--text)' }}>{t(locale, 'adminPublishNow')}</label>
               </div>
             </div>
 
             <div style={{ padding: '1rem 1.5rem', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--border)', background: 'var(--bg-card)' }}>
               <button onClick={handleSaveBook} disabled={saving || !bookTitle.trim() || pdfParsing || generatingCover} className="btn-primary" style={{ width: '100%', padding: '0.95rem', borderRadius: '14px', fontSize: '0.95rem', opacity: saving || !bookTitle.trim() || generatingCover ? 0.5 : 1 }}>
-                {saving ? 'Kaydediliyor...' : editingBook ? 'Güncelle' : 'Kataloğa Ekle'}
+                {saving ? t(locale, 'adminSaving') : editingBook ? t(locale, 'adminUpdate') : t(locale, 'adminAddToCatalog')}
               </button>
             </div>
           </div>
