@@ -19,12 +19,14 @@ interface AppShellContext {
   openDrawer: () => void
   closeDrawer: () => void
   isAdmin: boolean
+  profile: Profile | null
 }
 
 export const AppShellCtx = createContext<AppShellContext>({
   openDrawer: () => {},
   closeDrawer: () => {},
   isAdmin: false,
+  profile: null,
 })
 
 export const useAppShell = () => useContext(AppShellCtx)
@@ -41,8 +43,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [prevPath, setPrevPath] = useState(pathname)
   const [transitioning, setTransitioning] = useState(false)
 
-  // Tema başlat
-  useEffect(() => { initTheme() }, [pathname])
+  // Tema başlat — sadece mount'ta bir kez
   useEffect(() => {
     initTheme()
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -99,7 +100,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       const t = setTimeout(() => {
         setPrevPath(pathname)
         setTransitioning(false)
-      }, 200)
+      }, 80)
       return () => clearTimeout(t)
     }
   }, [pathname])
@@ -116,6 +117,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       openDrawer: () => setDrawerOpen(true),
       closeDrawer: () => setDrawerOpen(false),
       isAdmin,
+      profile,
     }}>
       {/* Sayfa içeriği — geçiş animasyonu */}
       <div style={{
@@ -125,8 +127,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         minHeight: '100dvh',
         overflowX: 'clip',
         opacity: transitioning ? 0 : 1,
-        transform: transitioning ? 'translateY(4px)' : 'translateY(0)',
-        transition: 'opacity 0.18s ease, transform 0.18s ease',
+        transition: 'opacity 0.08s ease',
       }}>
         {children}
       </div>
