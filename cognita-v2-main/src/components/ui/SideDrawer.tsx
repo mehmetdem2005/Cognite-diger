@@ -241,6 +241,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
                 key={themeOption.value}
                 onClick={() => handleTheme(themeOption.value)}
                 className={`flex-1 flex flex-col items-center gap-0.5 p-2 rounded-md border-1.5 transition-all ${
+                  className={`flex-1 flex flex-col items-center gap-0.5 p-2 rounded-md border transition-all ${
                   theme === themeOption.value
                     ? 'border-accent bg-accent/8 text-accent font-bold'
                     : 'border-border bg-bg-soft text-text-muted'
@@ -256,6 +257,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
           <button
             onClick={handleSignOut}
             className="w-full flex items-center gap-3 p-1.75 bg-transparent border-none cursor-pointer hover:opacity-80 transition-opacity"
+              className="w-full flex items-center gap-3 p-2 bg-transparent border-none cursor-pointer hover:opacity-80 transition-opacity"
           >
             <LogOut size={18} className="text-red-500" strokeWidth={1.8} />
             <span className="text-sm text-red-500 font-semibold">{t(locale, 'settingsSignOut')}</span>
