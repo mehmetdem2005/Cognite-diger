@@ -64,15 +64,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       return
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUserId(session.user.id)
-        fetchProfile(session.user.id)
-        checkAdmin(session.user.id)
-      } else {
-        setProfileLoading(false)
-      }
-    })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.user) {
         setUserId(session.user.id)
