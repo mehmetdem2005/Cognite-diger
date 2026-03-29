@@ -46,7 +46,7 @@ Asagidaki klasorlerin tumu silinecek:
 - [x] Klasorlerin silindigi dogrulandi
 - [x] Git durumu kontrol edildi
 - [x] Degisiklikler commit edildi
-- [ ] Uzak repoya push yapildi
+- [x] Uzak repoya push yapildi
 
 ## 6) Post-Deletion State Snapshot
 Kalan kok dosyalar:
