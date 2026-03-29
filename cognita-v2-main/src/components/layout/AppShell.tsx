@@ -44,9 +44,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [prevPath, setPrevPath] = useState(pathname)
-  const [transitioning, setTransitioning] = useState(false)
-
   useEffect(() => {
     initTheme()
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -98,18 +95,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setIsAdmin(!!data)
   }
 
-  // Sayfa geçiş animasyonu
-  useEffect(() => {
-    if (pathname !== prevPath) {
-      setTransitioning(true)
-      const t = setTimeout(() => {
-        setPrevPath(pathname)
-        setTransitioning(false)
-      }, 80)
-      return () => clearTimeout(t)
-    }
-  }, [pathname])
-
   // Drawer kapatınca scroll kilidi kaldır
   useEffect(() => {
     if (!drawerOpen) document.body.style.overflow = ''
@@ -125,15 +110,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       profile,
       profileLoading,
     }}>
-      {/* Sayfa içeriği — geçiş animasyonu */}
       <div style={{
         position: 'relative',
         width: '100%',
         maxWidth: '100%',
         minHeight: '100dvh',
         overflowX: 'clip',
-        opacity: transitioning ? 0 : 1,
-        transition: 'opacity 0.08s ease',
       }}>
         {children}
       </div>
