@@ -53,9 +53,6 @@ export default function DailyQuote() {
 
   return (
     <div className="card mx-4 my-3 relative overflow-hidden">
-      <div className="absolute -top-1 left-3 text-5xl text-bg-soft font-serif leading-none pointer-events-none opacity-30">
-        "
-      </div>
       <p className="text-sm leading-relaxed text-text mb-3 relative pt-2">
         {quote.text}
       </p>

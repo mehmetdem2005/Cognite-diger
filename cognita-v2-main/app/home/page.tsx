@@ -358,8 +358,8 @@ export default function HomePage() {
             {catalogBooks.map((book, i) => (
               <div key={book.id} onClick={() => router.push(`/catalog/${book.id}`)} style={{ flexShrink: 0, width: '100px', cursor: 'pointer' }}>
                 <BookCover title={book.title} coverUrl={book.cover_url} width={100} height={140} borderRadius={10} index={i} style={{ marginBottom: '0.4rem', boxShadow: 'var(--shadow-md)' }} />
-                <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</p>
-                {book.author && <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</p>}
+                <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{book.title}</p>
+                {book.author && <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{book.author}</p>}
               </div>
             ))}
           </div>
