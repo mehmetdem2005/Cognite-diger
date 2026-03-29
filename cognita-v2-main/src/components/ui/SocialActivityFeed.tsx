@@ -74,75 +74,38 @@ export default function SocialActivityFeed({ userId }: Props) {
   if (loading || activities.length === 0) return null
 
   return (
-    <div style={{ marginTop: '0.75rem', background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <Users size={15} color="var(--accent)" />
-          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Takip Ettikleriniz</span>
+    <section className="card animate-fade-in">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <Users size={16} className="text-blue-500" />
+          <h3 className="text-sm font-bold text-text-primary">Takip Ettikleriniz</h3>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {activities.map((activity, i) => (
+      <div className="divide-y divide-border">
+        {activities.map((activity) => (
           <div
             key={activity.id}
             onClick={() => router.push(`/user/${activity.user.username}`)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.8rem',
-              padding: '0.75rem 1rem',
-              borderTop: i > 0 ? '1px solid var(--border)' : 'none',
-              cursor: 'pointer',
-              transition: 'background 0.2s ease'
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-soft)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            className="flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-bg-soft"
           >
-            {/* Avatar */}
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                overflow: 'hidden',
-              }}
-            >
-              {activity.user.avatar_url ? (
-                <img
-                  src={activity.user.avatar_url}
-                  alt={activity.user.full_name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              ) : (
-                <span style={{ color: 'white', fontWeight: 700, fontSize: '0.9rem' }}>
-                  {(activity.user.full_name || activity.user.username || 'U')[0].toUpperCase()}
-                </span>
-              )}
+            {getActivityIcon(activity.activity_type) && (
+              <div className="flex-shrink-0 text-lg">{getActivityIcon(activity.activity_type)}</div>
+            )}
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-text-primary">
+                {activity.user.full_name || activity.user.username}
+              </p>
+              <p className="text-xs text-text-muted line-clamp-2">{getActivityMessage(activity)}</p>
             </div>
 
-            {/* Aktivite Metni */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text)', marginBottom: '0.2rem' }}>
-                <span style={{ fontWeight: 700 }}>{activity.user.full_name || activity.user.username}</span>
-                {' '}
-                {getActivityMessage(activity)}
-              </p>
-              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                {new Date(activity.created_at).toLocaleDateString('tr-TR')}
-              </p>
-            </div>
-
-            {/* İkon */}
-            {getActivityIcon(activity.activity_type)}
+            <p className="text-xs text-text-muted flex-shrink-0 whitespace-nowrap">
+              {new Date(activity.created_at).toLocaleDateString('tr-TR')}
+            </p>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   )
 }

@@ -102,120 +102,86 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
       {/* Backdrop */}
       <div
         onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 9998,
-          background: 'rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(2px)',
-          WebkitBackdropFilter: 'blur(2px)',
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? 'auto' : 'none',
-          transition: 'opacity 0.3s ease',
-        }}
+        className={`fixed inset-0 z-[9998] backdrop-blur-sm transition-opacity duration-300 ${
+          open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        style={{ background: 'rgba(0,0,0,0.5)' }}
       />
 
       {/* Drawer */}
       <div
         ref={drawerRef}
+        className={`fixed top-0 bottom-0 right-0 z-[9999] w-min[320px] max-w-[85vw] bg-card border-l border-border flex flex-col overflow-y-auto transition-transform duration-300 ease-out ${
+          open ? 'translate-x-0' : 'translate-x-full'
+        }`}
         style={{
-          position: 'fixed',
-          top: 0, bottom: 0, right: 0,
           width: 'min(320px, 85vw)',
-          zIndex: 9999,
-          background: 'var(--bg-card)',
-          borderLeft: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
-          transform: open ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 0.3s ease-out',
           boxShadow: open ? '-10px 0 30px rgba(0,0,0,0.15)' : 'none',
-          overflowY: 'auto',
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-        {/* Üst profil alanı */}
-        <div style={{
-          padding: '3rem 1.25rem 1.25rem',
-          background: 'linear-gradient(160deg, var(--accent) 0%, var(--accent-2) 100%)',
-          position: 'relative',
-        }}>
-          {/* Kapat butonu */}
+        {/* Profile section */}
+        <div className="relative p-5 pt-12 bg-gradient-to-br from-accent to-accent-2">
+          {/* Close button */}
           <button
             onClick={onClose}
-            style={{
-              position: 'absolute', top: '1rem', right: '1rem',
-              background: 'rgba(255,255,255,0.2)',
-              border: 'none', borderRadius: '50%',
-              width: 32, height: 32,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-              backdropFilter: 'blur(10px)',
-            }}
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 border-none cursor-pointer backdrop-blur-md hover:bg-white/30 transition-colors"
           >
-            <X size={16} color="white" />
+            <X size={16} className="text-white" />
           </button>
 
           {/* Avatar */}
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.2)',
-            border: '2px solid rgba(255,255,255,0.4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: '0.75rem',
-            overflow: 'hidden',
-          }}>
+          <div className="w-16 h-16 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center mb-3 overflow-hidden">
             {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
             ) : (
-              <span style={{ fontSize: '1.5rem', color: 'white', fontWeight: 700 }}>
+              <span className="text-2xl text-white font-bold">
                 {(profile?.full_name || profile?.username || '?')[0].toUpperCase()}
               </span>
             )}
           </div>
 
-          <p style={{ color: 'white', fontWeight: 700, fontSize: '1rem', marginBottom: '0.15rem' }}>
+          <p className="text-white font-bold text-base mb-0.5">
             {profile?.full_name || profile?.username || t(locale, 'drawerDefaultUser')}
           </p>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', marginBottom: '1rem' }}>
+          <p className="text-white/70 text-xs mb-4">
             @{profile?.username || t(locale, 'drawerAnon')} • Lv.{profile?.level || 1}
           </p>
 
           {/* XP bar */}
-          <div style={{ marginBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.68rem', fontWeight: 600 }}>
-                <Zap size={10} style={{ display: 'inline', marginRight: 3 }} />
+          <div className="mb-3">
+            <div className="flex justify-between mb-1">
+              <span className="text-white/80 text-xs font-semibold flex items-center gap-0.5">
+                <Zap size={10} />
                 {profile?.xp || 0} XP
               </span>
-              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.68rem' }}>
+              <span className="text-white/60 text-xs">
                 {200 - ((profile?.xp || 0) % 200)} sonraki seviye
               </span>
             </div>
-            <div style={{ height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{
-                height: '100%',
-                width: `${xpProgress}%`,
-                background: 'white',
-                borderRadius: 2,
-                transition: 'width 0.5s ease',
-              }} />
+            <div className="h-1 bg-white/20 rounded overflow-hidden">
+              <div
+                className="h-full bg-white transition-all duration-500 rounded"
+                style={{ width: `${xpProgress}%` }}
+              />
             </div>
           </div>
 
           {/* Streak */}
           {(profile?.streak_days || 0) > 0 && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(255,255,255,0.15)', borderRadius: 999, padding: '0.2rem 0.6rem', fontSize: '0.72rem', color: 'white' }}>
+            <div className="inline-flex items-center gap-1 bg-white/15 rounded-full px-1.5 py-0.5 text-xs text-white">
               🔥 {profile?.streak_days} {t(locale, 'drawerStreakSuffix')}
             </div>
           )}
         </div>
 
-        {/* Menü öğeleri */}
-        <div style={{ flex: 1, padding: '0.75rem 0' }}>
+        {/* Menu items */}
+        <div className="flex-1 py-3">
           {SECTIONS.map(section => {
             const items = MENU_ITEMS.filter(i => i.section === section.key)
             return (
               <div key={section.key}>
-                <p style={{ padding: '0.5rem 1.25rem 0.3rem', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                <p className="px-5 py-1 text-xs font-bold text-text-muted uppercase tracking-widest">
                   {t(locale, section.labelKey)}
                 </p>
                 {items.map(item => {
@@ -225,78 +191,74 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
                     <button
                       key={item.href}
                       onClick={() => handleNav(item.href)}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center',
-                        gap: '0.75rem', padding: '0.7rem 1.25rem',
-                        background: active ? 'rgba(64,93,230,0.08)' : 'transparent',
-                        border: 'none', cursor: 'pointer',
-                        borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent',
-                        transition: 'all 0.15s',
-                      }}
+                      className={`w-full flex items-center gap-3 px-5 py-1.75 border-l-[3px] transition-all duration-150 ${
+                        active
+                          ? 'bg-accent/8 border-l-accent text-accent'
+                          : 'border-l-transparent hover:bg-bg-soft'
+                      }`}
                     >
-                      <Icon size={18} color={active ? 'var(--accent)' : 'var(--text-soft)'} strokeWidth={active ? 2.5 : 1.8} />
-                      <span style={{ fontSize: '0.88rem', fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)' }}>
+                      <Icon
+                        size={18}
+                        className={active ? 'text-accent font-bold' : 'text-text-soft'}
+                        strokeWidth={active ? 2.5 : 1.8}
+                      />
+                      <span className={`text-sm ${active ? 'font-bold text-accent' : 'font-normal text-text'}`}>
                         {t(locale, item.labelKey)}
                       </span>
                     </button>
                   )
                 })}
-                <div style={{ height: '0.5rem' }} />
+                <div className="h-2" />
               </div>
             )
           })}
 
-          {/* Admin paneli */}
+          {/* Admin panel */}
           {isAdmin && (
             <button
               onClick={() => handleNav('/admin')}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.7rem 1.25rem', background: 'transparent', border: 'none', cursor: 'pointer', borderLeft: '3px solid transparent' }}
+              className="w-full flex items-center gap-3 px-5 py-1.75 border-l-[3px] border-l-transparent hover:bg-bg-soft transition-colors"
             >
-              <Shield size={18} color="var(--text-soft)" strokeWidth={1.8} />
-              <span style={{ fontSize: '0.88rem', color: 'var(--text)' }}>{t(locale, 'adminPanelTitle')}</span>
+              <Shield size={18} className="text-text-soft" strokeWidth={1.8} />
+              <span className="text-sm text-text">{t(locale, 'adminPanelTitle')}</span>
             </button>
           )}
         </div>
 
-        {/* Alt bölüm - tema + çıkış */}
-        <div style={{ borderTop: '1px solid var(--border)', padding: '1rem 1.25rem' }}>
-          {/* Tema seçici */}
-          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t(locale, 'settingsThemeLabel')}</p>
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        {/* Bottom section */}
+        <div className="border-t border-border p-5">
+          {/* Theme selector */}
+          <p className="text-xs font-bold text-text-muted mb-2 uppercase tracking-wider">
+            {t(locale, 'settingsThemeLabel')}
+          </p>
+          <div className="flex gap-2 mb-4">
             {[
               { value: 'light', icon: <Sun size={14} />, label: t(locale, 'settingsThemeLight') },
               { value: 'dark', icon: <Moon size={14} />, label: t(locale, 'settingsThemeDark') },
               { value: 'system', icon: <Monitor size={14} />, label: t(locale, 'settingsThemeSystem') },
-            ].map(t => (
+            ].map(themeOption => (
               <button
-                key={t.value}
-                onClick={() => handleTheme(t.value)}
-                style={{
-                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem',
-                  padding: '0.5rem 0.25rem',
-                  borderRadius: 'var(--radius-md)',
-                  border: `1.5px solid ${theme === t.value ? 'var(--accent)' : 'var(--border)'}`,
-                  background: theme === t.value ? 'rgba(64,93,230,0.08)' : 'var(--bg-soft)',
-                  color: theme === t.value ? 'var(--accent)' : 'var(--text-muted)',
-                  cursor: 'pointer', fontSize: '0.68rem', fontWeight: theme === t.value ? 700 : 400,
-                }}
+                key={themeOption.value}
+                onClick={() => handleTheme(themeOption.value)}
+                className={`flex-1 flex flex-col items-center gap-0.5 p-2 rounded-md border-1.5 transition-all ${
+                  theme === themeOption.value
+                    ? 'border-accent bg-accent/8 text-accent font-bold'
+                    : 'border-border bg-bg-soft text-text-muted'
+                }`}
               >
-                {t.icon}
-                {t.label}
+                {themeOption.icon}
+                <span className="text-xs">{themeOption.label}</span>
               </button>
             ))}
           </div>
 
-          {/* Çıkış */}
+          {/* Logout */}
           <button
             onClick={handleSignOut}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem',
-              padding: '0.7rem 0', background: 'transparent', border: 'none', cursor: 'pointer',
-            }}
+            className="w-full flex items-center gap-3 p-1.75 bg-transparent border-none cursor-pointer hover:opacity-80 transition-opacity"
           >
-            <LogOut size={18} color="var(--red)" strokeWidth={1.8} />
-            <span style={{ fontSize: '0.88rem', color: 'var(--red)', fontWeight: 600 }}>{t(locale, 'settingsSignOut')}</span>
+            <LogOut size={18} className="text-red-500" strokeWidth={1.8} />
+            <span className="text-sm text-red-500 font-semibold">{t(locale, 'settingsSignOut')}</span>
           </button>
         </div>
       </div>

@@ -7,7 +7,7 @@ type CardPanelProps = {
 
 export function CardPanel({ children, style }: CardPanelProps) {
   return (
-    <div style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', ...style }}>
+    <div className="bg-card border-t border-b border-border" style={style}>
       {children}
     </div>
   )
@@ -20,7 +20,7 @@ type SectionLabelProps = {
 
 export function SectionLabel({ children, style }: SectionLabelProps) {
   return (
-    <p className="section-title" style={{ padding: '0 1rem', marginBottom: '0.5rem', ...style }}>
+    <p className="section-title px-4 mb-2" style={style}>
       {children}
     </p>
   )

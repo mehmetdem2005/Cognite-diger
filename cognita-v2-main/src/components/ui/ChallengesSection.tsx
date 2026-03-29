@@ -70,23 +70,22 @@ export default function ChallengesSection({ userId }: Props) {
   if (loading || challenges.length === 0) return null
 
   return (
-    <div style={{ marginTop: '0.75rem', background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <Zap size={15} color="#f59e0b" />
-          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Aktif Zorluklar</span>
+    <section className="card animate-fade-in">
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          <Zap size={16} className="text-yellow-500" />
+          <h3 className="text-sm font-bold text-text-primary">Aktif Zorluklar</h3>
         </div>
-        <button onClick={() => router.push('/challenges')} style={{ background: 'none', border: 'none', fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={() => router.push('/challenges')} className="btn-ghost text-xs">
           Tümü
         </button>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem' }}>
+      <div className="space-y-3">
         {challenges.map((challenge) => {
           const progress = userProgress[challenge.id]
           const isParticipating = !!progress
 
-          // Progress hesapla
           let progressPercent = 0
           let progressText = ''
 
@@ -102,65 +101,42 @@ export default function ChallengesSection({ userId }: Props) {
             <div
               key={challenge.id}
               onClick={() => router.push('/challenges')}
-              style={{
-                background: 'var(--bg-soft)',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.8rem',
-                cursor: 'pointer',
-                border: isParticipating ? '1.5px solid var(--accent)' : '1px solid var(--border)',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = 'var(--shadow-md)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = 'none'
-              }}
+              className={`card-soft cursor-pointer transition-all hover:scale-102 hover:shadow-md ${
+                isParticipating ? 'border-2 border-accent-primary' : ''
+              }`}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.2rem' }}>
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-text-primary mb-1">
                     {challenge.title}
-                  </h3>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                  </h4>
+                  <p className="text-xs text-text-muted">
                     {challenge.description}
                   </p>
                 </div>
                 {isParticipating && (
-                  <div style={{ background: 'rgba(245,158,11,0.2)', borderRadius: 999, padding: '0.2rem 0.6rem', marginLeft: '0.5rem' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#f59e0b' }}>Katılıyorum</span>
-                  </div>
+                  <span className="text-xs font-bold text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded-full ml-2 flex-shrink-0">
+                    参加中
+                  </span>
                 )}
               </div>
 
-              {/* Progress Bar */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <div style={{ flex: 1, height: '5px', background: 'var(--bg)', borderRadius: 3, overflow: 'hidden' }}>
+              <div className="mt-3">
+                <div className="w-full h-1 bg-bg-soft rounded-full overflow-hidden">
                   <div
-                    style={{
-                      height: '100%',
-                      width: `${progressPercent}%`,
-                      background: `linear-gradient(90deg, ${isParticipating ? 'var(--accent)' : 'var(--accent)'}, ${isParticipating ? 'var(--accent-2)' : 'var(--accent-2)'})`,
-                      borderRadius: 3,
-                      transition: 'width 0.5s ease'
-                    }}
+                    className="h-full bg-gradient-primary transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
                   />
                 </div>
-                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>
-                  %{Math.round(progressPercent)}
-                </span>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-text-muted">{progressText}</p>
+                  <span className="text-xs font-bold text-accent-primary">
+                    {Math.round(progressPercent)}%
+                  </span>
+                </div>
               </div>
-
-              {/* Progress Text */}
-              <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.4rem', textAlign: 'right' }}>
-                {progressText}
-              </p>
             </div>
           )
         })}
       </div>
-    </div>
-  )
-}
+    </section>

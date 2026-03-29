@@ -35,30 +35,47 @@ export default function BookCover({ title, coverUrl, width, height, borderRadius
   const subFontSize = Math.max(width * 0.075, 7)
 
   return (
-    <div style={{
-      width, height, borderRadius, flexShrink: 0,
-      background: GRADIENTS[gi],
-      overflow: 'hidden', position: 'relative',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-      ...style,
-    }}>
+    <div
+      className="flex-shrink-0 relative overflow-hidden flex flex-col items-center justify-center"
+      style={{
+        width,
+        height,
+        borderRadius,
+        background: GRADIENTS[gi],
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        ...style,
+      }}
+    >
       {coverUrl ? (
         <img
           src={coverUrl}
           alt={title}
           loading="lazy"
           decoding="async"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          className="absolute inset-0 w-full h-full object-cover"
           onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
         />
       ) : (
         <>
-          <span style={{ fontSize, fontWeight: 900, color: 'white', textShadow: '0 1px 6px rgba(0,0,0,0.4)', lineHeight: 1, userSelect: 'none' }}>
+          <span
+            className="font-black text-white leading-none select-none"
+            style={{
+              fontSize,
+              textShadow: '0 1px 6px rgba(0,0,0,0.4)',
+            }}
+          >
             {initials}
           </span>
-          <span style={{ fontSize: subFontSize, fontWeight: 700, color: 'rgba(255,255,255,0.82)', textAlign: 'center', padding: '0 4px', marginTop: 3, lineHeight: 1.2, userSelect: 'none', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+          <span
+            className="font-bold text-center select-none overflow-hidden line-clamp-2"
+            style={{
+              fontSize: subFontSize,
+              color: 'rgba(255,255,255,0.82)',
+              padding: '0 4px',
+              marginTop: 3,
+              lineHeight: 1.2,
+            }}
+          >
             {shortTitle}
           </span>
         </>
