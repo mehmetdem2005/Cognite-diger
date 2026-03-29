@@ -156,7 +156,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
                 {profile?.xp || 0} XP
               </span>
               <span className="text-white/60 text-xs">
-                {200 - ((profile?.xp || 0) % 200)} sonraki seviye
+                {200 - ((profile?.xp || 0) % 200)} / sonraki
               </span>
             </div>
             <div className="h-1 bg-white/20 rounded overflow-hidden">
@@ -191,7 +191,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
                     <button
                       key={item.href}
                       onClick={() => handleNav(item.href)}
-                      className={`w-full flex items-center gap-3 px-5 py-1.75 border-l-[3px] transition-all duration-150 ${
+                      className={`w-full flex items-center gap-3 px-5 py-2 border-l-[3px] transition-all duration-150 ${
                         active
                           ? 'bg-accent/8 border-l-accent text-accent'
                           : 'border-l-transparent hover:bg-bg-soft'
@@ -217,7 +217,7 @@ export default function SideDrawer({ open, onClose, profile, isAdmin = false }: 
           {isAdmin && (
             <button
               onClick={() => handleNav('/admin')}
-              className="w-full flex items-center gap-3 px-5 py-1.75 border-l-[3px] border-l-transparent hover:bg-bg-soft transition-colors"
+              className="w-full flex items-center gap-3 px-5 py-2 border-l-[3px] border-l-transparent hover:bg-bg-soft transition-colors"
             >
               <Shield size={18} className="text-text-soft" strokeWidth={1.8} />
               <span className="text-sm text-text">{t(locale, 'adminPanelTitle')}</span>

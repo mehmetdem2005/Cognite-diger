@@ -27,33 +27,55 @@ export default function ExploreByCategory({ userId }: Props) {
   }
 
   return (
-    <div className="mt-3 bg-card border-t border-b border-border">
-      <div className="flex justify-between items-center gap-1 p-[0.9rem_1rem]">
-        <div className="flex items-center gap-1">
-          <Grid2x2 size={15} className="text-accent" />
-          <span className="text-sm font-bold text-text">Kategorilere Göre Keşfet</span>
+    <div style={{ marginTop: '0.75rem', background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', padding: '0.9rem 1rem', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <Grid2x2 size={15} style={{ color: 'var(--accent)' }} />
+          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Kategorilere Göre Keşfet</span>
         </div>
         <button
           onClick={() => router.push('/explore')}
-          className="bg-transparent border-none text-xs text-accent font-semibold cursor-pointer hover:opacity-80 transition-opacity"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontSize: '0.8rem',
+            color: 'var(--accent)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'opacity 200ms',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8' }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
         >
           Tümü
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 p-[0_1rem_1rem]">
+      <div className="hide-scrollbar" style={{ display: 'flex', gap: '0.75rem', overflowX: 'auto', padding: '1rem', paddingBottom: '1.2rem' }}>
         {CATEGORIES.map(category => (
           <button
             key={category.id}
             onClick={() => handleCategoryClick(category.id)}
-            className="flex flex-col items-center justify-center p-3 rounded-lg cursor-pointer transition-all duration-200 min-h-[100px] hover:scale-95 hover:shadow-md"
             style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem 0.8rem',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              transition: 'all 200ms ease',
+              minHeight: '110px',
+              minWidth: '90px',
+              flexShrink: 0,
               background: category.color,
               border: `1px solid ${category.borderColor}`,
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(0.95)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
           >
-            <div className="text-2xl mb-1">{category.icon}</div>
-            <p className="text-xs font-bold text-text text-center leading-tight">
+            <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>{category.icon}</div>
+            <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text)', textAlign: 'center', lineHeight: 1.2 }}>
               {category.label}
             </p>
           </button>

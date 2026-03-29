@@ -164,20 +164,14 @@ export default function HomePage() {
   if (loading || !user) return <main style={{ minHeight: '100vh', background: 'var(--bg)' }} />
 
   return (
-    <main style={{ minHeight: '100vh', background: 'var(--bg)', paddingTop: '54px', paddingBottom: '80px', width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
+    <main style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: '80px', width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
 
       {/* Header */}
       <header style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+        position: 'relative',
         background: 'var(--bg-card)', borderBottom: '1px solid var(--border)',
         padding: '0 1rem', height: '54px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        transform: 'translateZ(0)',
-        willChange: 'transform',
-        isolation: 'isolate',
-        backfaceVisibility: 'hidden',
-        WebkitBackfaceVisibility: 'hidden',
-        contain: 'paint',
       }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', letterSpacing: '-0.5px', color: 'var(--text)' }}>
           cognita
@@ -234,24 +228,28 @@ export default function HomePage() {
                 }
               </div>
               <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{greeting()}</p>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.15rem' }}>{greeting()}</p>
                 <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>
                   {profile.full_name?.split(' ')[0] || t(locale, 'homeReaderFallback')}
                 </h2>
               </div>
               {(profile.streak_days || 0) > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(234,88,12,0.1)', borderRadius: 999, padding: '0.3rem 0.7rem', border: '1px solid rgba(234,88,12,0.2)' }}>
-                  <Flame size={14} color="#ea580c" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(234,88,12,0.15)', borderRadius: 999, padding: '0.35rem 0.8rem', border: '1px solid rgba(234,88,12,0.3)', flexShrink: 0 }}>
+                  <Flame size={14} color="#ea580c" strokeWidth={2} />
                   <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ea580c' }}>{profile.streak_days}</span>
                 </div>
               )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
               <div style={{ flex: 1, height: '5px', background: 'var(--bg-soft)', borderRadius: 3, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${levelProgress}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', borderRadius: 3, transition: 'width 1s ease' }} />
               </div>
-              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>{t(locale, 'homeStatLevelShort')}{level} • {xp} XP</span>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t(locale, 'homeStatLevelShort')}{level}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              <Zap size={12} color="#f59e0b" style={{ marginRight: '0.15rem' }} />
+              <span>{xp} XP</span>
             </div>
           </div>
 
@@ -400,8 +398,8 @@ export default function HomePage() {
             {newBooks.map((book, i) => (
               <div key={book.id} onClick={() => router.push(`/book/${book.id}`)} style={{ flexShrink: 0, width: '100px', cursor: 'pointer' }}>
                 <BookCover title={book.title} coverUrl={book.cover_url} width={100} height={140} borderRadius={10} index={i} style={{ marginBottom: '0.4rem', boxShadow: 'var(--shadow-md)' }} />
-                <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</p>
-                {book.author && <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</p>}
+                <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{book.title}</p>
+                {book.author && <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{book.author}</p>}
               </div>
             ))}
           </div>
@@ -421,11 +419,11 @@ export default function HomePage() {
             {trending.slice(0, 5).map((book, i) => (
               <div key={book.id} onClick={() => router.push(`/book/${book.id}`)}
                 style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', padding: '0.65rem 1rem', borderTop: i > 0 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
-                <span style={{ fontSize: '1rem', fontWeight: 800, color: i < 3 ? 'var(--accent)' : 'var(--text-muted)', width: '20px', textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 800, color: i < 3 ? 'var(--accent)' : 'var(--text-muted)', width: '24px', textAlign: 'center', flexShrink: 0, lineHeight: 1 }}>{i + 1}</span>
                 <BookCover title={book.title} coverUrl={book.cover_url} width={38} height={52} borderRadius={6} index={i} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</p>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{book.author || t(locale, 'homeUnknownAuthor')}</p>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{book.title}</p>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{book.author || t(locale, 'homeUnknownAuthor')}</p>
                 </div>
                 <ChevronRight size={15} color="var(--border)" />
               </div>
