@@ -179,7 +179,10 @@ export default function HomePage() {
         background: 'var(--nav-bg)', borderBottom: '1px solid var(--border)',
         padding: '0 1rem', height: '54px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+        backdropFilter: 'none', WebkitBackdropFilter: 'none',
+        transform: 'translateZ(0)',
+        willChange: 'transform',
+        isolation: 'isolate',
       }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', letterSpacing: '-0.5px', color: 'var(--text)' }}>
           cognita
