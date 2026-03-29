@@ -111,6 +111,15 @@
   --z-modal: 1050;
   --z-popover: 1060;
   --z-tooltip: 1070;
+
+  /* ▸ Shorthand aliases (component compatibility) */
+  --text: var(--text-primary);
+  --text-soft: var(--text-secondary);
+  --accent: var(--accent-primary);
+  --accent-2: var(--accent-secondary);
+  --border: var(--border-default);
+  --green: var(--accent-success);
+  --red: var(--accent-error);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -167,6 +176,15 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.55);
   --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.65);
   --shadow-2xl: 0 16px 48px rgba(0, 0, 0, 0.75);
+
+  /* ▸ Shorthand aliases (component compatibility) */
+  --text: var(--text-primary);
+  --text-soft: var(--text-secondary);
+  --accent: var(--accent-primary);
+  --accent-2: var(--accent-secondary);
+  --border: var(--border-default);
+  --green: var(--accent-success);
+  --red: var(--accent-error);
 }
 
 /* ── Base ── */
@@ -389,6 +407,13 @@ textarea.input:focus-visible {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Gradient Utilities ── */
+.bg-gradient-primary   { background: var(--gradient-primary); }
+.bg-gradient-secondary { background: var(--gradient-secondary, var(--gradient-accent)); }
+.bg-gradient-accent    { background: var(--gradient-accent); }
+.bg-gradient-success   { background: var(--gradient-success); }
+.bg-gradient-warning   { background: var(--gradient-warning); }
 
 /* ─────────────────────────────────────────────────────────────────────────
    RESPONSIVE UTILITIES

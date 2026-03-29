@@ -140,3 +140,5 @@ export default function ChallengesSection({ userId }: Props) {
         })}
       </div>
     </section>
+  )
+}

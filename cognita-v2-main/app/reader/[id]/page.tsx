@@ -812,6 +812,7 @@ export default function ReaderPage() {
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.avgScore}</p>
               </div>
             </div>
+          )}
         </div>
         )}
       </div>
