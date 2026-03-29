@@ -26,13 +26,14 @@ const GRADIENTS = [
 
 const DAILY_GOALS = [15, 30, 45, 60]
 
-const RecommendedForYou = dynamic(() => import('@/components/ui/RecommendedForYou'), { ssr: false })
-const ChallengesSection = dynamic(() => import('@/components/ui/ChallengesSection'), { ssr: false })
-const SocialActivityFeed = dynamic(() => import('@/components/ui/SocialActivityFeed'), { ssr: false })
-const ExploreByCategory = dynamic(() => import('@/components/ui/ExploreByCategory'), { ssr: false })
-const StatsTrend = dynamic(() => import('@/components/ui/StatsTrend'), { ssr: false })
-const AchievementsShowcase = dynamic(() => import('@/components/ui/AchievementsShowcase'), { ssr: false })
-const Leaderboard = dynamic(() => import('@/components/ui/Leaderboard'), { ssr: false })
+const placeholder = () => <div style={{ height: '120px' }} />
+const RecommendedForYou = dynamic(() => import('@/components/ui/RecommendedForYou'), { ssr: false, loading: placeholder })
+const ChallengesSection = dynamic(() => import('@/components/ui/ChallengesSection'), { ssr: false, loading: placeholder })
+const SocialActivityFeed = dynamic(() => import('@/components/ui/SocialActivityFeed'), { ssr: false, loading: placeholder })
+const ExploreByCategory = dynamic(() => import('@/components/ui/ExploreByCategory'), { ssr: false, loading: placeholder })
+const StatsTrend = dynamic(() => import('@/components/ui/StatsTrend'), { ssr: false, loading: placeholder })
+const AchievementsShowcase = dynamic(() => import('@/components/ui/AchievementsShowcase'), { ssr: false, loading: placeholder })
+const Leaderboard = dynamic(() => import('@/components/ui/Leaderboard'), { ssr: false, loading: placeholder })
 
 export default function HomePage() {
   const router = useRouter()
@@ -177,16 +178,16 @@ export default function HomePage() {
       ) : (
         <>
           <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '1rem 1rem 0.85rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.85rem', overflow: 'hidden' }}>
               <div onClick={() => router.push('/profile')} style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '2px solid var(--border)' }}>
                 {profile.avatar_url
                   ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : <span style={{ color: 'white', fontWeight: 700, fontSize: '1.1rem' }}>{(profile.full_name || profile.username || 'U')[0].toUpperCase()}</span>
                 }
               </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{greeting()}</p>
-                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>
+              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{greeting()}</p>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {profile.full_name?.split(' ')[0] || 'Okuyucu'}
                 </h2>
               </div>
