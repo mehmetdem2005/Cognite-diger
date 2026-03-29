@@ -88,6 +88,7 @@ export default function GutenbergBulkImport({ onClose }: Props) {
                   key={n}
                   onClick={() => setLimit(n)}
                   className={`flex-1 px-2 py-2 rounded-md border-1.5 text-xs ${
+                    className={`flex-1 px-2 py-2 rounded-md border text-xs ${
                     limit === n
                       ? 'border-accent bg-accent/10 text-accent font-bold'
                       : 'border-border bg-bg-soft text-text-muted'
@@ -144,6 +145,7 @@ export default function GutenbergBulkImport({ onClose }: Props) {
           <button
             onClick={onClose}
             className="flex-1 px-4 py-3 rounded-full border-1.5 border-border bg-transparent text-text-soft text-xs cursor-pointer hover:bg-bg-soft transition-colors"
+              className="flex-1 px-4 py-3 rounded-full border border-border bg-transparent text-text-soft text-xs cursor-pointer hover:bg-bg-soft transition-colors"
           >
             {done ? 'Kapat' : 'İptal'}
           </button>
