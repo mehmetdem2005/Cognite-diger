@@ -205,7 +205,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {profileLoading ? (
+      {profileLoading || !profile ? (
         <>
           <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.85rem', marginBottom: '0.85rem' }}>
