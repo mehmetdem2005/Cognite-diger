@@ -1,30 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const ALLOWED_TYPES = ['application/pdf']
-const MAX_SIZE_BYTES = 50 * 1024 * 1024 // 50MB
+import { requireAuth } from '@/lib/auth'
+import { errorResponse } from '@/lib/api-utils'
+import { rateLimit } from '@/lib/rateLimit'
+import { ALLOWED_PDF_TYPES, MAX_PDF_SIZE_BYTES, RATE_LIMIT_UPLOAD_MAX, RATE_LIMIT_UPLOAD_WINDOW_MS } from '@/lib/constants'
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    if (authError || !user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const { allowed } = rateLimit(`pdf-extract:${user.id}`, RATE_LIMIT_UPLOAD_MAX, RATE_LIMIT_UPLOAD_WINDOW_MS)
+    if (!allowed) return NextResponse.json({ error: 'Çok fazla istek. Lütfen biraz bekleyin.' }, { status: 429 })
 
     const formData = await req.formData()
     const file = formData.get('file') as File | null
     if (!file) return NextResponse.json({ error: 'Dosya bulunamadı' }, { status: 400 })
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!ALLOWED_PDF_TYPES.includes(file.type as typeof ALLOWED_PDF_TYPES[number])) {
       return NextResponse.json({ error: 'Sadece PDF dosyaları kabul edilir' }, { status: 400 })
     }
-    if (file.size > MAX_SIZE_BYTES) {
+    if (file.size > MAX_PDF_SIZE_BYTES) {
       return NextResponse.json({ error: 'Dosya boyutu 50MB limitini aşıyor' }, { status: 400 })
     }
 
@@ -32,10 +28,11 @@ export async function POST(req: NextRequest) {
     const uint8Array = new Uint8Array(arrayBuffer)
 
     // Use pdfjs-dist in server mode (no worker needed in Node.js)
-    const pdfjsLib = (await import('pdfjs-dist')) as any
-    pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+    const pdfjsLib = (await import('pdfjs-dist')) as Record<string, unknown>
+    const pdfjs = pdfjsLib as { GlobalWorkerOptions: { workerSrc: string }; getDocument: (opts: { data: Uint8Array }) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: Array<{ str?: string }> }> }> }> } }
+    pdfjs.GlobalWorkerOptions.workerSrc = ''
 
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array })
+    const loadingTask = pdfjs.getDocument({ data: uint8Array })
     const pdf = await loadingTask.promise
     const numPages = pdf.numPages
     const parts: string[] = []
@@ -44,14 +41,14 @@ export async function POST(req: NextRequest) {
       const page = await pdf.getPage(i)
       const content = await page.getTextContent()
       const pageText = content.items
-        .map((item: any) => ('str' in item ? item.str : ''))
+        .map((item) => ('str' in item && item.str ? item.str : ''))
         .join(' ')
       parts.push(pageText)
     }
 
     const text = parts.join('\n')
     return NextResponse.json({ text, pages: numPages })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }

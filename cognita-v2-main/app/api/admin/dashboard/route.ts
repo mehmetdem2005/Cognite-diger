@@ -1,33 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-type AdminRole = 'super_admin' | 'admin' | 'moderator'
-
-function getServiceSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-
-async function verifyAdmin(token: string): Promise<{ id: string; role: AdminRole } | null> {
-  const sb = getServiceSupabase()
-  const { data: { user }, error } = await sb.auth.getUser(token)
-  if (error || !user) return null
-
-  const { data } = await sb
-    .from('admins')
-    .select('id, role')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!data) return null
-  return { id: data.id, role: data.role as AdminRole }
-}
+import { extractToken, getServiceSupabase, verifyAdmin } from '@/lib/auth'
+import { errorResponse } from '@/lib/api-utils'
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
+    const token = extractToken(req)
     if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
 
     const admin = await verifyAdmin(token)
@@ -60,7 +37,7 @@ export async function GET(req: NextRequest) {
       sb.from('reading_sessions').select('user_id').gte('updated_at', last24hIso).limit(5000),
     ])
 
-    const activeUserSet = new Set((activeSessions24h.data || []).map(row => row.user_id))
+    const activeUserSet = new Set((activeSessions24h.data || []).map((row: { user_id: string }) => row.user_id))
 
     return NextResponse.json({
       data: {
@@ -77,7 +54,7 @@ export async function GET(req: NextRequest) {
         },
       },
     })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }

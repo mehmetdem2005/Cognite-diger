@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-function getServiceSupabase() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
-
-async function verifyUser(token: string) {
-  const sb = getServiceSupabase()
-  const { data: { user }, error } = await sb.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
+import { requireAuth, getServiceSupabase } from '@/lib/auth'
+import { vocabularyPostSchema, vocabularyPatchSchema } from '@/lib/validation'
+import { errorResponse } from '@/lib/api-utils'
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
     const sb = getServiceSupabase()
     const { data, error } = await sb
@@ -28,19 +18,18 @@ export async function GET(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data: data || [] })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
-    const body = await req.json()
+    const body = vocabularyPostSchema.parse(await req.json())
     const sb = getServiceSupabase()
     const { data, error } = await sb
       .from('vocabulary')
@@ -57,41 +46,39 @@ export async function POST(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }
 
 export async function PATCH(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
-    const { id, is_learned } = await req.json()
+    const body = vocabularyPatchSchema.parse(await req.json())
     const sb = getServiceSupabase()
     const { data, error } = await sb
       .from('vocabulary')
-      .update({ is_learned: !!is_learned })
-      .eq('id', id)
+      .update({ is_learned: body.is_learned })
+      .eq('id', body.id)
       .eq('user_id', user.id)
       .select('*')
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }
 
 export async function DELETE(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id gerekli' }, { status: 400 })
@@ -100,7 +87,7 @@ export async function DELETE(req: NextRequest) {
     const { error } = await sb.from('vocabulary').delete().eq('id', id).eq('user_id', user.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }
