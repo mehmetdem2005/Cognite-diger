@@ -21,6 +21,7 @@ interface AppShellContext {
   closeDrawer: () => void
   isAdmin: boolean
   profile: Profile | null
+  profileLoading: boolean
 }
 
 export const AppShellCtx = createContext<AppShellContext>({
@@ -28,6 +29,7 @@ export const AppShellCtx = createContext<AppShellContext>({
   closeDrawer: () => {},
   isAdmin: false,
   profile: null,
+  profileLoading: true,
 })
 
 export const useAppShell = () => useContext(AppShellCtx)
@@ -39,6 +41,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [prevPath, setPrevPath] = useState(pathname)
@@ -66,6 +69,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setUserId(session.user.id)
         fetchProfile(session.user.id)
         checkAdmin(session.user.id)
+      } else {
+        setProfileLoading(false)
       }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
@@ -76,6 +81,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       } else {
         setUserId(null)
         setProfile(null)
+        setProfileLoading(false)
         setIsAdmin(false)
       }
     })
@@ -89,6 +95,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .eq('id', uid)
       .single()
     if (data) setProfile(data)
+    setProfileLoading(false)
   }
 
   const checkAdmin = async (uid: string) => {
@@ -125,6 +132,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       closeDrawer: () => setDrawerOpen(false),
       isAdmin,
       profile,
+      profileLoading,
     }}>
       {/* Sayfa içeriği — geçiş animasyonu */}
       <div style={{
