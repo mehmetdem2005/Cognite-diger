@@ -116,7 +116,7 @@ export default function ChallengesSection({ userId }: Props) {
                 </div>
                 {isParticipating && (
                   <span className="text-xs font-bold text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded-full ml-2 flex-shrink-0">
-                    参加中
+                    Katıldın
                   </span>
                 )}
               </div>
@@ -124,8 +124,7 @@ export default function ChallengesSection({ userId }: Props) {
               <div className="mt-3">
                 <div className="w-full h-1 bg-bg-soft rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-primary transition-all duration-300"
-                    style={{ width: `${progressPercent}%` }}
+                    style={{ width: `${progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-primary), var(--accent-secondary))', borderRadius: 'inherit', transition: 'width 0.3s ease' }}
                   />
                 </div>
                 <div className="flex items-center justify-between mt-2">
