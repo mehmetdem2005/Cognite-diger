@@ -1,0 +1,30 @@
+{
+  "name": "cognita-rebuild",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.2.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "clsx": "2.1.1",
+    "tailwind-merge": "3.3.0"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "@types/node": "22.15.30",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "tailwindcss": "4.1.6",
+    "@tailwindcss/postcss": "4.1.6",
+    "postcss": "8.5.3",
+    "eslint": "9.26.0",
+    "eslint-config-next": "15.3.1"
+  }
+}
