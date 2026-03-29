@@ -10,27 +10,27 @@ class FlashcardRequest(BaseModel):
     text: str = Field(..., min_length=10, max_length=50_000, description="Kaynak metin")
     book_title: str = Field(default="", max_length=500)
     count: int = Field(default=5, ge=1, le=50, description="Flashcard sayısı")
-    model: str = Field(default="fast", pattern=r"^(fast|quality|balanced|compound)$")
+    model: str = Field(default="120b")
 
 
 class AnalyzeRequest(BaseModel):
     text: str = Field(..., min_length=10, max_length=50_000, description="Analiz edilecek metin")
     book_title: str = Field(default="", max_length=500)
-    model: str = Field(default="quality", pattern=r"^(fast|quality|balanced|compound)$")
+    model: str = Field(default="120b")
 
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=10_000, description="Kullanıcı mesajı")
     book_content: str = Field(default="", max_length=50_000)
     book_title: str = Field(default="", max_length=500)
-    model: str = Field(default="fast", pattern=r"^(fast|quality|balanced|compound)$")
+    model: str = Field(default="120b")
     stream: bool = False
 
 
 class WritingAssistantRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=10_000)
     genre: str = Field(default="", max_length=200)
-    model: str = Field(default="quality", pattern=r"^(fast|quality|balanced|compound)$")
+    model: str = Field(default="120b")
 
 
 class QuizRequest(BaseModel):
@@ -38,27 +38,27 @@ class QuizRequest(BaseModel):
     book_title: str = Field(default="", max_length=500)
     question_count: int = Field(default=5, ge=1, le=30)
     difficulty: str = Field(default="orta", pattern=r"^(kolay|orta|zor)$")
-    model: str = Field(default="quality", pattern=r"^(fast|quality|balanced|compound)$")
+    model: str = Field(default="120b")
 
 
 class VocabularyRequest(BaseModel):
     text: str = Field(..., min_length=10, max_length=50_000)
     language: str = Field(default="tr", min_length=2, max_length=5)
     count: int = Field(default=10, ge=1, le=50)
-    model: str = Field(default="quality", pattern=r"^(fast|quality|balanced|compound)$")
+    model: str = Field(default="120b")
 
 
 class SummaryRequest(BaseModel):
     text: str = Field(..., min_length=10, max_length=50_000)
     book_title: str = Field(default="", max_length=500)
     length: str = Field(default="orta", pattern=r"^(kısa|orta|uzun)$")
-    model: str = Field(default="quality", pattern=r"^(fast|quality|balanced|compound)$")
+    model: str = Field(default="120b")
 
 
 class RecommendRequest(BaseModel):
     books: list[str] = Field(default_factory=list, max_length=50)
     interests: list[str] = Field(default_factory=list, max_length=50)
-    model: str = Field(default="quality", pattern=r"^(fast|quality|balanced|compound)$")
+    model: str = Field(default="120b")
 
     @field_validator("books", "interests")
     @classmethod

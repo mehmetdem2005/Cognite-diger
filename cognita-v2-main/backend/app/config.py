@@ -41,11 +41,8 @@ class Settings(BaseSettings):
     # --- PDF ---
     max_pdf_size_mb: int = Field(default=50, ge=1, le=200)
 
-    # --- AI Models ---
-    model_fast: str = "llama-3.1-8b-instant"
-    model_quality: str = "llama-3.3-70b-versatile"
-    model_balanced: str = "llama-3.1-70b-versatile"
-    model_compound: str = "compound-beta"
+    # --- AI Model (single mode) ---
+    groq_model: str = Field(default="openai/gpt-oss-120b", description="Tüm isteklerde kullanılacak tek Groq modeli")
 
     @field_validator("log_level")
     @classmethod
@@ -62,11 +59,12 @@ class Settings(BaseSettings):
 
     @property
     def models_map(self) -> dict[str, str]:
+        # Backward compatibility: legacy mode names now resolve to the same 120B model.
         return {
-            "fast": self.model_fast,
-            "quality": self.model_quality,
-            "balanced": self.model_balanced,
-            "compound": self.model_compound,
+            "fast": self.groq_model,
+            "quality": self.groq_model,
+            "balanced": self.groq_model,
+            "compound": self.groq_model,
         }
 
     @property

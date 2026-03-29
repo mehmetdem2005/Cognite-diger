@@ -51,7 +51,8 @@ class GroqService:
         return self._client
 
     def resolve_model(self, name: str) -> str:
-        return self._settings.models_map.get(name, self._settings.model_quality)
+        # Force all requests to use a single 120B model regardless of requested mode.
+        return self._settings.groq_model
 
     @retry(
         retry=retry_if_exception_type(Exception),
