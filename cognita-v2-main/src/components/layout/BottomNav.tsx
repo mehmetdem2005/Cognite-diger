@@ -3,20 +3,21 @@ import { useRouter, usePathname } from 'next/navigation'
 import { Home, BookOpen, Sparkles, Compass, User, Plus, PenTool, Search, Upload, BookMarked, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { interaction } from '@/lib/interaction'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 const TABS = [
-  { icon: Home, label: 'Anasayfa', href: '/home' },
-  { icon: BookOpen, label: 'Kitaplık', href: '/library' },
+  { icon: Home, labelKey: 'navHome', href: '/home' },
+  { icon: BookOpen, labelKey: 'navLibrary', href: '/library' },
   { icon: Plus, label: '', href: '__action__' }, // Orta — hızlı aksiyon
-  { icon: Compass, label: 'Keşfet', href: '/explore' },
-  { icon: User, label: 'Profil', href: '/profile' },
+  { icon: Compass, labelKey: 'navExplore', href: '/explore' },
+  { icon: User, labelKey: 'navProfile', href: '/profile' },
 ]
 
 const QUICK_ACTIONS = [
-  { icon: PenTool, label: 'Yazı Yaz', href: '/write', color: '#667EEA' },
-  { icon: BookMarked, label: 'Katalog', href: '/catalog', color: '#A855F7' },
-  { icon: Search, label: 'Ara', href: '/explore', color: '#11998e' },
-  { icon: Upload, label: 'Kitap Ekle', href: '/library?upload=1', color: '#FA709A' },
+  { icon: PenTool, labelKey: 'navWrite', href: '/write', color: '#667EEA' },
+  { icon: BookMarked, labelKey: 'navCatalog', href: '/catalog', color: '#A855F7' },
+  { icon: Search, labelKey: 'navSearch', href: '/explore', color: '#11998e' },
+  { icon: Upload, labelKey: 'navAddBook', href: '/library?upload=1', color: '#FA709A' },
 ]
 
 export default function BottomNav() {
@@ -24,8 +25,36 @@ export default function BottomNav() {
   const pathname = usePathname()
   const [mounted, setMounted] = useState(false)
   const [showActions, setShowActions] = useState(false)
+  const [locale, setLocale] = useState<Locale>('tr')
 
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    setMounted(true)
+    setLocale(getStoredLocale())
+
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    const warmRoutes = [
+      '/home',
+      '/library',
+      '/explore',
+      '/profile',
+      '/catalog',
+      '/write',
+      '/flow',
+      '/notifications',
+    ]
+    warmRoutes.forEach((route) => router.prefetch(route))
+  }, [mounted, router])
+
   if (!mounted) return null
 
   const isFlow = pathname.startsWith('/flow')
@@ -100,7 +129,7 @@ export default function BottomNav() {
               borderRadius: 999,
               backdropFilter: 'blur(4px)',
             }}>
-              {action.label}
+              {t(locale, action.labelKey)}
             </span>
           </div>
         )
@@ -183,7 +212,7 @@ export default function BottomNav() {
                 )}
               </div>
               <span style={{ fontSize: '0.58rem', fontWeight: active ? 700 : 400 }}>
-                {tab.label}
+                {'labelKey' in tab ? t(locale, tab.labelKey) : tab.label}
               </span>
             </button>
           )

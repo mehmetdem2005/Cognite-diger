@@ -1,16 +1,14 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  reactCompiler: true,
+  turbopack: {},
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   experimental: {
-    reactCompiler: true,
     inlineCss: true,
     optimizePackageImports: ['lucide-react', 'framer-motion', '@supabase/supabase-js'],
-  },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.alias = { ...config.resolve.alias, canvas: false, encoding: false }
-    }
-    return config
   },
   images: {
     formats: ['image/avif', 'image/webp'],

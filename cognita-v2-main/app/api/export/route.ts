@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireAuth, getServiceSupabase } from '@/lib/auth'
+import { exportSchema } from '@/lib/validation'
+import { errorResponse } from '@/lib/api-utils'
 
-function getServiceSupabase() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
-
-async function verifyUser(token: string) {
-  const sb = getServiceSupabase()
-  const { data: { user }, error } = await sb.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
-
-function toMarkdown(rows: any[]) {
+function toMarkdown(rows: Array<{ text: string; note?: string; books?: { title?: string } | null }>) {
   const lines = ['# Highlights Export', '']
   for (const row of rows) {
     lines.push(`## ${row.books?.title || 'Kitap'}`)
@@ -23,18 +14,17 @@ function toMarkdown(rows: any[]) {
   return lines.join('\n')
 }
 
-function toTxt(rows: any[]) {
+function toTxt(rows: Array<{ text: string; note?: string; books?: { title?: string } | null }>) {
   return rows.map((row) => `${row.books?.title || 'Kitap'}\n- ${row.text}${row.note ? `\n  Not: ${row.note}` : ''}`).join('\n\n')
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
-    const { format } = await req.json()
+    const body = exportSchema.parse(await req.json())
     const sb = getServiceSupabase()
     const { data, error } = await sb
       .from('highlights')
@@ -43,9 +33,9 @@ export async function POST(req: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    const rows = data || []
+    const rows = (data || []) as Array<{ text: string; note?: string; page_number?: number; books?: { title?: string } | null }>
 
-    if (format === 'json') {
+    if (body.format === 'json') {
       return new NextResponse(JSON.stringify(rows, null, 2), {
         headers: {
           'Content-Type': 'application/json',
@@ -54,7 +44,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    if (format === 'txt') {
+    if (body.format === 'txt') {
       return new NextResponse(toTxt(rows), {
         headers: {
           'Content-Type': 'text/plain; charset=utf-8',
@@ -70,7 +60,7 @@ export async function POST(req: NextRequest) {
         'Content-Disposition': 'attachment; filename="cognita-export.md"',
       },
     })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }

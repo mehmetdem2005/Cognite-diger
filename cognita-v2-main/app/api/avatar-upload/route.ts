@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireAuth, getServiceSupabase } from '@/lib/auth'
+import { errorResponse, sanitizeExtension } from '@/lib/api-utils'
+import { rateLimit } from '@/lib/rateLimit'
+import { ALLOWED_IMAGE_TYPES, MAX_AVATAR_SIZE_BYTES, SAFE_IMAGE_EXTENSIONS, RATE_LIMIT_UPLOAD_MAX, RATE_LIMIT_UPLOAD_WINDOW_MS } from '@/lib/constants'
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
-    // Verify user
-    const serviceSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    const { data: { user }, error: authError } = await serviceSupabase.auth.getUser(token)
-    if (authError || !user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const { allowed } = rateLimit(`avatar-upload:${user.id}`, RATE_LIMIT_UPLOAD_MAX, RATE_LIMIT_UPLOAD_WINDOW_MS)
+    if (!allowed) return NextResponse.json({ error: 'Çok fazla istek. Lütfen biraz bekleyin.' }, { status: 429 })
+
+    const serviceSupabase = getServiceSupabase()
 
     // Ensure avatars bucket exists
     const { data: buckets } = await serviceSupabase.storage.listBuckets()
-    const avatarsBucketExists = buckets?.some(b => b.name === 'avatars')
+    const avatarsBucketExists = buckets?.some((b: { name: string }) => b.name === 'avatars')
     if (!avatarsBucketExists) {
       await serviceSupabase.storage.createBucket('avatars', { public: true })
     }
@@ -27,16 +27,14 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File | null
     if (!file) return NextResponse.json({ error: 'Dosya bulunamadı' }, { status: 400 })
 
-    const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-    const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type as typeof ALLOWED_IMAGE_TYPES[number])) {
       return NextResponse.json({ error: 'Sadece JPEG, PNG, WebP veya GIF yükleyebilirsiniz' }, { status: 400 })
     }
-    if (file.size > MAX_SIZE) {
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
       return NextResponse.json({ error: 'Dosya boyutu 5MB limitini aşıyor' }, { status: 400 })
     }
 
-    const ext = file.name.split('.').pop() || 'jpg'
+    const ext = sanitizeExtension(file.name, SAFE_IMAGE_EXTENSIONS)
     const path = `${user.id}/avatar.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
@@ -52,7 +50,7 @@ export async function POST(req: NextRequest) {
     await serviceSupabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
 
     return NextResponse.json({ url: publicUrl })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }

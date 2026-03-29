@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/useAuth'
 import BottomNav from '@/components/layout/BottomNav'
 import { ArrowLeft, Plus, X, BookOpen, Target, Calendar, Check, Search } from 'lucide-react'
 import BookCover from '@/components/ui/BookCover'
+import { t, getStoredLocale, type Locale } from '@/lib/i18n'
 
 interface Project {
   id: string
@@ -63,8 +64,17 @@ export default function ProjectDetailPage() {
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [bookSearch, setBookSearch] = useState('')
   const [addingBook, setAddingBook] = useState(false)
+  const [locale, setLocale] = useState<Locale>(() => getStoredLocale())
 
-  useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
+  useEffect(() => {
+    const handler = () => setLocale(getStoredLocale())
+    window.addEventListener('cognita-language-changed', handler)
+    window.addEventListener('storage', handler)
+    return () => {
+      window.removeEventListener('cognita-language-changed', handler)
+      window.removeEventListener('storage', handler)
+    }
+  }, [])
   useEffect(() => {
     if (user && projectId) {
       fetchProject()
@@ -128,7 +138,7 @@ export default function ProjectDetailPage() {
 
   const handleRemoveBook = async (bookId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Kitabı projeden çıkar?')) return
+    if (!confirm(t(locale, 'projectDetailRemoveConfirm'))) return
     await supabase.from('project_books').delete().eq('project_id', projectId).eq('book_id', bookId)
     fetchProjectBooks()
   }
@@ -168,7 +178,7 @@ export default function ProjectDetailPage() {
             )}
           </div>
           <button onClick={handleOpenAddBook} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.45rem 0.9rem', background: 'var(--text)', border: 'none', borderRadius: '20px', color: 'var(--bg)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
-            <Plus size={15} /> Kitap
+            <Plus size={15} /> {t(locale, 'projectDetailAddBook')}
           </button>
         </div>
       </header>
@@ -180,22 +190,22 @@ export default function ProjectDetailPage() {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
           <div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Genel İlerleme</p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>{t(locale, 'projectDetailProgress')}</p>
             <p style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>%{Math.round(overallProgress)}</p>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <div style={{ textAlign: 'center' }}>
               <p style={{ fontSize: '1.3rem', fontWeight: 800, color: project.color }}>{completedCount}</p>
-              <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Bitti</p>
+              <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{t(locale, 'projectDetailDone')}</p>
             </div>
             <div style={{ textAlign: 'center' }}>
               <p style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text)' }}>{totalBooks}</p>
-              <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Toplam</p>
+              <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{t(locale, 'projectDetailTotal')}</p>
             </div>
             {project.goal_books && (
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-muted)' }}>{project.goal_books}</p>
-                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Hedef</p>
+                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{t(locale, 'projectDetailGoal')}</p>
               </div>
             )}
           </div>
@@ -206,12 +216,12 @@ export default function ProjectDetailPage() {
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           {project.goal_books && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              <Target size={12} color={project.color} /> Hedef: {project.goal_books} kitap
+              <Target size={12} color={project.color} /> {t(locale, 'projectDetailGoal')}: {project.goal_books} {t(locale, 'projectDetailGoalUnit')}
             </span>
           )}
           {daysLeft !== null && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: daysLeft < 7 ? '#E63946' : 'var(--text-muted)', fontWeight: daysLeft < 7 ? 700 : 400 }}>
-              <Calendar size={12} /> {daysLeft > 0 ? `${daysLeft} gün kaldı` : daysLeft === 0 ? 'Bugün son gün!' : 'Süre doldu'}
+              <Calendar size={12} /> {daysLeft > 0 ? `${daysLeft} ${t(locale, 'projectDetailDaysLeft')}` : daysLeft === 0 ? t(locale, 'projectDetailToday') : t(locale, 'projectDetailExpired')}
             </span>
           )}
         </div>
@@ -222,18 +232,18 @@ export default function ProjectDetailPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <BookOpen size={15} color={project.color} />
-            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Kitaplar</span>
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'projectDetailBooksTitle')}</span>
           </div>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{totalBooks} kitap</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{totalBooks} {t(locale, 'projectDetailBooksUnit')}</span>
         </div>
 
         {projectBooks.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border)' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📚</div>
-            <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.4rem' }}>Henüz kitap yok</p>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Bu projeye kitap ekleyerek başla</p>
+            <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.4rem' }}>{t(locale, 'projectDetailEmpty')}</p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{t(locale, 'projectDetailEmptyDesc')}</p>
             <button onClick={handleOpenAddBook} style={{ padding: '0.55rem 1.25rem', background: project.color, border: 'none', borderRadius: '20px', color: 'white', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
-              + Kitap Ekle
+              {t(locale, 'projectDetailEmptyButton')}
             </button>
           </div>
         ) : (
@@ -261,7 +271,7 @@ export default function ProjectDetailPage() {
                     {book.author && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{book.author}</p>}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: progress > 0 ? '0.4rem' : 0 }}>
                       <span style={{ fontSize: '0.7rem', fontWeight: 600, color: isCompleted ? '#43E97B' : progress > 0 ? project.color : 'var(--text-muted)', background: isCompleted ? 'rgba(67,233,123,0.1)' : progress > 0 ? `${project.color}15` : 'var(--bg-soft)', padding: '0.1rem 0.45rem', borderRadius: '999px' }}>
-                        {isCompleted ? '✓ Bitti' : progress > 0 ? 'Devam Ediyor' : 'Başlamadı'}
+                        {isCompleted ? t(locale, 'projectDetailStatusDone') : progress > 0 ? t(locale, 'projectDetailStatusContinue') : t(locale, 'projectDetailStatusNotStarted')}
                       </span>
                     </div>
                     {progress > 0 && (
@@ -289,17 +299,17 @@ export default function ProjectDetailPage() {
           <div style={{ width: '100%', background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '1.5rem', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: '40px', height: '4px', background: 'var(--border)', borderRadius: '2px', margin: '0 auto 1.25rem' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>Kitap Ekle</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'projectDetailAddModalTitle')}</h3>
               <button onClick={() => { setShowAddBook(false); setBookSearch('') }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={22} /></button>
             </div>
             <div style={{ position: 'relative', marginBottom: '1rem', flexShrink: 0 }}>
               <Search size={15} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input className="input" value={bookSearch} onChange={e => setBookSearch(e.target.value)} placeholder="Kitap ara..." style={{ paddingLeft: '2.3rem' }} />
+              <input className="input" value={bookSearch} onChange={e => setBookSearch(e.target.value)} placeholder={t(locale, 'projectDetailAddSearch')} style={{ paddingLeft: '2.3rem' }} />
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {filteredUserBooks.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  {userBooks.length === 0 ? 'Kütüphanende eklenecek kitap yok' : 'Sonuç bulunamadı'}
+                  {userBooks.length === 0 ? t(locale, 'projectDetailAddEmpty') : t(locale, 'projectDetailAddNoResult')}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -311,7 +321,7 @@ export default function ProjectDetailPage() {
                         {book.author && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{book.author}</p>}
                       </div>
                       <button onClick={() => handleAddBook(book.id)} disabled={addingBook} style={{ padding: '0.4rem 0.85rem', background: project.color, border: 'none', borderRadius: '20px', color: 'white', fontSize: '0.8rem', fontWeight: 600, cursor: addingBook ? 'not-allowed' : 'pointer', flexShrink: 0, opacity: addingBook ? 0.6 : 1 }}>
-                        Ekle
+                        {t(locale, 'projectDetailAddButton')}
                       </button>
                     </div>
                   ))}

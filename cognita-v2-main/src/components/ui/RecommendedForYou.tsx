@@ -41,25 +41,25 @@ export default function RecommendedForYou({ userId }: Props) {
   if (loading || recommendations.length === 0) return null
 
   return (
-    <div style={{ marginTop: '0.75rem', background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem 0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <Sparkles size={15} color="#f59e0b" />
-          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Senin İçin Önerilen</span>
+    <section className="card animate-fade-in">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <Sparkles size={16} color="var(--accent-warning)" />
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>Senin İçin Önerilen</h3>
         </div>
-        <button onClick={() => router.push('/explore')} style={{ background: 'none', border: 'none', fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={() => router.push('/explore')} className="btn-ghost">
           Tümü
         </button>
       </div>
 
-      <div className="hide-scrollbar" style={{ display: 'flex', gap: '0.9rem', overflowX: 'auto', padding: '0 1rem 1rem' }}>
+      <div className="hide-scrollbar flex gap-3 overflow-x-auto pt-2">
         {recommendations.map((rec, i) => (
           <div
             key={rec.id}
             onClick={() => router.push(`/book/${rec.book_id}`)}
-            style={{ flexShrink: 0, width: '100px', cursor: 'pointer' }}
+            className="flex-shrink-0 w-24 cursor-pointer transition-transform hover:scale-105"
           >
-            <div style={{ position: 'relative' }}>
+            <div className="relative">
               <BookCover
                 title={rec.book?.title}
                 coverUrl={rec.book?.cover_url}
@@ -71,34 +71,23 @@ export default function RecommendedForYou({ userId }: Props) {
               />
               {rec.reason && (
                 <div
-                  style={{
-                    position: 'absolute',
-                    top: '0.4rem',
-                    right: '0.4rem',
-                    background: 'rgba(245,158,11,0.9)',
-                    color: 'white',
-                    fontSize: '0.6rem',
-                    padding: '0.2rem 0.4rem',
-                    borderRadius: 4,
-                    fontWeight: 700,
-                    backdropFilter: 'blur(4px)',
-                  }}
+                  className="absolute top-1 right-1 bg-amber-500/90 text-white text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm"
                 >
                   ⭐ %{Math.round((rec.score || 0.5) * 100)}
                 </div>
               )}
             </div>
-            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <p className="text-xs font-semibold text-text-primary truncate mt-1">
               {rec.book?.title}
             </p>
             {rec.book?.author && (
-              <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <p className="text-xs text-text-muted truncate">
                 {rec.book.author}
               </p>
             )}
           </div>
         ))}
       </div>
-    </div>
+    </section>
   )
 }

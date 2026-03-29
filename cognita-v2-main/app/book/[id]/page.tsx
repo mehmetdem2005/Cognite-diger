@@ -8,6 +8,7 @@ import { ArrowLeft, Heart, BookOpen, Send, Brain, Share2, Star, Bookmark, Clock,
 import { cognitaAPI } from '@/lib/api'
 import BookCover from '@/components/ui/BookCover'
 import { interaction } from '@/lib/interaction'
+import { t, getStoredLocale, type Locale } from '@/lib/i18n'
 
 interface Book {
   id: string; title: string; author: string | null; description: string | null
@@ -24,6 +25,7 @@ export default function BookDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const { user, loading } = useAuth()
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
   const [book, setBook] = useState<Book | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
@@ -44,6 +46,14 @@ export default function BookDetailPage() {
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.locale) setLocale(detail.locale as Locale)
+    }
+    window.addEventListener('cognita-language-changed', handler)
+    return () => window.removeEventListener('cognita-language-changed', handler)
+  }, [])
   useEffect(() => {
     if (user && id) {
       fetchBook(); fetchComments(); checkLike(); checkSaved(); fetchSession()
@@ -124,7 +134,7 @@ export default function BookDetailPage() {
       if (data.activeProvider) setActiveProviderDisplay(data.activeProvider)
       setChatMessages(prev => [...prev, { role: 'ai', text: data.response }])
     } catch {
-      setChatMessages(prev => [...prev, { role: 'ai', text: 'Backend şu an uyanıyor olabilir (50sn bekle), tekrar dene.' }])
+      setChatMessages(prev => [...prev, { role: 'ai', text: t(locale, 'bookChatError') }])
     }
     setChatLoading(false)
   }
@@ -138,7 +148,7 @@ export default function BookDetailPage() {
       const data = await cognitaAPI.analyzeBook(bookContent, book?.title || '')
       setAnalysis(data)
     } catch (err: any) {
-      setAnalysis({ summary: err?.message || 'Analiz yapılamadı', themes: [], concepts: [], mood: '-', difficulty: '-', target_audience: '-' })
+      setAnalysis({ summary: err?.message || t(locale, 'bookAnalysisFailed'), themes: [], concepts: [], mood: '-', difficulty: '-', target_audience: '-' })
     }
     setAnalysisLoading(false)
   }
@@ -164,7 +174,7 @@ export default function BookDetailPage() {
 
         {/* Geri butonu */}
         <button onClick={() => router.back()} style={{ position: 'absolute', top: '1rem', left: '1rem', zIndex: 10, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(10px)', border: 'none', borderRadius: 999, padding: '0.45rem 0.9rem', color: 'white', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>
-          <ArrowLeft size={15} /> Geri
+          <ArrowLeft size={15} /> {t(locale, 'bookBack')}
         </button>
 
         {/* Kapak */}
@@ -184,14 +194,14 @@ export default function BookDetailPage() {
           {book.total_pages > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
               <FileText size={13} color="var(--text-muted)" />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{book.total_pages} sayfa</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{book.total_pages} {t(locale, 'bookPages')}</span>
             </div>
           )}
           {readingTime > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
               <Clock size={13} color="var(--text-muted)" />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {readingTime < 60 ? `${readingTime} dk` : `${Math.floor(readingTime / 60)} sa`}
+                {readingTime < 60 ? `${readingTime} ${t(locale, 'bookMinShort')}` : `${Math.floor(readingTime / 60)} ${t(locale, 'bookHourShort')}`}
               </span>
             </div>
           )}
@@ -216,7 +226,7 @@ export default function BookDetailPage() {
         {readingSession && readingSession.progress_percent > 0 && (
           <div style={{ marginBottom: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Okuma İlerlemeniz</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t(locale, 'bookProgress')}</span>
               <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)' }}>%{Math.round(readingSession.progress_percent)}</span>
             </div>
             <div style={{ height: '4px', background: 'var(--bg-soft)', borderRadius: 2, overflow: 'hidden' }}>
@@ -230,7 +240,7 @@ export default function BookDetailPage() {
           <button onClick={() => router.push(`/reader/${book.id}`)}
             style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '0.8rem', background: 'var(--text)', border: 'none', borderRadius: 14, color: 'var(--bg)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>
             <BookOpen size={17} />
-            {readingSession && readingSession.progress_percent > 0 ? 'Devam Et' : 'Oku'}
+            {readingSession && readingSession.progress_percent > 0 ? t(locale, 'bookContinue') : t(locale, 'bookRead')}
           </button>
           <button onClick={handleLike}
             style={{ padding: '0.8rem 1rem', background: liked ? 'rgba(230,57,70,0.1)' : 'var(--bg-soft)', border: `1.5px solid ${liked ? '#e63946' : 'var(--border)'}`, borderRadius: 14, color: liked ? '#e63946' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'all 0.18s' }}>
@@ -252,7 +262,7 @@ export default function BookDetailPage() {
 
         {/* Puanlama */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', marginTop: '0.9rem' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginRight: '0.25rem' }}>Puan ver:</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginRight: '0.25rem' }}>{t(locale, 'bookRate')}</span>
           {[1, 2, 3, 4, 5].map(s => (
             <button key={s} onClick={() => setUserRating(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.1rem', transition: 'transform 0.1s' }}>
               <Star size={20} fill={s <= userRating ? '#f59e0b' : 'none'} color={s <= userRating ? '#f59e0b' : 'var(--border)'} strokeWidth={1.5} />
@@ -264,7 +274,7 @@ export default function BookDetailPage() {
       {/* Açıklama */}
       {book.description && (
         <div style={{ padding: '1rem 1.25rem', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>Hakkında</p>
+          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>{t(locale, 'bookAbout')}</p>
           <p style={{ fontSize: '0.92rem', color: 'var(--text-soft)', lineHeight: 1.7 }}>{book.description}</p>
         </div>
       )}
@@ -272,9 +282,9 @@ export default function BookDetailPage() {
       {/* Sekmeler */}
       <div style={{ display: 'flex', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 50 }}>
         {[
-          { id: 'comments', label: '💬 Yorumlar' },
-          { id: 'chat', label: '🤖 AI Sohbet' },
-          { id: 'analysis', label: '🧠 Analiz' },
+          { id: 'comments', label: t(locale, 'bookTabComments') },
+          { id: 'chat', label: t(locale, 'bookTabChat') },
+          { id: 'analysis', label: t(locale, 'bookTabAnalysis') },
         ].map(tab => (
           <button key={tab.id}
             onClick={() => tab.id === 'analysis' ? handleAnalysis() : setActiveTab(tab.id as any)}
@@ -290,17 +300,17 @@ export default function BookDetailPage() {
         {activeTab === 'comments' && (
           <>
             <div style={{ marginBottom: '1rem' }}>
-              <textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Düşüncelerini paylaş..." rows={3} className="input" style={{ marginBottom: '0.6rem', resize: 'none' }} />
+              <textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder={t(locale, 'bookCommentPlaceholder')} rows={3} className="input" style={{ marginBottom: '0.6rem', resize: 'none' }} />
               <button onClick={handleComment} disabled={sending || !newComment.trim()} className="btn-primary"
                 style={{ padding: '0.65rem 1.4rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: sending || !newComment.trim() ? 0.5 : 1 }}>
-                <Send size={14} /> {sending ? 'Gönderiliyor...' : 'Yorum Yap'}
+                <Send size={14} /> {sending ? t(locale, 'bookSending') : t(locale, 'bookSubmitComment')}
               </button>
             </div>
             {comments.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-icon">💬</div>
-                <p className="empty-state-title">Henüz yorum yok</p>
-                <p className="empty-state-desc">İlk yorumu sen yap!</p>
+                <p className="empty-state-title">{t(locale, 'bookNoComments')}</p>
+                <p className="empty-state-desc">{t(locale, 'bookFirstComment')}</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -323,8 +333,8 @@ export default function BookDetailPage() {
             <div style={{ padding: '0.75rem', background: 'rgba(64,93,230,0.08)', borderRadius: 12, border: '1px solid rgba(64,93,230,0.15)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, marginBottom: '0.15rem' }}>🤖 AI Kitap Asistanı</p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Bu kitap hakkında her şeyi sorabilirsin.</p>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, marginBottom: '0.15rem' }}>{t(locale, 'bookAiAssistant')}</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t(locale, 'bookAiDesc')}</p>
                 </div>
                 {activeProviderDisplay && (
                   <span style={{ fontSize: '0.66rem', padding: '0.2rem 0.5rem', borderRadius: 999, background: 'rgba(64,93,230,0.12)', color: 'var(--accent)', fontWeight: 600 }}>{activeProviderDisplay}</span>
@@ -335,7 +345,7 @@ export default function BookDetailPage() {
                   {(['fast', 'quality'] as const).map(m => (
                     <button key={m} onClick={() => { setGroqModel(m); localStorage.setItem('groq_model', m) }}
                       style={{ flex: 1, padding: '0.35rem', borderRadius: 8, border: `1.5px solid ${groqModel === m ? 'var(--accent)' : 'var(--border)'}`, background: groqModel === m ? 'rgba(64,93,230,0.1)' : 'transparent', color: groqModel === m ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.72rem', fontWeight: groqModel === m ? 700 : 400, cursor: 'pointer' }}>
-                      {m === 'fast' ? '⚡ Hızlı (8B)' : '🎯 Kaliteli (70B)'}
+                      {m === 'fast' ? t(locale, 'bookGroqFast') : t(locale, 'bookGroqQuality')}
                     </button>
                   ))}
                 </div>
@@ -345,7 +355,7 @@ export default function BookDetailPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', minHeight: '200px', maxHeight: '400px', overflowY: 'auto' }}>
               {chatMessages.length === 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                  {['Ana tema nedir?', 'Karakterleri anlat', 'Önemli alıntılar', 'Kitabı özetle'].map(q => (
+                  {[t(locale, 'bookSuggestion1'), t(locale, 'bookSuggestion2'), t(locale, 'bookSuggestion3'), t(locale, 'bookSuggestion4')].map(q => (
                     <button key={q} onClick={() => setChatInput(q)}
                       style={{ padding: '0.35rem 0.75rem', background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 999, fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
                       {q}
@@ -372,7 +382,7 @@ export default function BookDetailPage() {
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <input className="input" value={chatInput} onChange={e => setChatInput(e.target.value)}
-                placeholder="Kitap hakkında sor..." onKeyDown={e => e.key === 'Enter' && handleChat()} style={{ flex: 1 }} />
+                placeholder={t(locale, 'bookChatPlaceholder')} onKeyDown={e => e.key === 'Enter' && handleChat()} style={{ flex: 1 }} />
               <button onClick={handleChat} disabled={chatLoading || !chatInput.trim()}
                 style={{ padding: '0 1rem', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', border: 'none', borderRadius: 12, color: 'white', cursor: 'pointer', opacity: chatLoading || !chatInput.trim() ? 0.5 : 1 }}>
                 <Send size={16} />
@@ -385,16 +395,16 @@ export default function BookDetailPage() {
           analysisLoading ? (
             <div className="empty-state">
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🧠</div>
-              <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>AI analiz yapıyor...</p>
+              <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{t(locale, 'bookAnalyzing')}</p>
             </div>
           ) : analysis ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div className="card" style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Özet</p>
+                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>{t(locale, 'bookAnalysisSummary')}</p>
                 <p style={{ fontSize: '0.92rem', lineHeight: 1.75, color: 'var(--text-soft)' }}>{analysis.summary}</p>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                {[{ l: 'Atmosfer', v: analysis.mood }, { l: 'Zorluk', v: analysis.difficulty }, { l: 'Hedef Kitle', v: analysis.target_audience }].map(s => (
+                {[{ l: t(locale, 'bookAnalysisAtmos'), v: analysis.mood }, { l: t(locale, 'bookAnalysisDifficulty'), v: analysis.difficulty }, { l: t(locale, 'bookAnalysisAudience'), v: analysis.target_audience }].map(s => (
                   <div key={s.l} className="card-soft" style={{ padding: '0.75rem', textAlign: 'center' }}>
                     <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3rem' }}>{s.l}</p>
                     <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text)' }}>{s.v}</p>
@@ -403,7 +413,7 @@ export default function BookDetailPage() {
               </div>
               {analysis.themes?.length > 0 && (
                 <div className="card" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>Temalar</p>
+                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>{t(locale, 'bookAnalysisThemes')}</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                     {analysis.themes.map((t, i) => <span key={i} className="tag tag-accent">{t}</span>)}
                   </div>
@@ -411,7 +421,7 @@ export default function BookDetailPage() {
               )}
               {analysis.concepts?.length > 0 && (
                 <div className="card" style={{ padding: '1rem' }}>
-                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>Kavramlar</p>
+                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>{t(locale, 'bookAnalysisConcepts')}</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                     {analysis.concepts.map((c, i) => <span key={i} className="tag">{c}</span>)}
                   </div>

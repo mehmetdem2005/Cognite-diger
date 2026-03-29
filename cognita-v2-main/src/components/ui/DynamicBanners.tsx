@@ -47,65 +47,39 @@ export default function DynamicBanners({ userId }: Props) {
     setDismissedBanners(newSet)
   }
 
-  const getBannerStyles = (type: string) => {
-    const baseStyle = {
-      padding: '1rem',
-      borderRadius: 'var(--radius-lg)',
-      marginBottom: '0.75rem',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.8rem',
-      position: 'relative' as const,
-      overflow: 'hidden',
-      border: '1px solid transparent'
-    }
+  const getBannerClasses = (type: string) => {
+    const baseClasses = 'p-4 rounded-lg mb-3 flex items-center gap-3 relative overflow-hidden border border-transparent'
 
     switch (type) {
       case 'streak_warning':
-        return {
-          ...baseStyle,
-          background: 'linear-gradient(135deg, rgba(234,88,12,0.1), rgba(234,88,12,0.05))',
-          border: '1px solid rgba(234,88,12,0.2)'
-        }
+        return `${baseClasses} bg-orange-500/10 border-orange-500/20`
       case 'congratulations':
-        return {
-          ...baseStyle,
-          background: 'linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.05))',
-          border: '1px solid rgba(34,197,94,0.2)'
-        }
+        return `${baseClasses} bg-green-500/10 border-green-500/20`
       case 'seasonal':
-        return {
-          ...baseStyle,
-          background: 'linear-gradient(135deg, rgba(168,85,247,0.1), rgba(168,85,247,0.05))',
-          border: '1px solid rgba(168,85,247,0.2)'
-        }
+        return `${baseClasses} bg-purple-500/10 border-purple-500/20`
       case 'promotion':
-        return {
-          ...baseStyle,
-          background: 'linear-gradient(135deg, rgba(64,93,230,0.1), rgba(64,93,230,0.05))',
-          border: '1px solid rgba(64,93,230,0.2)'
-        }
+        return `${baseClasses} bg-blue-500/10 border-blue-500/20`
       default:
-        return baseStyle
+        return baseClasses
     }
   }
 
   if (loading || visibleBanners.length === 0) return null
 
   return (
-    <div style={{ marginTop: '0.75rem' }}>
+    <div className="mt-3">
       {visibleBanners.map(banner => (
-        <div key={banner.id} style={getBannerStyles(banner.banner_type)}>
+        <div key={banner.id} className={getBannerClasses(banner.banner_type)}>
           {/* Icon */}
-          <div style={{ fontSize: '1.5rem', flexShrink: 0 }}>{banner.icon}</div>
+          <div className="text-2xl flex-shrink-0">{banner.icon}</div>
 
           {/* Content */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h3 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.2rem' }}>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-text mb-0.5">
               {banner.title}
             </h3>
             {banner.message && (
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <p className="text-xs text-text-muted">
                 {banner.message}
               </p>
             )}
@@ -115,27 +89,7 @@ export default function DynamicBanners({ userId }: Props) {
           {banner.cta_text && banner.cta_link && (
             <button
               onClick={() => router.push(banner.cta_link!)}
-              style={{
-                background: 'var(--accent)',
-                color: 'white',
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.4rem 0.8rem',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = 'var(--shadow-md)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = 'none'
-              }}
+              className="btn-primary text-xs px-2 py-1 flex-shrink-0 hover:scale-102 hover:shadow-md transition-all"
             >
               {banner.cta_text}
             </button>
@@ -144,23 +98,7 @@ export default function DynamicBanners({ userId }: Props) {
           {/* Close Button */}
           <button
             onClick={() => dismissBanner(banner.id)}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-muted)',
-              padding: '0.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--text)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--text-muted)'
-            }}
+            className="bg-transparent border-none cursor-pointer text-text-muted p-0.5 flex items-center justify-center flex-shrink-0 hover:text-text transition-colors"
           >
             <X size={16} />
           </button>

@@ -1,3 +1,5 @@
+import type { Locale } from './i18n'
+
 export const BOOK_CATEGORIES = [
   { id: 'all', label: 'Tümü', icon: '📚' },
   { id: 'roman', label: 'Roman', icon: '📖' },
@@ -23,3 +25,70 @@ export const BOOK_CATEGORIES = [
   { id: 'mizah', label: 'Mizah', icon: '😄' },
   { id: 'alinti', label: 'Sadece Alıntı', icon: '💬' },
 ]
+
+const categoryLabelsByLocale: Record<Locale, Record<string, string>> = {
+  tr: {
+    all: 'Tümü',
+    roman: 'Roman',
+    bilim: 'Bilim',
+    tarih: 'Tarih',
+    felsefe: 'Felsefe',
+    psikoloji: 'Psikoloji',
+    'kisisel-gelisim': 'Kişisel Gelişim',
+    'bilim-kurgu': 'Bilim Kurgu',
+    fantastik: 'Fantastik',
+    biyografi: 'Biyografi',
+    din: 'Din & Maneviyat',
+    siir: 'Şiir',
+    cocuk: 'Çocuk Kitapları',
+    ekonomi: 'Ekonomi',
+    siyaset: 'Siyaset',
+    sanat: 'Sanat & Tasarım',
+    yazilim: 'Yazılım',
+    saglik: 'Sağlık',
+    korku: 'Korku',
+    romantik: 'Romantik',
+    gezi: 'Gezi & Keşif',
+    mizah: 'Mizah',
+    alinti: 'Sadece Alıntı',
+  },
+  en: {
+    all: 'All',
+    roman: 'Novel',
+    bilim: 'Science',
+    tarih: 'History',
+    felsefe: 'Philosophy',
+    psikoloji: 'Psychology',
+    'kisisel-gelisim': 'Personal Growth',
+    'bilim-kurgu': 'Science Fiction',
+    fantastik: 'Fantasy',
+    biyografi: 'Biography',
+    din: 'Religion & Spirituality',
+    siir: 'Poetry',
+    cocuk: 'Children\'s Books',
+    ekonomi: 'Economics',
+    siyaset: 'Politics',
+    sanat: 'Art & Design',
+    yazilim: 'Software',
+    saglik: 'Health',
+    korku: 'Horror',
+    romantik: 'Romance',
+    gezi: 'Travel & Discovery',
+    mizah: 'Humor',
+    alinti: 'Quotes Only',
+  },
+  de: {
+    all: 'Alle',
+  },
+  fr: {
+    all: 'Tous',
+  },
+  es: {
+    all: 'Todo',
+  },
+}
+
+export function getCategoryLabel(id: string, locale: Locale): string {
+  const localeLabels = categoryLabelsByLocale[locale] || categoryLabelsByLocale.tr
+  return localeLabels[id] || categoryLabelsByLocale.en[id] || BOOK_CATEGORIES.find((c) => c.id === id)?.label || id
+}

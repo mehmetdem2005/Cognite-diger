@@ -63,39 +63,22 @@ export default function StatsTrend({ userId }: Props) {
   }) => {
     const isPositive = change >= 0
     return (
-      <div
-        style={{
-          flex: 1,
-          background: 'var(--bg-soft)',
-          borderRadius: 'var(--radius-md)',
-          padding: '0.8rem',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.4rem' }}>
-          <Icon size={16} color="var(--accent)" style={{ marginRight: '0.3rem' }} />
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{title}</p>
+      <div className="flex-1 bg-bg-soft rounded-md p-3 flex flex-col items-center justify-center text-center">
+        <div className="flex items-center justify-center mb-1">
+          <Icon size={16} className="text-accent mr-1" />
+          <p className="text-xs text-text-muted uppercase">{title}</p>
         </div>
 
-        <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text)', marginBottom: '0.3rem' }}>
+        <p className="text-lg font-black text-text mb-1">
           {value}
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.2rem' }}>{unit}</span>
+          <span className="text-xs text-text-muted ml-0.5">{unit}</span>
         </p>
 
         {change !== 0 && (
           <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.2rem',
-              fontSize: '0.7rem',
-              fontWeight: 700,
-              color: isPositive ? 'var(--green)' : 'var(--red)'
-            }}
+            className={`flex items-center gap-0.5 text-xs font-bold ${
+              isPositive ? 'text-green-500' : 'text-red-500'
+            }`}
           >
             {isPositive ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
             {Math.abs(change)} {unit || 'artış'}
@@ -106,17 +89,17 @@ export default function StatsTrend({ userId }: Props) {
   }
 
   return (
-    <div style={{ marginTop: '0.75rem', background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '1rem 1rem 0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <TrendingUp size={15} color="var(--accent)" />
-          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Haftalık İstatistikler</span>
+    <div className="mt-3 bg-card border-t border-b border-border p-4 pt-0">
+      <div className="flex justify-between items-center mb-4 pb-3 border-b border-border">
+        <div className="flex items-center gap-1">
+          <TrendingUp size={15} className="text-accent" />
+          <span className="text-sm font-bold text-text">Haftalık İstatistikler</span>
         </div>
-        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Geçen haftaya kıyasla</span>
+        <span className="text-xs text-text-muted">Geçen haftaya kıyasla</span>
       </div>
 
-      {/* İstatistik Kartları */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem', marginBottom: '1rem' }}>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2 mb-4">
         <StatCard
           title="Sayfalar"
           value={stats.current.pages_read}
@@ -140,22 +123,22 @@ export default function StatsTrend({ userId }: Props) {
         />
       </div>
 
-      {/* Ek İstatistikler */}
-      <div style={{ background: 'var(--bg-soft)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
+      {/* Extra Stats */}
+      <div className="bg-bg-soft rounded-md p-3 mb-4 flex justify-around text-center">
         <div>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Okuma Günleri</p>
-          <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>{stats.current.reading_days}</p>
+          <p className="text-xs text-text-muted mb-1">Okuma Günleri</p>
+          <p className="text-base font-bold text-text">{stats.current.reading_days}</p>
         </div>
-        <div style={{ borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)', paddingLeft: '1rem', paddingRight: '1rem' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Ortalama Okuma</p>
-          <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>
+        <div className="border-l border-r border-border px-4">
+          <p className="text-xs text-text-muted mb-1">Ortalama Okuma</p>
+          <p className="text-base font-bold text-text">
             {stats.current.avg_reading_time_minutes}
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginLeft: '0.2rem' }}>dk</span>
+            <span className="text-xs text-text-muted ml-0.5">dk</span>
           </p>
         </div>
         <div>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Toplam XP</p>
-          <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>{stats.current.total_xp_earned}</p>
+          <p className="text-xs text-text-muted mb-1">Toplam XP</p>
+          <p className="text-base font-bold text-text">{stats.current.total_xp_earned}</p>
         </div>
       </div>
     </div>

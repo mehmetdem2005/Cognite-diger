@@ -7,6 +7,7 @@ import BottomNav from '@/components/layout/BottomNav'
 import { ArrowLeft, UserPlus, UserMinus, BookOpen } from 'lucide-react'
 import BookCover from '@/components/ui/BookCover'
 import { interaction } from '@/lib/interaction'
+import { t, getStoredLocale, type Locale } from '@/lib/i18n'
 
 interface Profile {
   id: string; full_name: string | null; username: string | null
@@ -28,7 +29,18 @@ export default function UserProfilePage() {
   const [followingCount, setFollowingCount] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [locale, setLocale] = useState<Locale>(() => getStoredLocale())
   const isOwnProfile = user && profile && user.id === profile.id
+
+  useEffect(() => {
+    const handler = () => setLocale(getStoredLocale())
+    window.addEventListener('cognita-language-changed', handler)
+    window.addEventListener('storage', handler)
+    return () => {
+      window.removeEventListener('cognita-language-changed', handler)
+      window.removeEventListener('storage', handler)
+    }
+  }, [])
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user && username) fetchProfile() }, [user, username])
@@ -89,20 +101,20 @@ export default function UserProfilePage() {
             </div>
             {!isOwnProfile && (
               <button onClick={handleFollow} disabled={followLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', background: isFollowing ? 'transparent' : 'var(--accent)', border: `1.5px solid ${isFollowing ? 'var(--border)' : 'var(--accent)'}`, borderRadius: '8px', color: isFollowing ? 'var(--text-muted)' : 'white', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
-                {isFollowing ? <><UserMinus size={14} /> Takibi Bırak</> : <><UserPlus size={14} /> Takip Et</>}
+                {isFollowing ? <><UserMinus size={14} /> {t(locale, 'userUnfollow')}</> : <><UserPlus size={14} /> {t(locale, 'userFollow')}</>}
               </button>
             )}
             {isOwnProfile && (
-              <button onClick={() => router.push('/profile')} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1.5px solid var(--border)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer' }}>Profili Düzenle</button>
+              <button onClick={() => router.push('/profile')} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1.5px solid var(--border)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer' }}>{t(locale, 'userEditProfile')}</button>
             )}
           </div>
           {profile.bio && <p style={{ fontSize: '0.9rem', color: 'var(--text-soft)', lineHeight: 1.6, marginBottom: '1rem' }}>{profile.bio}</p>}
           <div style={{ display: 'flex', gap: '2rem' }}>
             {[
-              { value: followerCount, label: 'Takipçi' },
-              { value: followingCount, label: 'Takip' },
-              { value: profile.streak_days, label: 'Seri 🔥' },
-              { value: profile.total_pages_read, label: 'Sayfa' },
+            { value: followerCount, label: t(locale, 'userFollowers') },
+              { value: followingCount, label: t(locale, 'userFollowing') },
+              { value: profile.streak_days, label: t(locale, 'userStreak') },
+              { value: profile.total_pages_read, label: t(locale, 'userPages') },
             ].map(s => (
               <div key={s.label} style={{ textAlign: 'center' }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: 'var(--accent)' }}>{s.value}</div>
@@ -115,7 +127,7 @@ export default function UserProfilePage() {
         {/* Seviye */}
         <div className="card" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Seviye {profile.level}</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t(locale, 'userLevelLabel')} {profile.level}</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 600 }}>{profile.xp} XP</span>
           </div>
           <div style={{ height: '5px', background: 'var(--bg-soft)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -128,7 +140,7 @@ export default function UserProfilePage() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
               <BookOpen size={16} color="var(--accent)" />
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 500 }}>Kitapları</h3>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 500 }}>{t(locale, 'userBooksSection')}</h3>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               {books.map((book, i) => (

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { callAI } from '@/lib/ai-provider-manager'
+import { requireAuth } from '@/lib/auth'
+import { classifySchema } from '@/lib/validation'
+import { safeParseJSON, errorResponse } from '@/lib/api-utils'
+import { rateLimit } from '@/lib/rateLimit'
+import { RATE_LIMIT_AI_MAX, RATE_LIMIT_AI_WINDOW_MS } from '@/lib/constants'
 
 const VALID_CATEGORIES = [
   'roman','bilim','tarih','felsefe','psikoloji','kisisel-gelisim',
@@ -32,42 +36,23 @@ function normalizeCategory(raw: string): string | null {
   return map[s] || null
 }
 
-function extractJSON(raw: string): any {
-  const clean = raw.replace(/```json|```/g, '').trim()
-  try { return JSON.parse(clean) } catch {}
-  const start = clean.indexOf('{')
-  const end = clean.lastIndexOf('}')
-  if (start !== -1 && end > start) {
-    try { return JSON.parse(clean.slice(start, end + 1)) } catch {}
-  }
-  return {}
-}
-
-async function verifyUser(token: string) {
-  const sb = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-  const { data: { user }, error } = await sb.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
-    const { title, author, description, content } = await req.json()
+    const { allowed } = rateLimit(`classify:${user.id}`, RATE_LIMIT_AI_MAX, RATE_LIMIT_AI_WINDOW_MS)
+    if (!allowed) return NextResponse.json({ error: 'Çok fazla istek. Lütfen biraz bekleyin.' }, { status: 429 })
 
-    const snippet = content ? content.slice(0, 1000) : ''
+    const body = classifySchema.parse(await req.json())
+
+    const snippet = body.content ? body.content.slice(0, 1000) : ''
     const prompt = `Classify this book. Return ONLY a JSON object.
 
-Title: "${title}"
-Author: "${author || 'Unknown'}"
-${description ? `Description: "${description}"` : ''}
+Title: "${body.title}"
+Author: "${body.author || 'Unknown'}"
+${body.description ? `Description: "${body.description}"` : ''}
 ${snippet ? `Content: "${snippet}"` : ''}
 
 Return exactly:
@@ -88,23 +73,22 @@ Return ONLY the JSON.`
       temperature: 0.1,
     })
 
-    const parsed = extractJSON(result.content)
+    const { data: parsed } = safeParseJSON<Record<string, unknown>>(result.content)
+    const parsedObj = parsed || {}
 
-    const categories = (parsed.categories || [])
-      .map((c: string) => normalizeCategory(c))
+    const categories = (Array.isArray(parsedObj.categories) ? parsedObj.categories : [])
+      .map((c: unknown) => typeof c === 'string' ? normalizeCategory(c) : null)
       .filter(Boolean)
       .slice(0, 3) as string[]
 
-    const language = VALID_LANGUAGES.includes(parsed.language?.toLowerCase?.())
-      ? parsed.language.toLowerCase()
-      : 'tr'
-    const level = VALID_LEVELS.includes(parsed.level?.toUpperCase?.())
-      ? parsed.level.toUpperCase()
-      : null
+    const rawLang = typeof parsedObj.language === 'string' ? parsedObj.language.toLowerCase() : ''
+    const language = VALID_LANGUAGES.includes(rawLang) ? rawLang : 'tr'
+
+    const rawLevel = typeof parsedObj.level === 'string' ? parsedObj.level.toUpperCase() : ''
+    const level = VALID_LEVELS.includes(rawLevel) ? rawLevel : null
 
     return NextResponse.json({ categories, language, level })
-  } catch (err: any) {
-    console.error('[classify]', err?.message || err)
-    return NextResponse.json({ error: 'Sınıflandırma yapılamadı' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }

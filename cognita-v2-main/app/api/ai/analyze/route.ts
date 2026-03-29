@@ -1,31 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { callAI } from '@/lib/ai-provider-manager'
-
-async function verifyUser(token: string) {
-  const sb = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-  const { data: { user }, error } = await sb.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
+import { requireAuth } from '@/lib/auth'
+import { analyzeSchema } from '@/lib/validation'
+import { safeParseJSON, errorResponse } from '@/lib/api-utils'
+import { rateLimit } from '@/lib/rateLimit'
+import { AI_CONTEXT_MEDIUM, RATE_LIMIT_AI_MAX, RATE_LIMIT_AI_WINDOW_MS } from '@/lib/constants'
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
-    const { text, book_title } = await req.json()
-    const content = text ? text.slice(0, 3000) : book_title
+    const { allowed } = rateLimit(`ai-analyze:${user.id}`, RATE_LIMIT_AI_MAX, RATE_LIMIT_AI_WINDOW_MS)
+    if (!allowed) return NextResponse.json({ error: 'Çok fazla istek. Lütfen biraz bekleyin.' }, { status: 429 })
+
+    const body = analyzeSchema.parse(await req.json())
+    const content = body.text ? body.text.slice(0, AI_CONTEXT_MEDIUM) : body.book_title
 
     const result = await callAI({
       messages: [{
         role: 'user',
-        content: `"${book_title}" kitabını analiz et. Sadece JSON döndür, başka hiçbir şey yazma. Format:
+        content: `"${body.book_title}" kitabını analiz et. Sadece JSON döndür, başka hiçbir şey yazma. Format:
 {"summary":"...","themes":["...","...","..."],"concepts":["...","..."],"mood":"...","difficulty":"Kolay/Orta/Zor","target_audience":"..."}
 
 Kitap içeriği: ${content}`,
@@ -33,15 +29,12 @@ Kitap içeriği: ${content}`,
       maxTokens: 800,
     })
 
-    const clean = result.content.replace(/```json|```/g, '').trim()
-    try {
-      return NextResponse.json(JSON.parse(clean))
-    } catch {
-      return NextResponse.json({ error: 'AI geçersiz JSON döndürdü', detail: clean }, { status: 500 })
+    const { data, error } = safeParseJSON(result.content)
+    if (error || !data) {
+      return NextResponse.json({ error: error || 'AI geçersiz JSON döndürdü' }, { status: 500 })
     }
+    return NextResponse.json(data)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[ai/analyze] AI error:', msg)
-    return NextResponse.json({ error: 'Hata', detail: msg }, { status: 500 })
+    return errorResponse(err)
   }
 }

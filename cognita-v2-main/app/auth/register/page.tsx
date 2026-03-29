@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { isSupabaseConfigured, supabase, supabaseConfigError } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, BookOpen, Check } from 'lucide-react'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -15,11 +16,22 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [showPass, setShowPass] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
+
+  useEffect(() => {
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
 
   const handleRegister = async () => {
-    if (!fullName || !username || !email || !password) { setError('Tüm alanları doldur'); return }
-    if (password.length < 6) { setError('Şifre en az 6 karakter olmalı'); return }
-    if (username.includes(' ')) { setError('Kullanıcı adında boşluk olamaz'); return }
+    if (!fullName || !username || !email || !password) { setError(t(locale, 'loginFillAll')); return }
+    if (password.length < 6) { setError(t(locale, 'registerPasswordMin')); return }
+    if (username.includes(' ')) { setError(t(locale, 'registerUsernameNoSpaces')); return }
     if (!isSupabaseConfigured) { setError(supabaseConfigError); return }
     setLoading(true); setError('')
     const { error } = await supabase.auth.signUp({
@@ -35,8 +47,8 @@ export default function RegisterPage() {
       <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #43E97B, #38F9D7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Check size={32} color="white" strokeWidth={3} />
       </div>
-      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--text)', textAlign: 'center' }}>Hoş geldin, {fullName.split(' ')[0]}!</h2>
-      <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Okuma yolculuğun başlıyor...</p>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--text)', textAlign: 'center' }}>{t(locale, 'registerWelcome')}, {fullName.split(' ')[0]}!</h2>
+      <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{t(locale, 'registerJourneyStart')}</p>
     </main>
   )
 
@@ -50,14 +62,14 @@ export default function RegisterPage() {
       </div>
 
       <div style={{ flex: 1, padding: '2rem 1.5rem' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.3rem' }}>Hesap oluştur</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.75rem' }}>Topluluğa katıl</p>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.3rem' }}>{t(locale, 'registerTitle')}</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.75rem' }}>{t(locale, 'registerSubtitle')}</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
           {[
-            { label: 'Ad Soyad', value: fullName, setter: setFullName, type: 'text', placeholder: 'Mehmet Yılmaz' },
-            { label: 'Kullanıcı Adı', value: username, setter: setUsername, type: 'text', placeholder: 'mehmet_okur' },
-            { label: 'E-posta', value: email, setter: setEmail, type: 'email', placeholder: 'ornek@email.com' },
+            { label: t(locale, 'settingsFullName'), value: fullName, setter: setFullName, type: 'text', placeholder: 'Mehmet Yilmaz' },
+            { label: t(locale, 'registerUsername'), value: username, setter: setUsername, type: 'text', placeholder: 'mehmet_okur' },
+            { label: t(locale, 'settingsEmail'), value: email, setter: setEmail, type: 'email', placeholder: 'ornek@email.com' },
           ].map(f => (
             <div key={f.label}>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: '0.4rem' }}>{f.label}</label>
@@ -65,9 +77,9 @@ export default function RegisterPage() {
             </div>
           ))}
           <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: '0.4rem' }}>Şifre</label>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: '0.4rem' }}>{t(locale, 'registerPassword')}</label>
             <div style={{ position: 'relative' }}>
-              <input className="input" type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="En az 6 karakter" style={{ paddingRight: '2.75rem' }} />
+              <input className="input" type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder={t(locale, 'registerPasswordPlaceholder')} style={{ paddingRight: '2.75rem' }} />
               <button onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                 {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -88,12 +100,12 @@ export default function RegisterPage() {
         )}
 
         <button className="btn-primary" onClick={handleRegister} disabled={loading || !isSupabaseConfigured} style={{ width: '100%', padding: '0.95rem', borderRadius: '12px', fontSize: '0.95rem', opacity: loading || !isSupabaseConfigured ? 0.7 : 1 }}>
-          {loading ? 'Kaydediliyor...' : 'Hesap Oluştur'}
+          {loading ? t(locale, 'registerSubmitting') : t(locale, 'registerSubmit')}
         </button>
 
         <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-          Zaten hesabın var mı?{' '}
-          <Link href="/auth/login" style={{ color: 'var(--accent)', fontWeight: 700 }}>Giriş Yap</Link>
+          {t(locale, 'registerHasAccount')}{' '}
+          <Link href="/auth/login" style={{ color: 'var(--accent)', fontWeight: 700 }}>{t(locale, 'registerLogin')}</Link>
         </p>
       </div>
     </main>

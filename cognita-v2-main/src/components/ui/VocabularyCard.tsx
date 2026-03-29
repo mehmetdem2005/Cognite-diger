@@ -26,26 +26,22 @@ export default function VocabularyCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2 }}
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border)',
-        borderRadius: '14px',
-        padding: '0.9rem',
-        display: 'grid',
-        gap: '0.55rem',
-      }}
+      className="card"
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <strong style={{ fontSize: '1rem', color: 'var(--text)' }}>{word}</strong>
-        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{level || 'genel'}</span>
+      <div className="flex items-center justify-between mb-2">
+        <strong className="text-base text-text-primary font-bold">{word}</strong>
+        <span className="text-xs text-text-muted font-semibold">{level || 'genel'}</span>
       </div>
-      <p style={{ color: 'var(--text-soft)', fontSize: '0.88rem' }}>{meaning}</p>
-      {example && <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{example}</p>}
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
-        <button className="btn-primary" onClick={onLearned} style={{ padding: '0.45rem 0.75rem', borderRadius: 10, opacity: isLearned ? 0.7 : 1 }}>
-          Ogrendim
+      <p className="text-sm text-text-secondary mb-2">{meaning}</p>
+      {example && <p className="text-xs text-text-muted mb-3">{example}</p>}
+      <div className="flex gap-2">
+        <button
+          className={`btn-primary text-xs flex-1 ${isLearned ? 'opacity-70' : ''}`}
+          onClick={onLearned}
+        >
+          Öğrendim
         </button>
-        <button onClick={onReview} style={{ background: 'var(--bg-soft)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 10, padding: '0.45rem 0.75rem' }}>
+        <button className="btn-secondary text-xs flex-1" onClick={onReview}>
           Tekrar et
         </button>
       </div>

@@ -28,19 +28,30 @@ export default function QuizModal({ open, questions, onClose, onAnswer }: Props)
   if (!open) return null
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ width: '100%', maxWidth: 540, background: 'var(--bg-card)', borderRadius: 16, border: '1px solid var(--border)', padding: '1rem' }}>
+    <div className="fixed inset-0 bg-black/45 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="card w-full max-w-2xl animate-fade-in">
         {done ? (
-          <>
-            <h3 style={{ color: 'var(--text)', marginBottom: '0.6rem' }}>Quiz bitti</h3>
-            <p style={{ color: 'var(--text-soft)', marginBottom: '0.9rem' }}>Skor: {score}</p>
+          <div className="text-center py-8">
+            <h3 className="text-xl font-bold text-text-primary mb-2">Quiz Bitti!</h3>
+            <p className="text-sm text-text-muted mb-6">Skorunuz: <span className="font-bold text-accent-primary text-lg">{score}</span></p>
             <button className="btn-primary" onClick={onClose}>Kapat</button>
-          </>
+          </div>
         ) : (
           <>
-            <h3 style={{ color: 'var(--text)', marginBottom: '0.6rem' }}>Soru {index + 1}/{total}</h3>
-            <p style={{ color: 'var(--text-soft)', marginBottom: '0.9rem' }}>{q?.question}</p>
-            <div style={{ display: 'grid', gap: '0.45rem' }}>
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-bold text-text-primary">Soru {index + 1}/{total}</h3>
+                <div className="h-1 flex-1 mx-3 bg-bg-soft rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-primary transition-all duration-300"
+                    style={{ width: `${((index + 1) / total) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-sm text-text-secondary">{q?.question}</p>
+            </div>
+
+            <div className="space-y-2 mb-6">
               {q?.options?.map((opt) => (
                 <button
                   key={opt}
@@ -51,15 +62,14 @@ export default function QuizModal({ open, questions, onClose, onAnswer }: Props)
                     if (index + 1 >= total) setDone(true)
                     else setIndex((v) => v + 1)
                   }}
-                  style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '0.55rem 0.7rem', color: 'var(--text)', textAlign: 'left' }}
+                  className="btn-secondary w-full text-left text-sm"
                 >
                   {opt}
                 </button>
               ))}
             </div>
-            <div style={{ marginTop: '0.8rem' }}>
-              <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)' }}>Kapat</button>
-            </div>
+
+            <button className="btn-ghost w-full text-center" onClick={onClose}>Kapat</button>
           </>
         )}
       </div>

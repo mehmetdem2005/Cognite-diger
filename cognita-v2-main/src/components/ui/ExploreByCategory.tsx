@@ -27,46 +27,33 @@ export default function ExploreByCategory({ userId }: Props) {
   }
 
   return (
-    <div style={{ marginTop: '0.75rem', background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <Grid2x2 size={15} color="var(--accent)" />
-          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Kategorilere Göre Keşfet</span>
+    <div className="mt-3 bg-card border-t border-b border-border">
+      <div className="flex justify-between items-center gap-1 p-[0.9rem_1rem]">
+        <div className="flex items-center gap-1">
+          <Grid2x2 size={15} className="text-accent" />
+          <span className="text-sm font-bold text-text">Kategorilere Göre Keşfet</span>
         </div>
-        <button onClick={() => router.push('/explore')} style={{ background: 'none', border: 'none', fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>
+        <button
+          onClick={() => router.push('/explore')}
+          className="bg-transparent border-none text-xs text-accent font-semibold cursor-pointer hover:opacity-80 transition-opacity"
+        >
           Tümü
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', padding: '0 1rem 1rem' }}>
+      <div className="grid grid-cols-4 gap-3 p-[0_1rem_1rem]">
         {CATEGORIES.map(category => (
           <button
             key={category.id}
             onClick={() => handleCategoryClick(category.id)}
+            className="flex flex-col items-center justify-center p-3 rounded-lg cursor-pointer transition-all duration-200 min-h-[100px] hover:scale-95 hover:shadow-md"
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '1rem 0.75rem',
               background: category.color,
               border: `1px solid ${category.borderColor}`,
-              borderRadius: 'var(--radius-lg)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              minHeight: '100px'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px)'
-              e.currentTarget.style.boxShadow = 'var(--shadow-md)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = 'none'
             }}
           >
-            <div style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>{category.icon}</div>
-            <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)', textAlign: 'center', lineHeight: 1.2 }}>
+            <div className="text-2xl mb-1">{category.icon}</div>
+            <p className="text-xs font-bold text-text text-center leading-tight">
               {category.label}
             </p>
           </button>

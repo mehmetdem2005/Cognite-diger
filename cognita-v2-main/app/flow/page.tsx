@@ -8,6 +8,7 @@ import { Heart, MessageCircle, Share2, Bookmark, Music, Volume2, VolumeX } from 
 import BookCover from '@/components/ui/BookCover'
 import { interaction } from '@/lib/interaction'
 import { extractSmartQuotes, getMusicForGenre, inferGenreFromText } from '@/lib/smart-quote-extractor'
+import { t, getStoredLocale, type Locale } from '@/lib/i18n'
 
 interface FlowItem {
   id: string
@@ -62,9 +63,25 @@ const BLOCKED_BOOKS = [
   "kavgam", "mein kampf", "adolf hitler", "hitler"
 ]
 
+function getSeedItems(): FlowItem[] {
+  return SAMPLE_QUOTES.slice(0, 3).map((q, i) => ({
+    id: `seed-${i}`,
+    book_id: '',
+    book_title: q.book,
+    book_author: q.author,
+    paragraph: q.text,
+    likes_count: 0,
+    username: 'cognita',
+    gradient: GRADIENTS[i % GRADIENTS.length],
+    genre: inferGenreFromText(q.text),
+    quality_score: 6.8,
+  }))
+}
+
 export default function FlowPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
   const [items, setItems] = useState<FlowItem[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
   const [liked, setLiked] = useState<Set<string>>(new Set())
@@ -107,6 +124,15 @@ export default function FlowPage() {
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user) fetchInitial() }, [user])
   useEffect(() => { activeIndexRef.current = activeIndex }, [activeIndex])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.locale) setLocale(detail.locale as Locale)
+    }
+    window.addEventListener('cognita-language-changed', handler)
+    return () => window.removeEventListener('cognita-language-changed', handler)
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -156,10 +182,14 @@ export default function FlowPage() {
     setFetching(true)
     pageRef.current = 0
     setActiveIndex(0)
-    const newItems = await fetchPage(0)
-    setItems(newItems)
+
+    // İlk açılışı hızlandırmak için hemen seed kartları göster.
+    setItems(getSeedItems())
     setFetching(false)
     loadUserInteractions()
+
+    const newItems = await fetchPage(0)
+    if (newItems.length > 0) setItems(newItems)
   }
 
   const fetchMore = async () => {
@@ -177,6 +207,70 @@ export default function FlowPage() {
     const offset = page * 5
 
     try {
+      // İlk sayfada ağır kitap içeriklerini çekmeden hızlı başlangıç yap.
+      if (page === 0) {
+        const { data: highlights } = await supabase
+          .from('highlights')
+          .select('id, text, book_id, books(title, author, profiles(username))')
+          .eq('is_public', true)
+          .order('likes_count', { ascending: false })
+          .range(0, 7)
+
+        if (highlights?.length) {
+          highlights.forEach((h: any, i: number) => {
+            const text = h.text || ''
+            const wordCount = text.split(' ').length
+            const dashCount = (text.match(/-/g) || []).length
+            if (text.length > 60 && wordCount >= 6 && dashCount < 4) {
+              const b = h.books
+              flowItems.push({
+                id: `hl-${h.id}-${page}`,
+                book_id: h.book_id,
+                book_title: b?.title || t(locale, 'flowUnknown'),
+                book_author: b?.author || null,
+                paragraph: text,
+                likes_count: Math.floor(Math.random() * 200) + 10,
+                username: b?.profiles?.username || null,
+                gradient: GRADIENTS[(flowItems.length + i) % GRADIENTS.length],
+                genre: inferGenreFromText(text),
+                quality_score: 7.2,
+              })
+            }
+          })
+        }
+
+        ;[...SAMPLE_QUOTES].sort(() => Math.random() - 0.5).slice(0, 4).forEach((q, i) => {
+          flowItems.push({
+            id: `sample-${page}-${i}-${Date.now()}`,
+            book_id: '',
+            book_title: q.book,
+            book_author: q.author,
+            paragraph: q.text,
+            likes_count: Math.floor(Math.random() * 500) + 10,
+            username: 'cognita',
+            gradient: GRADIENTS[(flowItems.length + i) % GRADIENTS.length],
+            genre: inferGenreFromText(q.text),
+            quality_score: 7,
+          })
+        })
+
+        const uniqueQuick = new Map<string, FlowItem>()
+        flowItems.forEach((item) => {
+          const key = item.paragraph
+            .toLowerCase()
+            .replace(/[“”"'‘’]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+
+          const existing = uniqueQuick.get(key)
+          if (!existing || (item.quality_score || 0) > (existing.quality_score || 0)) {
+            uniqueQuick.set(key, item)
+          }
+        })
+
+        return Array.from(uniqueQuick.values()).sort(() => Math.random() - 0.5)
+      }
+
       const [
         userBooksResponse,
         catalogBooksResponse,
@@ -250,16 +344,16 @@ export default function FlowPage() {
           const authorLower = (book.author || '').toLowerCase()
           if (BLOCKED_BOOKS.some(b => titleLower.includes(b) || authorLower.includes(b))) return [] as FlowItem[]
           
-          const content = book.content || ''
+          const content = (book.content || '').slice(0, 12000)
           const title = book.title || 'Bilinmeyen'
 
           // Hızlı açılış: önce fallback
-          const smartQuotes = await extractSmartQuotes(content, title, 2, false)
+          const smartQuotes = await extractSmartQuotes(content, title, 1, false)
 
           enqueueAIEnhancement(
             content,
             title,
-            2,
+            1,
             `book-${book.id}-${page}-`,
             `book:${book.id}:${page}`,
           )
@@ -283,7 +377,7 @@ export default function FlowPage() {
 
       if (catalogBooks?.length) {
         const catalogItems = await Promise.all(catalogBooks.map(async (book) => {
-          const content = book.content || ''
+          const content = (book.content || '').slice(0, 9000)
           const title = book.title || 'Bilinmeyen'
           const smartQuotes = await extractSmartQuotes(content, title, 1, false)
 
@@ -519,7 +613,7 @@ export default function FlowPage() {
     <main style={{ height: '100vh', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', color: 'white' }}>
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✨</div>
-        <p style={{ fontSize: '1rem', opacity: 0.5 }}>Akış hazırlanıyor...</p>
+        <p style={{ fontSize: '1rem', opacity: 0.5 }}>{t(locale, 'flowLoading')}</p>
       </div>
     </main>
   )
@@ -674,7 +768,7 @@ export default function FlowPage() {
                 )}
                 {typeof item.quality_score === 'number' && (
                   <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.82)', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 999, padding: '0.2rem 0.55rem' }}>
-                    AI kalite: {item.quality_score.toFixed(1)}
+                    {t(locale, 'flowAiQuality')}: {item.quality_score.toFixed(1)}
                   </span>
                 )}
                 <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.82)', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 999, padding: '0.2rem 0.55rem' }}>
@@ -712,7 +806,7 @@ export default function FlowPage() {
                 </div>
                 {item.book_id && (
                   <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '0.35rem 0.75rem', color: 'white', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0, border: '1px solid rgba(255,255,255,0.18)', whiteSpace: 'nowrap' }}>
-                    Oku →
+                    {t(locale, 'flowReadButton')}
                   </div>
                 )}
               </div>
@@ -735,17 +829,17 @@ export default function FlowPage() {
                 },
                 {
                   icon: <MessageCircle size={26} color="white" strokeWidth={1.8} />,
-                  label: 'Yorum',
+                  label: t(locale, 'flowComment'),
                   onClick: (e: React.MouseEvent) => { e.stopPropagation(); item.book_id && router.push(`/book/${item.book_id}`) },
                 },
                 {
                   icon: <Bookmark size={26} fill={bookmarked.has(item.id) ? 'white' : 'none'} color="white" strokeWidth={1.8} />,
-                  label: bookmarked.has(item.id) ? '✓' : 'Kaydet',
+                  label: bookmarked.has(item.id) ? t(locale, 'flowSaved') : t(locale, 'flowSave'),
                   onClick: (e: React.MouseEvent) => { e.stopPropagation(); toggleBookmark(item.id) },
                 },
                 {
                   icon: <Share2 size={24} color="white" strokeWidth={1.8} />,
-                  label: 'Paylaş',
+                  label: t(locale, 'flowShare'),
                   onClick: (e: React.MouseEvent) => {
                     e.stopPropagation()
                     if (navigator.share) navigator.share({ title: item.book_title, text: `"${item.paragraph}" — ${item.book_title}` })
@@ -776,7 +870,7 @@ export default function FlowPage() {
             {index === items.length - 1 && loadingMore && (
               <div style={{ position: 'absolute', bottom: '5.5rem', left: 0, right: 0, display: 'flex', justifyContent: 'center', zIndex: 10 }}>
                 <div style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderRadius: 999, padding: '0.4rem 1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.72rem' }}>Yükleniyor...</span>
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.72rem' }}>{t(locale, 'flowLoadingMore')}</span>
                 </div>
               </div>
             )}

@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import QuizModal from '@/components/ui/QuizModal'
+import { t, getStoredLocale, type Locale } from '@/lib/i18n'
 import {
   ArrowLeft, Settings, Zap, Bookmark, BookOpen, X,
   Search, List, Sun, Moon, Type, AlignJustify,
@@ -38,6 +39,18 @@ export default function ReaderPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
   const contentRef = useRef<HTMLDivElement>(null)
+
+  const [locale, setLocale] = useState<Locale>(() => getStoredLocale())
+
+  useEffect(() => {
+    const handler = () => setLocale(getStoredLocale())
+    window.addEventListener('cognita-language-changed', handler)
+    window.addEventListener('storage', handler)
+    return () => {
+      window.removeEventListener('cognita-language-changed', handler)
+      window.removeEventListener('storage', handler)
+    }
+  }, [])
 
   // Kitap
   const [book, setBook] = useState<Book | null>(null)
@@ -233,7 +246,7 @@ export default function ReaderPage() {
       buildPages(text)
       buildTOC(text)
     } else {
-      setPages(['Bu kitap için içerik eklenmedi.'])
+      setPages([t(locale, 'readerNoContent')])
     }
     // Son sayfa
     const { data: sess } = await supabase.from('reading_sessions').select('current_page').eq('book_id', id).eq('user_id', user!.id).single()
@@ -650,20 +663,24 @@ export default function ReaderPage() {
 
   const highlightText = (text: string) => {
     if (!searchQuery) return text
-    const regex = new RegExp(`(${searchQuery})`, 'gi')
-    return text.replace(regex, '<mark style="background:#FFE066;border-radius:3px;padding:0 2px">$1</mark>')
+    // Escape HTML entities first to prevent XSS
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    // Escape regex special chars in search query to prevent ReDoS
+    const safeQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(`(${safeQuery})`, 'gi')
+    return escaped.replace(regex, '<mark style="background:#FFE066;border-radius:3px;padding:0 2px">$1</mark>')
   }
 
   if (loading || !user) return <main style={{ minHeight: '100vh', background: '#FAFAF8' }} />
   if (!book) return (
     <main style={{ minHeight: '100vh', background: '#FAFAF8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', padding: '2rem' }}>
       <BookOpen size={48} color="#ccc" />
-      <p style={{ fontWeight: 700, fontSize: '1.1rem' }}>Kitap bulunamadı</p>
-      <button onClick={() => router.push('/library')} style={{ padding: '0.6rem 1.5rem', background: '#405DE6', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 600 }}>Geri Dön</button>
+      <p style={{ fontWeight: 700, fontSize: '1.1rem' }}>{t(locale, 'readerBookNotFound')}</p>
+      <button onClick={() => router.push('/library')} style={{ padding: '0.6rem 1.5rem', background: '#405DE6', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 600 }}>{t(locale, 'readerBackBtn')}</button>
     </main>
   )
 
-  const pageText = pages[currentPage - 1] || 'Yükleniyor...'
+  const pageText = pages[currentPage - 1] || t(locale, 'readerLoading')
 
   return (
     <main
@@ -686,7 +703,7 @@ export default function ReaderPage() {
         </button>
         <div style={{ flex: 1, textAlign: 'center', padding: '0 0.5rem' }}>
           <p style={{ fontSize: '0.85rem', fontWeight: 700, color: tc.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</p>
-          <p style={{ fontSize: '0.6rem', color: tc.sub }}>%{progress} · {Math.round((total - currentPage) * 1.5)} dk kaldı</p>
+          <p style={{ fontSize: '0.6rem', color: tc.sub }}>%{progress} · {Math.round((total - currentPage) * 1.5)} {t(locale, 'readerDkLeft')}</p>
         </div>
         <div style={{ display: 'flex', gap: '0.1rem', alignItems: 'center' }}>
           <button onClick={() => { setShowSearch(!showSearch); setBarsVisible(true) }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: tc.sub }}>
@@ -717,7 +734,7 @@ export default function ReaderPage() {
             autoFocus
             value={searchQuery}
             onChange={e => handleSearch(e.target.value)}
-            placeholder="Kitapta ara..."
+            placeholder={t(locale, 'readerSearchPlaceholder')}
             style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: '0.9rem', color: tc.text, fontFamily: fontStyle }}
           />
           {searchResults.length > 0 && (
@@ -727,7 +744,7 @@ export default function ReaderPage() {
               <button onClick={() => { const ni = (searchIndex + 1) % searchResults.length; setSearchIndex(ni); setCurrentPage(searchResults[ni].page) }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem' }}><ChevronDown size={16} color={tc.text} /></button>
             </>
           )}
-          <button onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchResults([]) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: tc.sub, fontWeight: 600, fontSize: '0.85rem' }}>İptal</button>
+          <button onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchResults([]) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: tc.sub, fontWeight: 600, fontSize: '0.85rem' }}>{t(locale, 'readerCancel')}</button>
         </div>
       )}
 
@@ -761,7 +778,7 @@ export default function ReaderPage() {
         {/* Bu sayfanın highlight'ları */}
         {highlights.filter(h => h.page === currentPage).length > 0 && (
           <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: `1px solid ${tc.border}` }}>
-            <p style={{ fontSize: '0.72rem', color: tc.sub, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Bu Sayfanın Notları</p>
+            <p style={{ fontSize: '0.72rem', color: tc.sub, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>{t(locale, 'readerPageNotes')}</p>
             {highlights.filter(h => h.page === currentPage).map(h => (
               <div key={h.id} style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', alignItems: 'flex-start' }}>
                 <div style={{ width: 3, minHeight: 40, background: h.color, borderRadius: 2, flexShrink: 0 }} />
@@ -774,26 +791,32 @@ export default function ReaderPage() {
         {sectionQuizStats.attempts > 0 && (
         <div style={{ marginTop: '1rem', padding: '0.8rem', border: `1px solid ${tc.border}`, borderRadius: 12, background: tc.card }}>
           <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Bölüm Quiz İstatistiği
+            {t(locale, 'readerQuizStats')} · {sectionKey}
           </p>
-          <div style={{ marginTop: '0.45rem', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: '0.4rem' }}>
+          {sectionQuizLoading ? (
+            <p style={{ margin: '0.45rem 0 0', color: tc.sub, fontSize: '0.82rem' }}>{t(locale, 'readerQuizStatsLoading')}</p>
+          ) : sectionQuizStats.attempts === 0 ? (
+            <p style={{ margin: '0.45rem 0 0', color: tc.sub, fontSize: '0.82rem' }}>{t(locale, 'readerQuizNoAttempts')}</p>
+          ) : (
+            <div style={{ marginTop: '0.45rem', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: '0.4rem' }}>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
-                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Deneme</p>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>{t(locale, 'readerQuizAttempts')}</p>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.attempts}</p>
               </div>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
-                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Doğru</p>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>{t(locale, 'readerQuizCorrect')}</p>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.correct}</p>
               </div>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
-                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Başarı</p>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>{t(locale, 'readerQuizSuccess')}</p>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.accent }}>%{sectionQuizStats.successRate}</p>
               </div>
               <div style={{ padding: '0.45rem', borderRadius: 10, background: tc.bg, border: `1px solid ${tc.border}` }}>
-                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>Skor</p>
+                <p style={{ margin: 0, fontSize: '0.68rem', color: tc.sub }}>{t(locale, 'readerQuizScore')}</p>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', fontWeight: 700, color: tc.text }}>{sectionQuizStats.avgScore}</p>
               </div>
             </div>
+          )}
         </div>
         )}
       </div>
@@ -827,7 +850,7 @@ export default function ReaderPage() {
           {wordPanel.loading ? (
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', padding: '1rem 0' }}>
               <div style={{ width: 20, height: 20, border: `2px solid ${tc.border}`, borderTop: `2px solid ${tc.accent}`, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-              <span style={{ color: tc.sub, fontSize: '0.85rem' }}>Çevriliyor...</span>
+              <span style={{ color: tc.sub, fontSize: '0.85rem' }}>{t(locale, 'readerWordTranslating')}</span>
             </div>
           ) : (
             <>
@@ -843,7 +866,7 @@ export default function ReaderPage() {
               )}
               {readerFeatures.wordExamplesEnabled && wordPanel.examples && wordPanel.examples.length > 0 && (
                 <div style={{ marginBottom: '0.75rem' }}>
-                  <p style={{ fontSize: '0.72rem', color: tc.sub, fontWeight: 700, marginBottom: '0.35rem' }}>Örnek cümleler</p>
+                  <p style={{ fontSize: '0.72rem', color: tc.sub, fontWeight: 700, marginBottom: '0.35rem' }}>{t(locale, 'readerWordExamples')}</p>
                   {wordPanel.examples.map((example, index) => (
                     <p key={index} style={{ fontSize: '0.82rem', color: tc.text, marginBottom: '0.2rem', lineHeight: 1.45 }}>• {example}</p>
                   ))}
@@ -856,7 +879,7 @@ export default function ReaderPage() {
                 }}
                 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'none', border: `1px solid ${tc.border}`, borderRadius: 12, padding: '0.45rem 0.85rem', cursor: 'pointer', color: tc.sub, fontSize: '0.8rem' }}
               >
-                <Highlighter size={14} /> Kelime Listeme Ekle
+                <Highlighter size={14} /> {t(locale, 'readerAddToWordList')}
               </button>
             </>
           )}
@@ -919,7 +942,7 @@ export default function ReaderPage() {
           {/* Önceki */}
           <button onClick={() => changePage('prev')} disabled={currentPage <= 1}
             style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.45rem 0.85rem', background: 'none', border: `1px solid ${tc.border}`, color: currentPage <= 1 ? tc.sub : tc.text, borderRadius: 10, fontSize: '0.8rem', cursor: currentPage <= 1 ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: currentPage <= 1 ? 0.4 : 1 }}>
-            <ChevronLeft size={15} /> Önceki
+            <ChevronLeft size={15} /> {t(locale, 'readerPrev')}
           </button>
 
           {/* Orta ikonlar */}
@@ -932,7 +955,7 @@ export default function ReaderPage() {
             </button>
             <div style={{ textAlign: 'center', minWidth: 50 }}>
               <p style={{ fontSize: '0.82rem', fontWeight: 700, color: tc.accent }}>{currentPage}/{total}</p>
-              {wpm > 0 && <p style={{ fontSize: '0.58rem', color: tc.sub }}>{wpm} k/dk</p>}
+              {wpm > 0 && <p style={{ fontSize: '0.58rem', color: tc.sub }}>{wpm} {t(locale, 'readerWpmUnit')}</p>}
             </div>
             <button onClick={() => { setShowHighlights(true); setBarsVisible(true) }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.4rem' }}>
               <Highlighter size={17} color={tc.text} />
@@ -948,7 +971,7 @@ export default function ReaderPage() {
           {/* Sonraki */}
           <button onClick={() => changePage('next')} disabled={currentPage >= total}
             style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.45rem 0.85rem', background: currentPage >= total ? 'none' : tc.accent, border: `1px solid ${currentPage >= total ? tc.border : tc.accent}`, color: currentPage >= total ? tc.sub : '#fff', borderRadius: 10, fontSize: '0.8rem', cursor: currentPage >= total ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: currentPage >= total ? 0.4 : 1 }}>
-            Sonraki <ChevronRight size={15} />
+            {t(locale, 'readerNext')} <ChevronRight size={15} />
           </button>
         </div>
       </div>
@@ -964,13 +987,13 @@ export default function ReaderPage() {
             minWidth: 180,
           }}>
             {[
-              { icon: <BookOpen size={16} />, label: 'İçindekiler', action: () => { setShowTOC(true); setShowMenu(false) } },
-              { icon: <Bookmark size={16} />, label: 'Yer İmleri', action: () => { setShowBookmarks(true); setShowMenu(false) } },
-              { icon: <Highlighter size={16} />, label: 'Notlarım', action: () => { setShowHighlights(true); setShowMenu(false) } },
-              { icon: <MessageSquare size={16} />, label: 'Okuma Rehberi', action: () => { void loadGuide(); setShowMenu(false) } },
-              { icon: <Anchor size={16} />, label: quizLoading ? 'Quiz yukleniyor...' : 'Bolum Quizi', action: () => { void loadSectionQuiz(); setShowMenu(false) } },
-              { icon: <Zap size={16} />, label: 'Flashcard Üret', action: generateFlashcards },
-              { icon: <Settings size={16} />, label: 'Okuyucu Ayarları', action: () => { setShowSettings(true); setShowMenu(false) } },
+              { icon: <BookOpen size={16} />, label: t(locale, 'readerMenuTOC'), action: () => { setShowTOC(true); setShowMenu(false) } },
+              { icon: <Bookmark size={16} />, label: t(locale, 'readerMenuBookmarks'), action: () => { setShowBookmarks(true); setShowMenu(false) } },
+              { icon: <Highlighter size={16} />, label: t(locale, 'readerMenuNotes'), action: () => { setShowHighlights(true); setShowMenu(false) } },
+              { icon: <MessageSquare size={16} />, label: t(locale, 'readerMenuGuide'), action: () => { void loadGuide(); setShowMenu(false) } },
+              { icon: <Anchor size={16} />, label: quizLoading ? t(locale, 'readerMenuQuizLoading') : t(locale, 'readerMenuQuiz'), action: () => { void loadSectionQuiz(); setShowMenu(false) } },
+              { icon: <Zap size={16} />, label: t(locale, 'readerMenuFlashcard'), action: generateFlashcards },
+              { icon: <Settings size={16} />, label: t(locale, 'readerMenuSettings'), action: () => { setShowSettings(true); setShowMenu(false) } },
             ].map((item, i) => (
               <button key={i} onClick={item.action} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem', background: 'none', border: 'none', borderBottom: i < 6 ? `1px solid ${tc.border}` : 'none', cursor: 'pointer', color: tc.text, fontSize: '0.88rem', textAlign: 'left' }}>
                 <span style={{ color: tc.sub }}>{item.icon}</span>
@@ -986,7 +1009,7 @@ export default function ReaderPage() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 520, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowGuidePanel(false)}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: tc.nav, borderRadius: '20px 20px 0 0', padding: '1.25rem', maxHeight: '78vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>Okuma Rehberi · {sectionKey}</h3>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>{t(locale, 'readerGuideTitle')} · {sectionKey}</h3>
               <button onClick={() => setShowGuidePanel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: tc.sub }}><X size={18} /></button>
             </div>
 
@@ -994,34 +1017,34 @@ export default function ReaderPage() {
               <textarea
                 value={guide.prediction}
                 onChange={(e) => setGuide((g) => ({ ...g, prediction: e.target.value }))}
-                placeholder="Tahminim (sonraki bolumde ne olacak?)"
+                placeholder={t(locale, 'readerGuidePredictionPlaceholder')}
                 rows={3}
                 style={{ width: '100%', background: tc.card, border: `1px solid ${tc.border}`, borderRadius: 10, color: tc.text, padding: '0.65rem', resize: 'vertical' }}
               />
               <textarea
                 value={guide.main_idea}
                 onChange={(e) => setGuide((g) => ({ ...g, main_idea: e.target.value }))}
-                placeholder="Ana fikir"
+                placeholder={t(locale, 'readerGuideMainIdeaPlaceholder')}
                 rows={3}
                 style={{ width: '100%', background: tc.card, border: `1px solid ${tc.border}`, borderRadius: 10, color: tc.text, padding: '0.65rem', resize: 'vertical' }}
               />
               <textarea
                 value={guide.character_notes}
                 onChange={(e) => setGuide((g) => ({ ...g, character_notes: e.target.value }))}
-                placeholder="Karakter notlari (JSON veya duz metin)"
+                placeholder={t(locale, 'readerGuideCharNotesPlaceholder')}
                 rows={4}
                 style={{ width: '100%', background: tc.card, border: `1px solid ${tc.border}`, borderRadius: 10, color: tc.text, padding: '0.65rem', resize: 'vertical', fontFamily: 'monospace', fontSize: '0.8rem' }}
               />
             </div>
 
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-              <button onClick={saveGuide} disabled={guideSaving} style={{ border: 'none', borderRadius: 10, padding: '0.55rem 0.85rem', background: tc.accent, color: '#fff', cursor: 'pointer', opacity: guideSaving ? 0.6 : 1 }}>Kaydet</button>
-              <button onClick={requestGuideFeedback} disabled={guideSaving} style={{ border: `1px solid ${tc.border}`, borderRadius: 10, padding: '0.55rem 0.85rem', background: 'transparent', color: tc.text, cursor: 'pointer', opacity: guideSaving ? 0.6 : 1 }}>AI Geri Bildirim</button>
+              <button onClick={saveGuide} disabled={guideSaving} style={{ border: 'none', borderRadius: 10, padding: '0.55rem 0.85rem', background: tc.accent, color: '#fff', cursor: 'pointer', opacity: guideSaving ? 0.6 : 1 }}>{t(locale, 'readerGuideSave')}</button>
+              <button onClick={requestGuideFeedback} disabled={guideSaving} style={{ border: `1px solid ${tc.border}`, borderRadius: 10, padding: '0.55rem 0.85rem', background: 'transparent', color: tc.text, cursor: 'pointer', opacity: guideSaving ? 0.6 : 1 }}>{t(locale, 'readerGuideAiFeedback')}</button>
             </div>
 
             {guideFeedback && (
               <div style={{ marginTop: '0.8rem', background: tc.card, border: `1px solid ${tc.border}`, borderRadius: 10, padding: '0.7rem' }}>
-                <p style={{ fontSize: '0.75rem', color: tc.sub, marginBottom: '0.3rem', fontWeight: 700 }}>AI Notu</p>
+                <p style={{ fontSize: '0.75rem', color: tc.sub, marginBottom: '0.3rem', fontWeight: 700 }}>{t(locale, 'readerGuideAiNote')}</p>
                 <p style={{ fontSize: '0.85rem', color: tc.text, lineHeight: 1.5 }}>{guideFeedback}</p>
               </div>
             )}
@@ -1034,35 +1057,35 @@ export default function ReaderPage() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowSettings(false)}>
           <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: tc.nav, borderRadius: '20px 20px 0 0', padding: '1.5rem 1.25rem 2.5rem', maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>Okuyucu Ayarları</h3>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>{t(locale, 'readerSettingsTitle')}</h3>
               <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: tc.sub }}><X size={20} /></button>
             </div>
 
             {/* Tema */}
-            <p style={{ fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Tema</p>
+            <p style={{ fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>{t(locale, 'readerSettingsTheme')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '0.5rem', marginBottom: '1.5rem' }}>
-              {(['light','sepia','dark','black'] as const).map(t => (
-                <button key={t} onClick={() => { setTheme(t); saveSettings({ theme: t }) }} style={{ padding: '0.6rem 0', borderRadius: 12, border: `2px solid ${theme === t ? tc.accent : tc.border}`, background: THEMES[t].bg, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: THEMES[t].accent }} />
-                  <span style={{ fontSize: '0.65rem', color: THEMES[t].text, fontWeight: theme === t ? 700 : 400 }}>
-                    {t === 'light' ? 'Açık' : t === 'sepia' ? 'Sepia' : t === 'dark' ? 'Koyu' : 'Siyah'}
+              {(['light','sepia','dark','black'] as const).map(thm => (
+                <button key={thm} onClick={() => { setTheme(thm); saveSettings({ theme: thm }) }} style={{ padding: '0.6rem 0', borderRadius: 12, border: `2px solid ${theme === thm ? tc.accent : tc.border}`, background: THEMES[thm].bg, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: THEMES[thm].accent }} />
+                  <span style={{ fontSize: '0.65rem', color: THEMES[thm].text, fontWeight: theme === thm ? 700 : 400 }}>
+                    {thm === 'light' ? t(locale, 'readerThemeLight') : thm === 'sepia' ? t(locale, 'readerThemeSepia') : thm === 'dark' ? t(locale, 'readerThemeDark') : t(locale, 'readerThemeBlack')}
                   </span>
                 </button>
               ))}
             </div>
 
             {/* Font */}
-            <p style={{ fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Yazı Tipi</p>
+            <p style={{ fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>{t(locale, 'readerSettingsFont')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0.5rem', marginBottom: '1.5rem' }}>
               {(['sans','serif','mono'] as const).map(f => (
                 <button key={f} onClick={() => { setFontFamily(f); saveSettings({ fontFamily: f }) }} style={{ padding: '0.75rem 0', borderRadius: 12, border: `2px solid ${fontFamily === f ? tc.accent : tc.border}`, background: fontFamily === f ? `${tc.accent}15` : tc.card, cursor: 'pointer', fontSize: '0.8rem', fontFamily: f === 'serif' ? 'Georgia, serif' : f === 'mono' ? 'monospace' : 'sans-serif', color: tc.text, fontWeight: fontFamily === f ? 700 : 400 }}>
-                  {f === 'sans' ? 'Modern' : f === 'serif' ? 'Klasik' : 'Mono'}
+                  {f === 'sans' ? t(locale, 'readerFontSans') : f === 'serif' ? t(locale, 'readerFontSerif') : t(locale, 'readerFontMono')}
                 </button>
               ))}
             </div>
 
             {/* Font boyutu */}
-            <p style={{ fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Font Boyutu: {fontSize}px</p>
+            <p style={{ fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>{t(locale, 'readerFontSizeLabel')}: {fontSize}px</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
               <button onClick={() => { const v = Math.max(14, fontSize - 1); setFontSize(v); saveSettings({ fontSize: v }) }} style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${tc.border}`, background: tc.card, cursor: 'pointer', fontSize: '1.2rem', color: tc.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
               <input type="range" min={14} max={26} value={fontSize} onChange={e => { const v = Number(e.target.value); setFontSize(v); saveSettings({ fontSize: v }) }} style={{ flex: 1, accentColor: tc.accent }} />
@@ -1070,12 +1093,12 @@ export default function ReaderPage() {
             </div>
 
             {/* Satır aralığı */}
-            <p style={{ fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Satır Aralığı: {lineHeight.toFixed(1)}</p>
+            <p style={{ fontSize: '0.72rem', fontWeight: 700, color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>{t(locale, 'readerLineHeightLabel')}: {lineHeight.toFixed(1)}</p>
             <input type="range" min={1.4} max={2.4} step={0.1} value={lineHeight} onChange={e => { const v = Number(e.target.value); setLineHeight(v); saveSettings({ lineHeight: v }) }} style={{ width: '100%', accentColor: tc.accent, marginBottom: '1.5rem' }} />
 
             {/* Hizalama */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <p style={{ fontSize: '0.88rem', color: tc.text }}>İki Yana Hizala</p>
+              <p style={{ fontSize: '0.88rem', color: tc.text }}>{t(locale, 'readerJustify')}</p>
               <button onClick={() => { setJustify(v => !v); saveSettings({ justify: !justify }) }} style={{ width: 44, height: 26, borderRadius: 999, background: justify ? tc.accent : tc.border, border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
                 <div style={{ position: 'absolute', top: 3, left: justify ? 20 : 3, width: 20, height: 20, borderRadius: '50%', background: 'white', transition: 'left 0.2s' }} />
               </button>
@@ -1083,7 +1106,7 @@ export default function ReaderPage() {
 
             {/* İstatistikler */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0.5rem', marginTop: '0.5rem' }}>
-              {[{ l: 'Süre', v: `${sessionMinutes}dk` }, { l: 'WPM', v: wpm || '—' }, { l: 'İlerleme', v: `%${progress}` }].map(s => (
+              {[{ l: t(locale, 'readerStatDuration'), v: `${sessionMinutes}dk` }, { l: t(locale, 'readerStatWpm'), v: wpm || '—' }, { l: t(locale, 'readerStatProgress'), v: `%${progress}` }].map(s => (
                 <div key={s.l} style={{ textAlign: 'center', padding: '0.6rem', background: tc.card, borderRadius: 12 }}>
                   <p style={{ fontSize: '1rem', fontWeight: 700, color: tc.accent }}>{s.v}</p>
                   <p style={{ fontSize: '0.6rem', color: tc.sub, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.l}</p>
@@ -1099,15 +1122,15 @@ export default function ReaderPage() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowTOC(false)}>
           <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: tc.nav, borderRadius: '20px 20px 0 0', padding: '1.5rem', maxHeight: '70vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>İçindekiler</h3>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>{t(locale, 'readerTocTitle')}</h3>
               <button onClick={() => setShowTOC(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: tc.sub }}><X size={20} /></button>
             </div>
             {toc.length === 0 ? (
-              <p style={{ color: tc.sub, textAlign: 'center', padding: '2rem 0', fontSize: '0.9rem' }}>Bölüm bulunamadı</p>
+              <p style={{ color: tc.sub, textAlign: 'center', padding: '2rem 0', fontSize: '0.9rem' }}>{t(locale, 'readerTocEmpty')}</p>
             ) : toc.map((ch, i) => (
               <button key={i} onClick={() => { setCurrentPage(ch.page); setShowTOC(false) }} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 0', background: 'none', border: 'none', borderBottom: `1px solid ${tc.border}`, cursor: 'pointer', color: tc.text, textAlign: 'left' }}>
                 <span style={{ fontSize: '0.9rem', fontWeight: currentPage === ch.page ? 700 : 400, color: currentPage === ch.page ? tc.accent : tc.text }}>{ch.title}</span>
-                <span style={{ fontSize: '0.75rem', color: tc.sub }}>S. {ch.page}</span>
+                <span style={{ fontSize: '0.75rem', color: tc.sub }}>{t(locale, 'readerTocPagePrefix')} {ch.page}</span>
               </button>
             ))}
           </div>
@@ -1119,16 +1142,16 @@ export default function ReaderPage() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowBookmarks(false)}>
           <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: tc.nav, borderRadius: '20px 20px 0 0', padding: '1.5rem', maxHeight: '60vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>Yer İmleri ({bookmarks.length})</h3>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>{t(locale, 'readerBookmarksTitle')} ({bookmarks.length})</h3>
               <button onClick={() => setShowBookmarks(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: tc.sub }}><X size={20} /></button>
             </div>
             {bookmarks.length === 0 ? (
-              <p style={{ color: tc.sub, textAlign: 'center', padding: '2rem 0' }}>Henüz yer imi yok.<br />Okurken 🔖 ikonuna bas.</p>
+              <p style={{ color: tc.sub, textAlign: 'center', padding: '2rem 0' }}>{t(locale, 'readerBookmarksEmpty')}<br />{t(locale, 'readerBookmarksHint')}</p>
             ) : bookmarks.map(pg => (
               <button key={pg} onClick={() => { setCurrentPage(pg); setShowBookmarks(false) }} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 0.5rem', background: currentPage === pg ? `${tc.accent}15` : 'none', border: 'none', borderBottom: `1px solid ${tc.border}`, borderRadius: 8, cursor: 'pointer' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <Bookmark size={15} color={tc.accent} fill={tc.accent} />
-                  <span style={{ fontSize: '0.9rem', color: tc.text, fontWeight: currentPage === pg ? 700 : 400 }}>Sayfa {pg}</span>
+                  <span style={{ fontSize: '0.9rem', color: tc.text, fontWeight: currentPage === pg ? 700 : 400 }}>{t(locale, 'readerPagePrefix')} {pg}</span>
                 </div>
                 <span style={{ fontSize: '0.75rem', color: tc.sub }}>%{Math.round(pg / total * 100)}</span>
               </button>
@@ -1142,20 +1165,20 @@ export default function ReaderPage() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowHighlights(false)}>
           <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: tc.nav, borderRadius: '20px 20px 0 0', padding: '1.5rem', maxHeight: '70vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>Notlarım ({highlights.length})</h3>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: tc.text }}>{t(locale, 'readerNotesTitle')} ({highlights.length})</h3>
               <button onClick={() => setShowHighlights(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: tc.sub }}><X size={20} /></button>
             </div>
             {highlights.length === 0 ? (
-              <p style={{ color: tc.sub, textAlign: 'center', padding: '2rem 0' }}>Henüz not yok.<br />Metin seç ve highlight ekle.</p>
+              <p style={{ color: tc.sub, textAlign: 'center', padding: '2rem 0' }}>{t(locale, 'readerNotesEmpty')}<br />{t(locale, 'readerNotesHint')}</p>
             ) : highlights.map((h, i) => (
               <div key={h.id} style={{ display: 'flex', gap: '0.75rem', padding: '0.85rem 0', borderBottom: `1px solid ${tc.border}`, alignItems: 'flex-start' }}>
                 <div style={{ width: 4, minHeight: 44, background: h.color, borderRadius: 2, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: '0.88rem', color: tc.text, lineHeight: 1.5, fontStyle: 'italic', marginBottom: '0.25rem' }}>"{h.text}"</p>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.7rem', color: tc.sub }}>Sayfa {h.page}</span>
+                    <span style={{ fontSize: '0.7rem', color: tc.sub }}>{t(locale, 'readerPagePrefix')} {h.page}</span>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button onClick={() => { setCurrentPage(h.page); setShowHighlights(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.72rem', color: tc.accent }}>Sayfaya git</button>
+                      <button onClick={() => { setCurrentPage(h.page); setShowHighlights(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.72rem', color: tc.accent }}>{t(locale, 'readerNotesGoToPage')}</button>
                       <button onClick={() => { const u = highlights.filter(x => x.id !== h.id); setHighlights(u); localStorage.setItem(`reader_highlights_${id}`, JSON.stringify(u)) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: tc.sub }}><X size={12} /></button>
                     </div>
                   </div>
@@ -1175,22 +1198,22 @@ export default function ReaderPage() {
               <button onClick={() => setShowFlashcards(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: tc.sub, fontSize: '1.2rem' }}>✕</button>
             </div>
             {loadingCards ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: tc.sub }}>AI üretiyor...</div>
+              <div style={{ textAlign: 'center', padding: '3rem', color: tc.sub }}>{t(locale, 'readerFlashcardGenerating')}</div>
             ) : flashcards.length > 0 ? (
               <>
                 <div onClick={() => setCardFlipped(!cardFlipped)} style={{ minHeight: 150, background: tc.bg, borderRadius: 14, padding: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '1.25rem', border: `1px solid ${tc.border}` }}>
                   <div>
-                    <p style={{ fontSize: '0.65rem', color: tc.accent, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>{cardFlipped ? 'CEVAP' : 'SORU · Dokunarak çevir'}</p>
+                    <p style={{ fontSize: '0.65rem', color: tc.accent, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>{cardFlipped ? t(locale, 'readerFlashcardAnswer') : t(locale, 'readerFlashcardQuestion')}</p>
                     <p style={{ fontFamily: fontStyle, fontSize: '1rem', lineHeight: 1.6, color: tc.text }}>{cardFlipped ? flashcards[cardIndex]?.answer : flashcards[cardIndex]?.question}</p>
                   </div>
     
             </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button onClick={() => { setCardIndex(p => Math.max(0, p - 1)); setCardFlipped(false) }} disabled={cardIndex === 0} style={{ flex: 1, padding: '0.65rem', background: 'none', border: `1px solid ${tc.border}`, color: tc.text, borderRadius: 10, cursor: 'pointer', fontWeight: 600, opacity: cardIndex === 0 ? 0.4 : 1 }}>← Önceki</button>
-                  <button onClick={() => { setCardIndex(p => Math.min(flashcards.length - 1, p + 1)); setCardFlipped(false) }} disabled={cardIndex === flashcards.length - 1} style={{ flex: 1, padding: '0.65rem', background: tc.accent, border: 'none', color: '#fff', borderRadius: 10, cursor: 'pointer', fontWeight: 600, opacity: cardIndex === flashcards.length - 1 ? 0.4 : 1 }}>Sonraki →</button>
+                  <button onClick={() => { setCardIndex(p => Math.max(0, p - 1)); setCardFlipped(false) }} disabled={cardIndex === 0} style={{ flex: 1, padding: '0.65rem', background: 'none', border: `1px solid ${tc.border}`, color: tc.text, borderRadius: 10, cursor: 'pointer', fontWeight: 600, opacity: cardIndex === 0 ? 0.4 : 1 }}>← {t(locale, 'readerPrev')}</button>
+                  <button onClick={() => { setCardIndex(p => Math.min(flashcards.length - 1, p + 1)); setCardFlipped(false) }} disabled={cardIndex === flashcards.length - 1} style={{ flex: 1, padding: '0.65rem', background: tc.accent, border: 'none', color: '#fff', borderRadius: 10, cursor: 'pointer', fontWeight: 600, opacity: cardIndex === flashcards.length - 1 ? 0.4 : 1 }}>{t(locale, 'readerNext')} →</button>
                 </div>
               </>
-            ) : <p style={{ textAlign: 'center', color: tc.sub }}>Üretilemedi.</p>}
+            ) : <p style={{ textAlign: 'center', color: tc.sub }}>{t(locale, 'readerFlashcardFailed')}</p>}
           </div>
         </div>
       )}

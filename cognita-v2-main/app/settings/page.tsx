@@ -6,6 +6,8 @@ import { useAuth } from '@/lib/useAuth'
 import BottomNav from '@/components/layout/BottomNav'
 import { ArrowLeft, ChevronRight, Moon, Sun, Monitor, User, Mail, LogOut, Trash2, Camera, Volume2, Vibrate, Bell } from 'lucide-react'
 import { applyTheme } from '@/lib/theme'
+import { cefrOptions, getStoredLocale, languagePairOptions, Locale, setStoredLocale, t } from '@/lib/i18n'
+import { CardPanel, SectionLabel } from '@/components/ui/primitives'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -23,12 +25,18 @@ export default function SettingsPage() {
   const [hapticOn, setHapticOn] = useState(true)
   const [notifOn, setNotifOn] = useState(true)
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default')
+  const [uiLanguage, setUiLanguage] = useState<Locale>('tr')
+  const [nativeLanguage, setNativeLanguage] = useState('tr')
+  const [learningLanguage, setLearningLanguage] = useState('en')
+  const [cefrLevel, setCefrLevel] = useState('A1')
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user) fetchProfile() }, [user])
   useEffect(() => {
-    const t = localStorage.getItem('theme') || 'light'
-    setTheme(t)
+    const locale = getStoredLocale()
+    setUiLanguage(locale)
+    const savedTheme = localStorage.getItem('theme') || 'light'
+    setTheme(savedTheme)
     setSoundOn(localStorage.getItem('cognita_sound') !== 'false')
     setHapticOn(localStorage.getItem('cognita_haptic') !== 'false')
     setNotifOn(localStorage.getItem('cognita_notif') !== 'false')
@@ -51,6 +59,13 @@ export default function SettingsPage() {
       setFullName(data.full_name || '')
       setBio(data.bio || '')
       setAvatarUrl(data.avatar_url || '')
+      setNativeLanguage(data.native_language || 'tr')
+      setLearningLanguage(data.learning_language || 'en')
+      setCefrLevel(data.cefr_level || 'A1')
+      if (data.ui_language) {
+        setUiLanguage(data.ui_language)
+        setStoredLocale(data.ui_language)
+      }
     }
   }
 
@@ -73,10 +88,10 @@ export default function SettingsPage() {
         body: formData,
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Yükleme başarısız')
+      if (!res.ok) throw new Error(data.error || t(uiLanguage, 'settingsUploadFailed'))
       setAvatarUrl(data.url)
     } catch (e: any) {
-      alert(`Fotoğraf yüklenemedi: ${e.message}`)
+      alert(`${t(uiLanguage, 'settingsUploadFailed')}: ${e.message}`)
     }
     setUploading(false)
   }
@@ -85,6 +100,16 @@ export default function SettingsPage() {
     if (!user) return
     setSaving(true)
     await supabase.from('profiles').update({ full_name: fullName, bio, avatar_url: avatarUrl || null }).eq('id', user.id)
+    // Localization columns may not exist before migration; keep settings save resilient.
+    try {
+      await supabase.from('profiles').update({
+        native_language: nativeLanguage,
+        learning_language: learningLanguage,
+        ui_language: uiLanguage,
+        cefr_level: cefrLevel,
+      }).eq('id', user.id)
+    } catch {}
+    setStoredLocale(uiLanguage)
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -100,7 +125,7 @@ export default function SettingsPage() {
           <ArrowLeft size={22} color="var(--text)" />
         </button>
         <h1 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>
-          {activeSection === 'profile' ? 'Profili Düzenle' : 'Ayarlar'}
+          {activeSection === 'profile' ? t(uiLanguage, 'editProfileTitle') : t(uiLanguage, 'settingsTitle')}
         </h1>
       </header>
 
@@ -124,14 +149,14 @@ export default function SettingsPage() {
                 <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => e.target.files?.[0] && handleAvatarUpload(e.target.files[0])} />
               </div>
               <p style={{ fontSize: '0.8rem', color: uploading ? 'var(--accent)' : 'var(--text-muted)' }}>
-                {uploading ? '⏳ Yükleniyor...' : 'Fotoğrafı değiştirmek için tıkla'}
+                {uploading ? `⏳ ${t(uiLanguage, 'settingsUploading')}` : t(uiLanguage, 'settingsChangePhotoHint')}
               </p>
             </div>
 
             <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', border: '1px solid var(--border)' }}>
               {[
-                { label: 'Ad Soyad', value: fullName, setter: setFullName, placeholder: 'Adın Soyadın' },
-                { label: 'Biyografi', value: bio, setter: setBio, placeholder: 'Kendiniz hakkında bir şeyler yazın...' },
+                { label: t(uiLanguage, 'settingsFullName'), value: fullName, setter: setFullName, placeholder: t(uiLanguage, 'settingsFullNamePlaceholder') },
+                { label: t(uiLanguage, 'settingsBio'), value: bio, setter: setBio, placeholder: t(uiLanguage, 'settingsBioPlaceholder') },
               ].map(f => (
                 <div key={f.label} style={{ marginBottom: '1rem' }}>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{f.label}</label>
@@ -139,7 +164,7 @@ export default function SettingsPage() {
                 </div>
               ))}
               <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ width: '100%', padding: '0.85rem', borderRadius: 'var(--radius-md)' }}>
-                {saved ? '✓ Kaydedildi!' : saving ? 'Kaydediliyor...' : 'Kaydet'}
+                {saved ? `✓ ${t(uiLanguage, 'saved')}` : saving ? t(uiLanguage, 'saving') : t(uiLanguage, 'save')}
               </button>
             </div>
           </div>
@@ -147,14 +172,14 @@ export default function SettingsPage() {
           <>
             {/* Tema */}
             <div style={{ marginBottom: '1.5rem' }}>
-              <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 1rem', marginBottom: '0.5rem' }}>GÖRÜNÜM</p>
-              <div style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '1rem' }}>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Tema</p>
+              <SectionLabel>{t(uiLanguage, 'appearanceSection')}</SectionLabel>
+              <CardPanel style={{ padding: '1rem' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>{t(uiLanguage, 'settingsThemeLabel')}</p>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   {[
-                    { id: 'light', label: 'Aydınlık', icon: Sun },
-                    { id: 'dark', label: 'Koyu', icon: Moon },
-                    { id: 'system', label: 'Sistem', icon: Monitor },
+                    { id: 'light', label: t(uiLanguage, 'settingsThemeLight'), icon: Sun },
+                    { id: 'dark', label: t(uiLanguage, 'settingsThemeDark'), icon: Moon },
+                    { id: 'system', label: t(uiLanguage, 'settingsThemeSystem'), icon: Monitor },
                   ].map(t => {
                     const Icon = t.icon
                     const active = theme === t.id
@@ -166,17 +191,17 @@ export default function SettingsPage() {
                     )
                   })}
                 </div>
-              </div>
+              </CardPanel>
             </div>
 
             {/* Tercihler */}
             <div style={{ marginBottom: '1.5rem' }}>
-              <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 1rem', marginBottom: '0.5rem' }}>TERCİHLER</p>
-              <div style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+              <SectionLabel>{t(uiLanguage, 'preferencesSection')}</SectionLabel>
+              <CardPanel>
                 {[
-                  { icon: Volume2, label: 'Ses Efektleri', sub: 'Buton sesleri', value: soundOn, toggle: toggleSound },
-                  { icon: Vibrate, label: 'Titreşim', sub: 'Haptic feedback (Android)', value: hapticOn, toggle: toggleHaptic },
-                  { icon: Bell, label: 'Bildirimler', sub: notifPermission === 'denied' ? 'Tarayıcıda engellendi' : notifPermission === 'granted' ? 'İzin verildi' : 'İzin istenir', value: notifOn, toggle: toggleNotif, disabled: notifPermission === 'denied' },
+                  { icon: Volume2, label: t(uiLanguage, 'settingsSoundEffects'), sub: t(uiLanguage, 'settingsButtonSounds'), value: soundOn, toggle: toggleSound },
+                  { icon: Vibrate, label: t(uiLanguage, 'settingsHaptic'), sub: t(uiLanguage, 'settingsHapticDesc'), value: hapticOn, toggle: toggleHaptic },
+                  { icon: Bell, label: t(uiLanguage, 'settingsNotifications'), sub: notifPermission === 'denied' ? t(uiLanguage, 'settingsNotifBlocked') : notifPermission === 'granted' ? t(uiLanguage, 'settingsNotifGranted') : t(uiLanguage, 'settingsNotifPrompt'), value: notifOn, toggle: toggleNotif, disabled: notifPermission === 'denied' },
                 ].map((item, i) => {
                   const Icon = item.icon
                   return (
@@ -195,16 +220,49 @@ export default function SettingsPage() {
                     </div>
                   )
                 })}
-              </div>
+              </CardPanel>
+            </div>
+
+            {/* Dil */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <SectionLabel>{t(uiLanguage, 'languageSection')}</SectionLabel>
+              <CardPanel style={{ padding: '0.9rem 1rem' }}>
+                <div style={{ display: 'grid', gap: '0.8rem' }}>
+                  <label style={{ display: 'grid', gap: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t(uiLanguage, 'nativeLanguage')}</span>
+                    <select className="input" value={nativeLanguage} onChange={(e) => setNativeLanguage(e.target.value)}>
+                      {languagePairOptions.map((opt) => <option key={`native-${opt.value}`} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'grid', gap: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t(uiLanguage, 'learningLanguage')}</span>
+                    <select className="input" value={learningLanguage} onChange={(e) => setLearningLanguage(e.target.value)}>
+                      {languagePairOptions.map((opt) => <option key={`learning-${opt.value}`} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'grid', gap: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t(uiLanguage, 'interfaceLanguage')}</span>
+                    <select className="input" value={uiLanguage} onChange={(e) => setUiLanguage(e.target.value as Locale)}>
+                      {languagePairOptions.map((opt) => <option key={`ui-${opt.value}`} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'grid', gap: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t(uiLanguage, 'levelLabel')}</span>
+                    <select className="input" value={cefrLevel} onChange={(e) => setCefrLevel(e.target.value)}>
+                      {cefrOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </label>
+                </div>
+              </CardPanel>
             </div>
 
             {/* Hesap */}
             <div style={{ marginBottom: '1.5rem' }}>
-              <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 1rem', marginBottom: '0.5rem' }}>HESAP</p>
-              <div style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+              <SectionLabel>{t(uiLanguage, 'accountSection')}</SectionLabel>
+              <CardPanel>
                 {[
-                  { icon: User, label: 'Profili Düzenle', onClick: () => setActiveSection('profile') },
-                  { icon: Mail, label: 'E-posta', value: user.email || '', onClick: () => {} },
+                  { icon: User, label: t(uiLanguage, 'settingsEditProfile'), onClick: () => setActiveSection('profile') },
+                  { icon: Mail, label: t(uiLanguage, 'settingsEmail'), value: user.email || '', onClick: () => {} },
                 ].map((item, i) => {
                   const Icon = item.icon
                   return (
@@ -216,29 +274,29 @@ export default function SettingsPage() {
                     </button>
                   )
                 })}
-              </div>
+              </CardPanel>
             </div>
 
             {/* Çıkış */}
             <div style={{ marginBottom: '1.5rem' }}>
-              <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 1rem', marginBottom: '0.5rem' }}>HESAP AYARLARI</p>
-              <div style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+              <SectionLabel>{t(uiLanguage, 'settingsAccountSettings')}</SectionLabel>
+              <CardPanel>
                 <button onClick={handleSignOut} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.9rem', padding: '0.9rem 1rem', background: 'transparent', border: 'none', cursor: 'pointer' }}>
                   <LogOut size={18} color="var(--text)" strokeWidth={1.8} />
-                  <span style={{ flex: 1, fontSize: '0.95rem', color: 'var(--text)', textAlign: 'left' }}>Oturumu Kapat</span>
+                  <span style={{ flex: 1, fontSize: '0.95rem', color: 'var(--text)', textAlign: 'left' }}>{t(uiLanguage, 'settingsSignOut')}</span>
                   <ChevronRight size={16} color="var(--border)" />
                 </button>
-                <button onClick={() => { if (confirm('Hesabını silmek istediğine emin misin?')) alert('Hesap silme desteği için destek ekibine yazın.') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.9rem', padding: '0.9rem 1rem', background: 'transparent', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
+                <button onClick={() => { if (confirm(t(uiLanguage, 'settingsDeleteConfirm'))) alert(t(uiLanguage, 'settingsDeleteSupportAlert')) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.9rem', padding: '0.9rem 1rem', background: 'transparent', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
                   <Trash2 size={18} color="var(--red)" strokeWidth={1.8} />
-                  <span style={{ flex: 1, fontSize: '0.95rem', color: 'var(--red)', textAlign: 'left' }}>Hesabı Sil</span>
+                  <span style={{ flex: 1, fontSize: '0.95rem', color: 'var(--red)', textAlign: 'left' }}>{t(uiLanguage, 'settingsDeleteAccount')}</span>
                   <ChevronRight size={16} color="var(--border)" />
                 </button>
-              </div>
+              </CardPanel>
             </div>
 
             <div style={{ textAlign: 'center', padding: '1.5rem' }}>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--text)', marginBottom: '0.3rem' }}>cognita</div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sürüm 1.0.0</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t(uiLanguage, 'settingsVersion')} 1.0.0</p>
             </div>
           </>
         )}

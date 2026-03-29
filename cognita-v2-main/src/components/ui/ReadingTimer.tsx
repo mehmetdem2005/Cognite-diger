@@ -29,15 +29,15 @@ export default function ReadingTimer({ totalSeconds, isRunning, onStart, onStop,
   }, [isRunning])
 
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '0.9rem' }}>
-      <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.6rem' }}>{fmt(live)}</div>
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
+    <div className="card">
+      <div className="text-2xl font-bold text-text-primary mb-4">{fmt(live)}</div>
+      <div className="flex gap-2">
         {!isRunning ? (
-          <button className="btn-primary" onClick={onStart} style={{ padding: '0.4rem 0.7rem', borderRadius: 10 }}>Baslat</button>
+          <button className="btn-primary text-sm flex-1" onClick={onStart}>Başlat</button>
         ) : (
-          <button className="btn-primary" onClick={onStop} style={{ padding: '0.4rem 0.7rem', borderRadius: 10 }}>Duraklat</button>
+          <button className="btn-primary text-sm flex-1" onClick={onStop}>Duraklat</button>
         )}
-        <button onClick={onReset} style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '0.4rem 0.7rem', color: 'var(--text)' }}>Sifirla</button>
+        <button className="btn-secondary text-sm flex-1" onClick={onReset}>Sıfırla</button>
       </div>
     </div>
   )

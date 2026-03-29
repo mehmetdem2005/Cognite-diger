@@ -11,21 +11,11 @@ export default function CollectionBadge({ name, count, icon = '📚', onClick }:
   return (
     <button
       onClick={onClick}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.4rem',
-        background: 'var(--bg-soft)',
-        color: 'var(--text)',
-        border: '1px solid var(--border)',
-        borderRadius: 999,
-        padding: '0.3rem 0.7rem',
-        fontSize: '0.78rem',
-      }}
+      className="inline-flex items-center gap-1 bg-bg-soft text-text border border-border rounded-full p-[0.3rem_0.7rem] text-xs hover:bg-border transition-colors"
     >
       <span>{icon}</span>
       <span>{name}</span>
-      <span style={{ color: 'var(--text-muted)' }}>({count})</span>
+      <span className="text-text-muted">({count})</span>
     </button>
   )
 }

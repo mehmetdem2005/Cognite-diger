@@ -7,6 +7,7 @@ import BottomNav from '@/components/layout/BottomNav'
 import { Settings, Target, Calendar, BarChart2, ShieldCheck } from 'lucide-react'
 import { getAdminByUserId } from '@/lib/adminAuth'
 import BookCover from '@/components/ui/BookCover'
+import { t, getStoredLocale, type Locale } from '@/lib/i18n'
 
 interface Profile {
   full_name: string | null; username: string | null; bio: string | null
@@ -19,14 +20,14 @@ interface Challenge { id: string; title: string; description: string; goal_pages
 interface LeaderProfile { full_name: string | null; username: string | null; xp: number; streak_days: number; total_pages_read: number }
 
 const BADGES = [
-  { icon: '📖', title: 'İlk Adım', check: (_: Profile, b: number) => b >= 1 },
-  { icon: '🔥', title: '3 Gün Seri', check: (p: Profile) => p.streak_days >= 3 },
-  { icon: '⚡', title: 'Haftalık', check: (p: Profile) => p.streak_days >= 7 },
-  { icon: '🌟', title: 'Aylık', check: (p: Profile) => p.streak_days >= 30 },
-  { icon: '📚', title: '100 Sayfa', check: (p: Profile) => p.total_pages_read >= 100 },
-  { icon: '🏆', title: '500 Sayfa', check: (p: Profile) => p.total_pages_read >= 500 },
-  { icon: '💎', title: 'Elit', check: (p: Profile) => p.total_pages_read >= 1000 },
-  { icon: '🚀', title: 'Hızlı Okur', check: (p: Profile) => p.xp >= 500 },
+  { icon: '📖', titleKey: 'profileBadgeFirstStep', check: (_: Profile, b: number) => b >= 1 },
+  { icon: '🔥', titleKey: 'profileBadge3Day', check: (p: Profile) => p.streak_days >= 3 },
+  { icon: '⚡', titleKey: 'profileBadgeWeekly', check: (p: Profile) => p.streak_days >= 7 },
+  { icon: '🌟', titleKey: 'profileBadgeMonthly', check: (p: Profile) => p.streak_days >= 30 },
+  { icon: '📚', titleKey: 'profileBadge100Pages', check: (p: Profile) => p.total_pages_read >= 100 },
+  { icon: '🏆', titleKey: 'profileBadge500Pages', check: (p: Profile) => p.total_pages_read >= 500 },
+  { icon: '💸', titleKey: 'profileBadgeElite', check: (p: Profile) => p.total_pages_read >= 1000 },
+  { icon: '🚀', titleKey: 'profileBadgeFastReader', check: (p: Profile) => p.xp >= 500 },
 ]
 
 const GRADIENTS = [
@@ -47,6 +48,7 @@ const MEDALS = ['🥇', '🥈', '🥉']
 export default function ProfilePage() {
   const router = useRouter()
   const { user, loading, signOut } = useAuth()
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
   const [profile, setProfile] = useState<Profile | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
   const [bookCount, setBookCount] = useState(0)
@@ -61,6 +63,15 @@ export default function ProfilePage() {
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user) { fetchData(); checkAdmin() } }, [user])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.locale) setLocale(detail.locale as Locale)
+    }
+    window.addEventListener('cognita-language-changed', handler)
+    return () => window.removeEventListener('cognita-language-changed', handler)
+  }, [])
 
   const checkAdmin = async () => {
     const a = await getAdminByUserId(user!.id)
@@ -154,7 +165,7 @@ export default function ProfilePage() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.75rem' }}>
-              {[{ value: bookCount, label: 'Kitap' }, { value: followerCount, label: 'Takipçi' }, { value: followingCount, label: 'Takip' }].map(s => (
+              {[{ value: bookCount, label: t(locale, 'profileBooksStat') }, { value: followerCount, label: t(locale, 'profileFollowersStat') }, { value: followingCount, label: t(locale, 'profileFollowingStat') }].map(s => (
                 <div key={s.label} style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>{s.value}</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.label}</div>
@@ -168,9 +179,9 @@ export default function ProfilePage() {
 
         {/* Butonlar */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-          <button onClick={() => router.push('/settings')} style={{ flex: 1, padding: '0.55rem', background: 'var(--bg-soft)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '0.88rem', cursor: 'pointer', color: 'var(--text)' }}>Profili Düzenle</button>
-          {isAdmin && <button onClick={() => router.push('/admin')} style={{ flex: 1, padding: '0.55rem', background: 'rgba(64,93,230,0.1)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '0.88rem', cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}><ShieldCheck size={15} /> Admin</button>}
-          <button onClick={() => router.push(`/user/${profile.username}`)} style={{ flex: 1, padding: '0.55rem', background: 'var(--bg-soft)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '0.88rem', cursor: 'pointer', color: 'var(--text)' }}>Profilimi Gör</button>
+          <button onClick={() => router.push('/settings')} style={{ flex: 1, padding: '0.55rem', background: 'var(--bg-soft)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '0.88rem', cursor: 'pointer', color: 'var(--text)' }}>{t(locale, 'profileEditButton')}</button>
+          {isAdmin && <button onClick={() => router.push('/admin')} style={{ flex: 1, padding: '0.55rem', background: 'rgba(64,93,230,0.1)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '0.88rem', cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}><ShieldCheck size={15} /> {t(locale, 'profileAdminButton')}</button>}
+          <button onClick={() => router.push(`/user/${profile.username}`)} style={{ flex: 1, padding: '0.55rem', background: 'var(--bg-soft)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '0.88rem', cursor: 'pointer', color: 'var(--text)' }}>{t(locale, 'profileViewButton')}</button>
         </div>
 
         {/* Seviye kartı */}
@@ -178,19 +189,19 @@ export default function ProfilePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span style={{ fontSize: '1.1rem' }}>🏅</span>
-              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)' }}>Seviye {level}</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'profileLevelLabel')} {level}</span>
             </div>
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)' }}>{xp} XP</span>
           </div>
           <div style={{ height: '6px', background: 'var(--bg-soft)', borderRadius: '3px', overflow: 'hidden', marginBottom: '0.3rem' }}>
             <div style={{ height: '100%', width: `${levelProgress}%`, background: 'linear-gradient(90deg,#405DE6,#833AB4,#C13584)', borderRadius: '3px', transition: 'width 1s ease' }} />
           </div>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Sonraki seviye için {200 - (xp % 200)} XP</p>
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t(locale, 'profileNextLevelXp')} {200 - (xp % 200)} XP</p>
         </div>
 
         {/* İstatistikler */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          {[{ icon: '🔥', value: profile.streak_days, label: 'Günlük Seri' }, { icon: '📄', value: profile.total_pages_read, label: 'Okunan Sayfa' }].map((s, i) => (
+          {[{ icon: '🔥', value: profile.streak_days, label: t(locale, 'profileStreakLabel') }, { icon: '📄', value: profile.total_pages_read, label: t(locale, 'profilePagesLabel') }].map((s, i) => (
             <div key={i} style={{ background: 'var(--bg-card)', borderRadius: '14px', padding: '1rem', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: '1.5rem', marginBottom: '0.3rem' }}>{s.icon}</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)' }}>{s.value}</div>
@@ -203,10 +214,10 @@ export default function ProfilePage() {
       {/* Sekmeler */}
       <div style={{ display: 'flex', background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 50, overflowX: 'auto' }} className="hide-scrollbar">
         {[
-          { id: 'books', label: '📚 Kitaplar' },
-          { id: 'badges', label: '🏅 Rozetler' },
-          { id: 'challenges', label: '⚡ Challenge' },
-          { id: 'leaderboard', label: '🏆 Sıralama' },
+          { id: 'books', label: t(locale, 'profileTabBooks') },
+          { id: 'badges', label: t(locale, 'profileTabBadges') },
+          { id: 'challenges', label: t(locale, 'profileTabChallenges') },
+          { id: 'leaderboard', label: t(locale, 'profileTabLeaderboard') },
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} style={{ flex: 1, padding: '0.75rem 0.5rem', background: 'transparent', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? 'var(--accent)' : 'transparent'}`, color: activeTab === tab.id ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.75rem', fontWeight: activeTab === tab.id ? 700 : 400, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
             {tab.label}
@@ -218,8 +229,8 @@ export default function ProfilePage() {
           sessions.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">📚</div>
-              <p className="empty-state-title">Henüz kitap yok</p>
-              <button onClick={() => router.push('/library')} className="btn-primary" style={{ marginTop: '0.5rem', padding: '0.6rem 1.5rem' }}>Kitap Ekle</button>
+              <p className="empty-state-title">{t(locale, 'profileEmptyBooks')}</p>
+              <button onClick={() => router.push('/library')} className="btn-primary" style={{ marginTop: '0.5rem', padding: '0.6rem 1.5rem' }}>{t(locale, 'profileAddBook')}</button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -228,7 +239,7 @@ export default function ProfilePage() {
                   <BookCover title={(s.books as any)?.title || ''} coverUrl={(s.books as any)?.cover_url} width={44} height={58} borderRadius={7} index={i} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '0.1rem' }}>{(s.books as any)?.title}</p>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{(s.books as any)?.author || 'Yazar bilinmiyor'}</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{(s.books as any)?.author || t(locale, 'profileUnknownAuthor')}</p>
                     <div style={{ height: '3px', background: 'var(--bg-soft)', borderRadius: '2px', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${s.progress_percent}%`, background: s.progress_percent >= 100 ? '#43E97B' : 'linear-gradient(90deg,var(--accent),var(--accent-2))', borderRadius: '2px' }} />
                     </div>
@@ -248,7 +259,7 @@ export default function ProfilePage() {
               return (
                 <div key={i} style={{ textAlign: 'center', opacity: unlocked ? 1 : 0.3 }}>
                   <div style={{ fontSize: '2rem', marginBottom: '0.3rem', filter: unlocked ? 'none' : 'grayscale(1)' }}>{b.icon}</div>
-                  <p style={{ fontSize: '0.65rem', fontWeight: 600, color: unlocked ? 'var(--text)' : 'var(--text-muted)', lineHeight: 1.2 }}>{b.title}</p>
+                  <p style={{ fontSize: '0.65rem', fontWeight: 600, color: unlocked ? 'var(--text)' : 'var(--text-muted)', lineHeight: 1.2 }}>{t(locale, b.titleKey)}</p>
                 </div>
               )
             })}
@@ -267,23 +278,23 @@ export default function ProfilePage() {
                   <div style={{ padding: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
                       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 500, color: 'var(--text)', flex: 1 }}>{ch.title}</h3>
-                      {isJoined && <span className="tag tag-green" style={{ flexShrink: 0, marginLeft: '0.5rem' }}>✓ Katıldın</span>}
+                      {isJoined && <span className="tag tag-green" style={{ flexShrink: 0, marginLeft: '0.5rem' }}>{t(locale, 'profileJoined')}</span>}
                     </div>
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>{ch.description}</p>
                     <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-                      {ch.goal_pages > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-soft)' }}><Target size={12} color="var(--accent)" /> {ch.goal_pages} sayfa</div>}
-                      {ch.goal_books > 0 && <div style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>📚 {ch.goal_books} kitap</div>}
+                      {ch.goal_pages > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-soft)' }}><Target size={12} color="var(--accent)" /> {ch.goal_pages} {t(locale, 'profileGoalPages')}</div>}
+                      {ch.goal_books > 0 && <div style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>📚 {ch.goal_books} {t(locale, 'profileGoalBooks')}</div>}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: daysLeft <= 3 ? 'var(--red)' : 'var(--text-soft)' }}>
-                        <Calendar size={12} /> {daysLeft} gün kaldı
+                        <Calendar size={12} /> {daysLeft} {t(locale, 'profileDaysLeft')}
                       </div>
                     </div>
                     {!isJoined ? (
                       <button onClick={() => handleJoin(ch.id)} disabled={joining === ch.id} style={{ width: '100%', padding: '0.65rem', background: COLORS[i % COLORS.length], border: 'none', borderRadius: '10px', color: 'white', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
-                        {joining === ch.id ? 'Katılıyor...' : "⚡ Katıl"}
+                        {joining === ch.id ? t(locale, 'profileJoining') : t(locale, 'profileJoinButton')}
                       </button>
                     ) : (
                       <div style={{ padding: '0.5rem', background: 'var(--bg-soft)', borderRadius: '8px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        Okuma sayfalarından takip ediliyor 📖
+                        {t(locale, 'profileTrackingNote')}
                       </div>
                     )}
                   </div>
@@ -298,7 +309,7 @@ export default function ProfilePage() {
           leaderboard.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">🏆</div>
-              <p className="empty-state-title">Henüz kimse yok</p>
+              <p className="empty-state-title">{t(locale, 'profileNoLeaderboard')}</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -334,8 +345,8 @@ export default function ProfilePage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.full_name || p.username}</p>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>🔥 {p.streak_days} gün</span>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>📄 {p.total_pages_read} sayfa</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>🔥 {p.streak_days} {t(locale, 'profileStreakDays')}</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>📄 {p.total_pages_read} {t(locale, 'profileGoalPages')}</span>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>

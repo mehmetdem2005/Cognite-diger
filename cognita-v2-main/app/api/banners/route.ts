@@ -1,10 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getServiceSupabase } from '@/lib/auth'
+import { errorResponse } from '@/lib/api-utils'
 
 // Dinamik Bannerlar
 export async function GET(req: NextRequest) {
@@ -14,6 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const supabase = getServiceSupabase()
     // Aktif bannerları al
     const { data: banners } = await supabase
       .from('banners')
@@ -55,7 +52,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ banners: finalBanners }, { headers })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch banners' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }

@@ -5,8 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import BottomNav from '@/components/layout/BottomNav'
 import { Plus, X, Search, Clock, Bookmark, Upload, FileText, Image, BookMarked, Sparkles, ChevronLeft, ChevronRight, RefreshCw, Globe, Lock, Users, UserCheck } from 'lucide-react'
-import { BOOK_CATEGORIES } from '@/lib/categories'
+import { BOOK_CATEGORIES, getCategoryLabel } from '@/lib/categories'
 import { interaction } from '@/lib/interaction'
+import { getStoredLocale, Locale, t } from '@/lib/i18n'
 
 interface Book { id: string; title: string; author: string | null; total_pages: number; file_type: string; tags: string[]; cover_url: string | null; created_at: string }
 interface Session { book_id: string; progress_percent: number }
@@ -25,10 +26,10 @@ const GRADIENTS = [
 ]
 
 const FILTERS = [
-  { id: 'all', label: 'Tümü' },
-  { id: 'reading', label: 'Devam Ediyor' },
-  { id: 'notstarted', label: 'Başlamadı' },
-  { id: 'finished', label: 'Bitti' },
+  { id: 'all' },
+  { id: 'reading' },
+  { id: 'notstarted' },
+  { id: 'finished' },
 ]
 
 const VISIBILITY_OPTIONS: { id: Visibility; label: string; desc: string; icon: any }[] = [
@@ -41,6 +42,7 @@ const VISIBILITY_OPTIONS: { id: Visibility; label: string; desc: string; icon: a
 export default function LibraryPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const [locale, setLocale] = useState<Locale>(() => (typeof window !== 'undefined' ? getStoredLocale() : 'tr'))
   const [books, setBooks] = useState<Book[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [showAdd, setShowAdd] = useState(false)
@@ -85,6 +87,15 @@ export default function LibraryPage() {
 
   useEffect(() => { if (!loading && !user) router.push('/auth/login') }, [user, loading])
   useEffect(() => { if (user) { fetchBooks(); fetchSessions(); loadBookmarks() } }, [user])
+  useEffect(() => {
+    const onLanguageChanged = () => setLocale(getStoredLocale())
+    window.addEventListener('storage', onLanguageChanged)
+    window.addEventListener('cognita-language-changed', onLanguageChanged)
+    return () => {
+      window.removeEventListener('storage', onLanguageChanged)
+      window.removeEventListener('cognita-language-changed', onLanguageChanged)
+    }
+  }, [])
 
   const fetchBooks = async () => {
     try {
@@ -128,8 +139,8 @@ export default function LibraryPage() {
 
   const getReadingTime = (pages: number) => {
     const mins = Math.round(pages * 1.5)
-    if (mins < 60) return `${mins} dk`
-    return `${Math.floor(mins / 60)} s ${mins % 60} dk`
+    if (mins < 60) return `${mins} ${t(locale, 'catalogMinuteShort')}`
+    return `${Math.floor(mins / 60)} ${t(locale, 'catalogHourShort')} ${mins % 60} ${t(locale, 'catalogMinuteShort')}`
   }
 
   const handleCoverSelect = (file: File) => {
@@ -168,16 +179,16 @@ export default function LibraryPage() {
         } else {
           setTitle(fname)
           const detail = info?.detail || info?.error || ''
-          setAiInfoError(`AI analizi başarısız${detail ? ': ' + detail : ' — başlık ve açıklamayı manuel doldurabilirsin'}`)
+          setAiInfoError(`${t(locale, 'libraryAiAnalysisFailed')}${detail ? ': ' + detail : ` - ${t(locale, 'libraryAiManualFallback')}`}`)
         }
       } catch (e: any) {
         const fname = file.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' ')
         setTitle(fname)
-        setAiInfoError(`AI analizi başarısız: ${e?.message || 'bağlantı hatası'}`)
+        setAiInfoError(`${t(locale, 'libraryAiAnalysisFailed')}: ${e?.message || t(locale, 'libraryConnectionError')}`)
       }
       setInfoLoading(false)
     } catch (e) {
-      alert('PDF okunamadı. Lütfen metin formatında deneyin ya da farklı bir PDF deneyin.')
+      alert(t(locale, 'libraryPdfReadFailed'))
     }
     setPdfParsing(false)
   }
@@ -187,7 +198,7 @@ export default function LibraryPage() {
   }
 
   const generateAICover = async () => {
-    if (!title.trim()) { setAiError('Önce kitap adını gir'); return }
+    if (!title.trim()) { setAiError(t(locale, 'libraryEnterTitleFirst')); return }
     setAiLoading(true)
     setAiError(null)
     setAiProgress(0)
@@ -209,7 +220,7 @@ export default function LibraryPage() {
         body: JSON.stringify({ title: title.trim(), author: author.trim() || undefined }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Kapak bulunamadı')
+      if (!res.ok) throw new Error(data.error || t(locale, 'libraryCoverNotFound'))
       if (aiProgressRef.current) clearInterval(aiProgressRef.current)
       setAiProgress(100)
       const newCovers = [...aiCovers, data.url]
@@ -282,7 +293,7 @@ export default function LibraryPage() {
       // Upload cover via server API
       let uploadedCoverUrl: string | null = null
       if (coverFile) {
-        setSaveStep('Kapak yükleniyor...')
+        setSaveStep(t(locale, 'libraryCoverUploading'))
         try {
           const session = await supabase.auth.getSession()
           const token = session.data.session?.access_token
@@ -300,7 +311,7 @@ export default function LibraryPage() {
         uploadedCoverUrl = aiCovers[aiCoverIdx]
       }
 
-      setSaveStep('Kitap kaydediliyor...')
+      setSaveStep(t(locale, 'libraryBookSaving'))
       const words = content.trim().split(/\s+/).filter(Boolean).length
       const pages = Math.max(1, Math.ceil(words / 300))
       const isPublic = visibility !== 'private'
@@ -324,7 +335,7 @@ export default function LibraryPage() {
       })
       const bookJson = await bookRes.json()
       if (!bookRes.ok) {
-        setSaveError(`Kitap kaydedilemedi: ${bookJson.error}`)
+        setSaveError(`${t(locale, 'libraryBookSaveFailed')}: ${bookJson.error}`)
         setSaving(false)
         setSaveStep('')
         return
@@ -332,7 +343,7 @@ export default function LibraryPage() {
       const data = bookJson.data
 
       if (data && content.trim()) {
-        setSaveStep('İçerik kaydediliyor...')
+        setSaveStep(t(locale, 'libraryContentSaving'))
         try {
           localStorage.setItem(`book_content_${data.id}`, content.trim())
         } catch {
@@ -350,7 +361,7 @@ export default function LibraryPage() {
       setPdfProgress(0)
       fetchBooks()
     } catch (err: any) {
-      setSaveError(`Beklenmedik hata: ${err?.message || 'lütfen tekrar dene'}`)
+      setSaveError(`${t(locale, 'libraryUnexpectedError')}: ${err?.message || t(locale, 'libraryTryAgain')}`)
     } finally {
       setSaving(false)
       setSaveStep('')
@@ -359,7 +370,7 @@ export default function LibraryPage() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Kitabı sil?')) return
+    if (!confirm(t(locale, 'libraryDeleteConfirm'))) return
     interaction.remove()
     await supabase.from('books').delete().eq('id', id)
     localStorage.removeItem(`book_content_${id}`)
@@ -391,23 +402,25 @@ export default function LibraryPage() {
     <main style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: '80px' }}>
       <header style={{ background: 'var(--nav-bg)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.9rem 1rem 0.5rem' }}>
-          <h1 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)' }}>Kitaplığım</h1>
+          <h1 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'libraryTitle')}</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button onClick={() => router.push('/catalog')} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.45rem 0.9rem', background: 'var(--bg-soft)', border: 'none', borderRadius: '20px', color: 'var(--text)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
-              <BookMarked size={15} /> Katalog
+              <BookMarked size={15} /> {t(locale, 'catalogTitle')}
             </button>
             <button onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.45rem 0.9rem', background: 'var(--text)', border: 'none', borderRadius: '20px', color: 'var(--bg)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
-              <Plus size={15} /> Ekle
+              <Plus size={15} /> {t(locale, 'libraryAddShort')}
             </button>
           </div>
         </div>
         <div style={{ padding: '0 1rem 0.5rem', position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: '1.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Ara..." style={{ paddingLeft: '2.25rem' }} />
+          <input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder={t(locale, 'librarySearchPlaceholder')} style={{ paddingLeft: '2.25rem' }} />
         </div>
         <div className="hide-scrollbar" style={{ display: 'flex', gap: '0.5rem', padding: '0 1rem 0.75rem', overflowX: 'auto' }}>
           {FILTERS.map(f => (
-            <button key={f.id} onClick={() => setFilter(f.id as any)} style={{ flexShrink: 0, padding: '0.3rem 0.85rem', borderRadius: '20px', border: 'none', background: filter === f.id ? 'var(--text)' : 'var(--bg-soft)', color: filter === f.id ? 'var(--bg)' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: filter === f.id ? 700 : 400, cursor: 'pointer' }}>{f.label}</button>
+            <button key={f.id} onClick={() => setFilter(f.id as any)} style={{ flexShrink: 0, padding: '0.3rem 0.85rem', borderRadius: '20px', border: 'none', background: filter === f.id ? 'var(--text)' : 'var(--bg-soft)', color: filter === f.id ? 'var(--bg)' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: filter === f.id ? 700 : 400, cursor: 'pointer' }}>
+              {f.id === 'all' ? t(locale, 'commonAll') : f.id === 'reading' ? t(locale, 'libraryFilterReading') : f.id === 'notstarted' ? t(locale, 'libraryFilterNotStarted') : t(locale, 'libraryFilterFinished')}
+            </button>
           ))}
         </div>
       </header>
@@ -416,16 +429,16 @@ export default function LibraryPage() {
         {filtered.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">📚</div>
-            <p className="empty-state-title">Kitap Yok</p>
-            <p className="empty-state-desc">İlk kitabını ekleyerek başla</p>
-            <button onClick={() => setShowAdd(true)} className="btn-primary" style={{ marginTop: '0.5rem', padding: '0.6rem 1.5rem' }}>+ Kitap Ekle</button>
+            <p className="empty-state-title">{t(locale, 'libraryEmptyTitle')}</p>
+            <p className="empty-state-desc">{t(locale, 'libraryEmptyDesc')}</p>
+            <button onClick={() => setShowAdd(true)} className="btn-primary" style={{ marginTop: '0.5rem', padding: '0.6rem 1.5rem' }}>+ {t(locale, 'libraryAddBook')}</button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {filtered.map((book, i) => {
               const progress = getProgress(book.id)
               const isBookmarked = bookmarks.includes(book.id)
-              const statusLabel = progress >= 100 ? 'Bitti ✓' : progress > 0 ? 'Devam Ediyor' : 'Başlamadı'
+              const statusLabel = progress >= 100 ? t(locale, 'libraryStatusFinished') : progress > 0 ? t(locale, 'libraryStatusReading') : t(locale, 'libraryStatusNotStarted')
               const statusColor = progress >= 100 ? '#43E97B' : progress > 0 ? 'var(--accent)' : 'var(--text-muted)'
               return (
                 <div key={book.id} onClick={() => router.push(`/reader/${book.id}`)} style={{ background: 'var(--bg-card)', borderRadius: '14px', padding: '0.9rem', display: 'flex', gap: '0.9rem', cursor: 'pointer', border: '1px solid var(--border)' }}>
@@ -453,7 +466,7 @@ export default function LibraryPage() {
                       </span>
                       {book.tags?.slice(0, 1).map(tag => {
                         const cat = BOOK_CATEGORIES.find(c => c.id === tag)
-                        return cat ? <span key={tag} style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{cat.icon}</span> : null
+                        return cat ? <span key={tag} style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }} title={getCategoryLabel(cat.id, locale)}>{cat.icon}</span> : null
                       })}
                     </div>
                     {progress > 0 && (
@@ -485,14 +498,14 @@ export default function LibraryPage() {
             <div style={{ overflowY: 'auto', flex: 1, padding: '1.5rem 1.5rem 0' }}>
               <div style={{ width: '40px', height: '4px', background: 'var(--border)', borderRadius: '2px', margin: '0 auto 1.25rem' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>Yeni Kitap</h3>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'libraryNewBook')}</h3>
                 <button onClick={resetModal} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={22} /></button>
               </div>
 
               {/* Format */}
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
                 <button onClick={() => setUploadMode('text')} style={{ flex: 1, padding: '0.65rem', borderRadius: '12px', border: `2px solid ${uploadMode === 'text' ? 'var(--accent)' : 'var(--border)'}`, background: uploadMode === 'text' ? 'rgba(64,93,230,0.1)' : 'transparent', color: uploadMode === 'text' ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                  <FileText size={16} /> Metin
+                  <FileText size={16} /> {t(locale, 'libraryTextMode')}
                 </button>
                 <button onClick={() => setUploadMode('pdf')} style={{ flex: 1, padding: '0.65rem', borderRadius: '12px', border: `2px solid ${uploadMode === 'pdf' ? 'var(--accent)' : 'var(--border)'}`, background: uploadMode === 'pdf' ? 'rgba(64,93,230,0.1)' : 'transparent', color: uploadMode === 'pdf' ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
                   <Upload size={16} /> PDF
@@ -505,14 +518,14 @@ export default function LibraryPage() {
                   <button onClick={() => fileRef.current?.click()} style={{ width: '100%', padding: '1.25rem', border: `2px dashed ${pdfFile ? 'var(--accent)' : 'var(--border)'}`, borderRadius: '12px', background: pdfFile ? 'rgba(64,93,230,0.05)' : 'var(--bg-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
                     <Upload size={22} color={pdfFile ? 'var(--accent)' : 'var(--text-muted)'} />
                     <span style={{ fontSize: '0.88rem', color: pdfFile ? 'var(--accent)' : 'var(--text-muted)', fontWeight: pdfFile ? 600 : 400 }}>
-                      {pdfParsing ? `⏳ PDF okunuyor... %${pdfProgress}` : pdfFile ? `✓ ${pdfFile.name}` : 'PDF dosyası seç'}
+                      {pdfParsing ? `⏳ PDF ${t(locale, 'settingsUploading')}... %${pdfProgress}` : pdfFile ? `✓ ${pdfFile.name}` : t(locale, 'libraryChoosePdf')}
                     </span>
                     {pdfParsing && (
                       <div style={{ width: '100%', height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${pdfProgress}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', borderRadius: '2px', transition: 'width 0.2s' }} />
                       </div>
                     )}
-                    {!pdfParsing && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Telefon dosyalarından seç</span>}
+                    {!pdfParsing && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t(locale, 'libraryChooseFromFiles')}</span>}
                   </button>
                   {aiInfoError && !infoLoading && (
                     <div style={{ marginTop: '0.5rem', padding: '0.45rem 0.75rem', background: 'rgba(245,158,11,0.1)', borderRadius: '8px', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -525,9 +538,9 @@ export default function LibraryPage() {
               {/* Title */}
               <div style={{ marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Kitap Adı *</label>
-                  {infoLoading && <span style={{ fontSize: '0.68rem', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}><RefreshCw size={10} style={{ animation: 'spin 1s linear infinite' }} /> AI analiz ediyor...</span>}
-                  {titleAI && !infoLoading && <span style={{ fontSize: '0.65rem', color: 'var(--accent)', background: 'rgba(64,93,230,0.12)', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>✦ AI önerisi</span>}
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{t(locale, 'libraryBookTitleLabel')}</label>
+                  {infoLoading && <span style={{ fontSize: '0.68rem', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}><RefreshCw size={10} style={{ animation: 'spin 1s linear infinite' }} /> {t(locale, 'libraryAiAnalyzing')}</span>}
+                  {titleAI && !infoLoading && <span style={{ fontSize: '0.65rem', color: 'var(--accent)', background: 'rgba(64,93,230,0.12)', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>✦ {t(locale, 'libraryAiSuggestion')}</span>}
                 </div>
                 <input className="input" value={title} onChange={e => { setTitle(e.target.value); setTitleAI(false) }} placeholder="Sapiens" />
               </div>
@@ -535,15 +548,15 @@ export default function LibraryPage() {
               {/* Author */}
               <div style={{ marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Yazar</label>
-                  {authorAI && !infoLoading && <span style={{ fontSize: '0.65rem', color: 'var(--accent)', background: 'rgba(64,93,230,0.12)', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>✦ AI önerisi</span>}
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{t(locale, 'adminAuthorLabel')}</label>
+                  {authorAI && !infoLoading && <span style={{ fontSize: '0.65rem', color: 'var(--accent)', background: 'rgba(64,93,230,0.12)', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>✦ {t(locale, 'libraryAiSuggestion')}</span>}
                 </div>
                 <input className="input" value={author} onChange={e => { setAuthor(e.target.value); setAuthorAI(false) }} placeholder="Yuval Noah Harari" />
               </div>
 
               {/* Kapak Bölümü */}
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Kapak Resmi</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{t(locale, 'libraryCoverImage')}</label>
 
                 {/* Kapak önizleme + navigasyon */}
                 {coverPreview && (
@@ -559,7 +572,7 @@ export default function LibraryPage() {
                       {coverImgLoading && (
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}>
                           <RefreshCw size={20} color="var(--accent)" style={{ animation: 'spin 1s linear infinite' }} />
-                          <span style={{ fontSize: '0.6rem', color: 'var(--accent)', fontWeight: 600 }}>Oluşturuluyor...</span>
+                          <span style={{ fontSize: '0.6rem', color: 'var(--accent)', fontWeight: 600 }}>{t(locale, 'libraryCoverGenerating')}</span>
                         </div>
                       )}
                       <button onClick={() => { setCoverPreview(null); setCoverFile(null); setCoverSource(null); setCoverImgLoading(false); if (aiCovers.length > 0) { setAiCovers([]); setAiCoverIdx(0) } }} style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--text)', border: 'none', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -569,7 +582,7 @@ export default function LibraryPage() {
                     {/* Kaynak badge */}
                     {coverSource && (
                       <span style={{ fontSize: '0.65rem', padding: '0.15rem 0.5rem', borderRadius: '999px', background: coverSource === 'openlibrary' ? 'rgba(22,163,74,0.15)' : 'rgba(64,93,230,0.12)', color: coverSource === 'openlibrary' ? '#16a34a' : 'var(--accent)', fontWeight: 600 }}>
-                        {coverSource === 'openlibrary' ? '📚 Open Library' : '✦ AI üretim'}
+                        {coverSource === 'openlibrary' ? '📚 Open Library' : `✦ ${t(locale, 'libraryCoverAiSource')}`}
                       </span>
                     )}
                     {/* AI kapak navigasyon */}
@@ -591,7 +604,7 @@ export default function LibraryPage() {
                   {/* Galeriden seç */}
                   <input ref={coverRef} type="file" accept="image/*" onChange={e => e.target.files?.[0] && handleCoverSelect(e.target.files[0])} style={{ display: 'none' }} />
                   <button onClick={() => coverRef.current?.click()} style={{ flex: 1, padding: '0.65rem', borderRadius: '12px', border: `1.5px solid var(--border)`, background: coverFile ? 'rgba(64,93,230,0.07)' : 'var(--bg-soft)', color: coverFile ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                    <Image size={15} /> {coverFile ? 'Değiştir' : 'Galeriden'}
+                    <Image size={15} /> {coverFile ? t(locale, 'libraryCoverChange') : t(locale, 'libraryCoverGallery')}
                   </button>
                   {/* AI ile oluştur */}
                   <button onClick={generateAICover} disabled={aiLoading || !title.trim()} style={{ flex: 1, padding: '0.65rem', borderRadius: '12px', border: `1.5px solid ${aiCovers.length > 0 ? 'var(--accent)' : 'var(--border)'}`, background: aiCovers.length > 0 ? 'rgba(64,93,230,0.1)' : 'var(--bg-soft)', color: aiLoading ? 'var(--accent)' : aiCovers.length > 0 ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, cursor: aiLoading || !title.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', opacity: !title.trim() ? 0.5 : 1, position: 'relative', overflow: 'hidden' }}>
@@ -600,19 +613,19 @@ export default function LibraryPage() {
                     )}
                     {aiLoading ? <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite', position: 'relative' }} /> : <Sparkles size={15} />}
                     <span style={{ position: 'relative' }}>
-                      {aiLoading ? `%${Math.round(aiProgress)}` : aiCovers.length > 0 ? 'Tekrar ara' : 'Kapak bul'}
+                      {aiLoading ? `%${Math.round(aiProgress)}` : aiCovers.length > 0 ? t(locale, 'libraryCoverRetry') : t(locale, 'libraryCoverFind')}
                     </span>
                   </button>
                 </div>
                 {aiError && <p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.35rem' }}>{aiError}</p>}
-                {!title.trim() && <p style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>AI kapak için önce kitap adını gir</p>}
+                {!title.trim() && <p style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>{t(locale, 'libraryCoverAiHint')}</p>}
               </div>
 
               {/* Metin modu: içerik yapıştır (gizli tutulan kısım) */}
               {uploadMode === 'text' && (
                 <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Kitap Metni</label>
-                  <textarea className="input" value={content} onChange={e => setContent(e.target.value)} onBlur={e => generateDescription(e.target.value)} placeholder="Kitap metnini buraya yapıştır..." rows={3} style={{ resize: 'none', lineHeight: 1.6, fontSize: '0.82rem' }} />
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{t(locale, 'libraryBookTextLabel')}</label>
+                  <textarea className="input" value={content} onChange={e => setContent(e.target.value)} onBlur={e => generateDescription(e.target.value)} placeholder={t(locale, 'libraryBookTextPlaceholder')} rows={3} style={{ resize: 'none', lineHeight: 1.6, fontSize: '0.82rem' }} />
                 </div>
               )}
 
@@ -627,11 +640,11 @@ export default function LibraryPage() {
               {/* Açıklama (AI üretir, kullanıcı düzenleyebilir) */}
               <div style={{ marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Açıklama</label>
-                  {infoLoading && <span style={{ fontSize: '0.68rem', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}><RefreshCw size={10} style={{ animation: 'spin 1s linear infinite' }} /> Yazıyor...</span>}
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{t(locale, 'libraryDescriptionLabel')}</label>
+                  {infoLoading && <span style={{ fontSize: '0.68rem', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}><RefreshCw size={10} style={{ animation: 'spin 1s linear infinite' }} /> {t(locale, 'libraryDescriptionWriting')}</span>}
                   {!infoLoading && (content || uploadMode === 'pdf') && (
                     <button onClick={() => generateDescription(content)} style={{ fontSize: '0.68rem', color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem', padding: 0 }}>
-                      <RefreshCw size={10} /> Yeniden üret
+                      <RefreshCw size={10} /> {t(locale, 'libraryDescriptionRegenerate')}
                     </button>
                   )}
                 </div>
@@ -648,10 +661,10 @@ export default function LibraryPage() {
               {/* Kategori */}
               <div style={{ marginBottom: '1.25rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Kategori</label>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>{t(locale, 'libraryCategoryLabel')}</label>
                   <button onClick={autoClassify} disabled={classifyLoading || !title.trim()} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.65rem', borderRadius: '999px', border: '1.5px solid var(--border)', background: 'transparent', color: classifyLoading ? 'var(--text-muted)' : 'var(--accent)', fontSize: '0.73rem', fontWeight: 600, cursor: classifyLoading || !title.trim() ? 'not-allowed' : 'pointer', opacity: !title.trim() ? 0.5 : 1 }}>
                     {classifyLoading ? <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={12} />}
-                    {classifyLoading ? 'Analiz...' : 'AI ile Sınıflandır'}
+                    {classifyLoading ? t(locale, 'libraryAiClassifying') : t(locale, 'libraryAiClassify')}
                   </button>
                 </div>
                 <div className="hide-scrollbar" style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
@@ -661,19 +674,19 @@ export default function LibraryPage() {
                       <button key={c.id} onClick={() => toggleCategory(c.id)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '999px', border: `2px solid ${sel ? 'var(--accent)' : 'var(--border)'}`, background: sel ? 'var(--accent)' : 'transparent', color: sel ? 'white' : 'var(--text-muted)', fontSize: '0.78rem', fontWeight: sel ? 700 : 400, cursor: 'pointer', transition: 'all 0.15s', boxShadow: sel ? '0 2px 8px rgba(64,93,230,0.35)' : 'none' }}>
                         <span>{c.icon}</span>
                         {sel && <span style={{ fontSize: '0.7rem' }}>✓</span>}
-                        {c.label}
+                        {getCategoryLabel(c.id, locale)}
                       </button>
                     )
                   })}
                 </div>
                 {selectedCategories.length > 0 && (
                   <div style={{ marginTop: '0.45rem', display: 'flex', flexWrap: 'wrap', gap: '0.25rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginRight: '0.1rem' }}>Seçilen:</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginRight: '0.1rem' }}>{t(locale, 'libraryCategorySelected')}</span>
                     {selectedCategories.map(id => {
                       const cat = BOOK_CATEGORIES.find(c => c.id === id)
                       return cat ? (
                         <span key={id} style={{ fontSize: '0.7rem', background: 'var(--accent)', color: 'white', padding: '0.1rem 0.45rem', borderRadius: '999px', fontWeight: 600 }}>
-                          {cat.icon} {cat.label}
+                          {cat.icon} {getCategoryLabel(cat.id, locale)}
                         </span>
                       ) : null
                     })}
@@ -683,7 +696,7 @@ export default function LibraryPage() {
 
               {/* Görünürlük / Paylaşım */}
               <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Kimler görebilir?</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{t(locale, 'libraryVisibilityTitle')}</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                   {VISIBILITY_OPTIONS.map(opt => {
                     const Icon = opt.icon
@@ -692,9 +705,9 @@ export default function LibraryPage() {
                       <button key={opt.id} onClick={() => setVisibility(opt.id)} style={{ padding: '0.75rem', borderRadius: '12px', border: `2px solid ${active ? 'var(--accent)' : 'var(--border)'}`, background: active ? 'rgba(64,93,230,0.1)' : 'transparent', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                           <Icon size={14} color={active ? 'var(--accent)' : 'var(--text-muted)'} />
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: active ? 'var(--accent)' : 'var(--text)' }}>{opt.label}</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: active ? 'var(--accent)' : 'var(--text)' }}>{opt.id === 'private' ? t(locale, 'libraryVisibilityPrivate') : opt.id === 'friends' ? t(locale, 'libraryVisibilityFollowers') : opt.id === 'specific' ? t(locale, 'libraryVisibilitySpecific') : t(locale, 'libraryVisibilityPublic')}</span>
                         </div>
-                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{opt.desc}</span>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{opt.id === 'private' ? t(locale, 'libraryVisibilityPrivateDesc') : opt.id === 'friends' ? t(locale, 'libraryVisibilityFollowersDesc') : opt.id === 'specific' ? t(locale, 'libraryVisibilitySpecificDesc') : t(locale, 'libraryVisibilityPublicDesc')}</span>
                       </button>
                     )
                   })}
@@ -711,7 +724,7 @@ export default function LibraryPage() {
             {/* Sticky buton */}
             <div style={{ padding: '1rem 1.5rem', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--border)', background: 'var(--bg-card)' }}>
               <button onClick={handleAdd} disabled={saving || !title.trim() || pdfParsing} className="btn-primary" style={{ width: '100%', padding: '0.95rem', borderRadius: '14px', fontSize: '0.95rem', opacity: saving || !title.trim() || pdfParsing ? 0.5 : 1 }}>
-                {saving ? (saveStep || 'Kaydediliyor...') : pdfParsing ? `PDF Okunuyor... %${pdfProgress}` : 'Kütüphaneye Ekle'}
+                {saving ? (saveStep || t(locale, 'librarySaving')) : pdfParsing ? `PDF ${t(locale, 'settingsUploading')}... %${pdfProgress}` : t(locale, 'libraryAddToLibrary')}
               </button>
             </div>
           </div>

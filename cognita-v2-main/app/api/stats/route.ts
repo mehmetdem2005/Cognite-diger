@@ -1,10 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getServiceSupabase } from '@/lib/auth'
+import { errorResponse } from '@/lib/api-utils'
 
 // İstatistikler
 export async function GET(req: NextRequest) {
@@ -19,6 +15,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const supabase = getServiceSupabase()
     // Bu hafta/ay istatistikleri
     const { data: currentStats } = await supabase
       .from('user_stats')
@@ -46,7 +43,7 @@ export async function GET(req: NextRequest) {
         xpChange: (currentStats?.[0]?.total_xp_earned || 0) - (previousStats?.[0]?.total_xp_earned || 0)
       }
     }, { headers })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }

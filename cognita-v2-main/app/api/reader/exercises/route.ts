@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { callAI } from '@/lib/ai-provider-manager'
-
-function getServiceSupabase() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
-
-async function verifyUser(token: string) {
-  const sb = getServiceSupabase()
-  const { data: { user }, error } = await sb.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
+import { requireAuth, getServiceSupabase } from '@/lib/auth'
+import { safeParseJSON, errorResponse } from '@/lib/api-utils'
+import { AI_CONTEXT_LONG } from '@/lib/constants'
 
 async function isAdmin(userId: string) {
   const sb = getServiceSupabase()
@@ -21,11 +12,9 @@ async function isAdmin(userId: string) {
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
     const bookId = req.nextUrl.searchParams.get('book_id')
     const sectionKey = req.nextUrl.searchParams.get('section_key')
@@ -38,8 +27,8 @@ export async function GET(req: NextRequest) {
     const { data: exercises, error: exError } = await query
     if (exError) return NextResponse.json({ error: exError.message }, { status: 500 })
 
-    const ids = (exercises || []).map((e: any) => e.id)
-    let attempts: any[] = []
+    const ids = (exercises || []).map((e: { id: string }) => e.id)
+    let attempts: Array<{ exercise_id: string; is_correct: boolean | null; score: number | null; attempted_at: string }> = []
     if (ids.length > 0) {
       const { data } = await sb
         .from('reader_exercise_attempts')
@@ -51,18 +40,16 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ exercises: exercises || [], attempts })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
     const body = await req.json()
     const action = body.action || 'attempt'
@@ -96,10 +83,9 @@ export async function POST(req: NextRequest) {
             ],
             maxTokens: 300,
           })
-          const clean = result.content.replace(/```json|```/g, '').trim()
-          const parsed = JSON.parse(clean)
-          score = Number(parsed.score) || 0
-          aiFeedback = String(parsed.feedback || '')
+          const { data: parsed } = safeParseJSON<{ score: number; feedback: string }>(result.content)
+          score = Number(parsed?.score) || 0
+          aiFeedback = String(parsed?.feedback || '')
           isCorrect = score >= 60
         } catch {
           score = null
@@ -143,27 +129,31 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'user',
-            content: `Asagidaki metin icin 5 adet alistirma olustur. Sadece JSON array don.\nFormat: [{"exercise_type":"multiple_choice|true_false|fill_blank|open_ended","question":"...","options":["..."],"answer_key":{"correct":"..."},"difficulty":1}]\nMetin: ${String(source_text).slice(0, 6000)}`,
+            content: `Asagidaki metin icin 5 adet alistirma olustur. Sadece JSON array don.\nFormat: [{"exercise_type":"multiple_choice|true_false|fill_blank|open_ended","question":"...","options":["..."],"answer_key":{"correct":"..."},"difficulty":1}]\nMetin: ${String(source_text).slice(0, AI_CONTEXT_LONG)}`,
           },
         ],
         maxTokens: 1500,
       })
 
-      const clean = result.content.replace(/```json|```/g, '').trim()
-      const parsed = JSON.parse(clean)
-      if (!Array.isArray(parsed)) return NextResponse.json({ error: 'AI formati gecersiz' }, { status: 500 })
+      const { data: parsed, error: parseError } = safeParseJSON<unknown[]>(result.content)
+      if (parseError || !Array.isArray(parsed)) {
+        return NextResponse.json({ error: 'AI formati gecersiz' }, { status: 500 })
+      }
 
-      const payload = parsed.slice(0, 10).map((item: any) => ({
-        book_id,
-        section_key,
-        exercise_type: item.exercise_type || 'multiple_choice',
-        question: item.question || '',
-        options: item.options || null,
-        answer_key: item.answer_key || null,
-        difficulty: Number(item.difficulty) || 1,
-        source: 'ai',
-        created_by: user.id,
-      })).filter((x: any) => x.question)
+      const payload = parsed.slice(0, 10).map((item: unknown) => {
+        const ex = item as Record<string, unknown>
+        return {
+          book_id,
+          section_key,
+          exercise_type: ex.exercise_type || 'multiple_choice',
+          question: ex.question || '',
+          options: ex.options || null,
+          answer_key: ex.answer_key || null,
+          difficulty: Number(ex.difficulty) || 1,
+          source: 'ai',
+          created_by: user.id,
+        }
+      }).filter(x => x.question)
 
       if (payload.length === 0) return NextResponse.json({ error: 'Uretilecek gecerli soru yok' }, { status: 400 })
 
@@ -173,7 +163,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Gecersiz action' }, { status: 400 })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }

@@ -42,51 +42,31 @@ export default function AchievementsShowcase({ userId }: Props) {
   if (loading) return null
 
   return (
-    <div style={{ marginTop: '0.75rem', background: 'var(--bg-card)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <Trophy size={15} color="#a855f7" />
-          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>Başarılar</span>
+    <section className="card animate-fade-in">
+      <div className="flex items-center  justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          <Trophy size={16} className="text-purple-500" />
+          <h3 className="text-sm font-bold text-text-primary">Başarılar</h3>
         </div>
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+        <span className="text-xs text-text-muted font-semibold">
           {unlocked.length}/{unlocked.length + locked.length}
         </span>
       </div>
 
-      {/* Açılı Başarılar */}
       {unlocked.length > 0 && (
-        <div style={{ padding: '0 1rem 0.75rem' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
             Kazanılan Rozetler
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '0.5rem' }}>
+          <div className="grid grid-cols-auto-fit gap-2">
             {unlocked.slice(0, 8).map(achievement => (
               <div
                 key={achievement.id}
                 title={achievement.title}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '0.6rem',
-                  background: 'linear-gradient(135deg, rgba(168,85,247,0.15), rgba(168,85,247,0.05))',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid rgba(168,85,247,0.2)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.05)'
-                  e.currentTarget.style.boxShadow = 'var(--shadow-md)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)'
-                  e.currentTarget.style.boxShadow = 'none'
-                }}
+                className="flex flex-col items-center justify-center p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg cursor-pointer transition-all hover:scale-105 hover:shadow-md"
               >
-                <div style={{ fontSize: '1.3rem', marginBottom: '0.2rem' }}>{achievement.icon}</div>
-                <p style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text)', textAlign: 'center', lineHeight: 1.2 }}>
+                <div className="text-lg mb-1">{achievement.icon}</div>
+                <p className="text-xs font-bold text-text-primary text-center line-clamp-2">
                   {achievement.title}
                 </p>
               </div>
@@ -95,35 +75,23 @@ export default function AchievementsShowcase({ userId }: Props) {
         </div>
       )}
 
-      {/* Kilitli Başarılar */}
       {locked.length > 0 && (
-        <div style={{ padding: '0.75rem 1rem 1rem', borderTop: '1px solid var(--border)' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-            Yaklaşan Rozetler
+        <div className={unlocked.length > 0 ? 'border-t border-border pt-4' : ''}>
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+            Kilitli Rozetler
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '0.5rem' }}>
+          <div className="grid grid-cols-auto-fit gap-2">
             {locked.slice(0, 4).map(achievement => (
               <div
                 key={achievement.id}
                 title={`${achievement.title} - ${achievement.requirement_value} ${achievement.requirement_type}`}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '0.6rem',
-                  background: 'rgba(153,153,153,0.08)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid rgba(153,153,153,0.2)',
-                  opacity: 0.6,
-                  cursor: 'not-allowed'
-                }}
+                className="flex flex-col items-center justify-center p-2 bg-gray-500/5 border border-gray-500/20 rounded-lg opacity-60 cursor-not-allowed"
               >
-                <div style={{ position: 'relative' }}>
-                  <div style={{ fontSize: '1.3rem', opacity: 0.4 }}>{achievement.icon}</div>
-                  <Lock size={12} color="var(--text-muted)" style={{ position: 'absolute', bottom: -4, right: -4 }} />
+                <div className="relative">
+                  <div className="text-lg opacity-40">{achievement.icon}</div>
+                  <Lock size={10} className="absolute -bottom-1 -right-1 text-text-muted" />
                 </div>
-                <p style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.2, marginTop: '0.2rem' }}>
+                <p className="text-xs font-bold text-text-muted text-center line-clamp-2 mt-1">
                   {achievement.title}
                 </p>
               </div>
@@ -131,6 +99,6 @@ export default function AchievementsShowcase({ userId }: Props) {
           </div>
         </div>
       )}
-    </div>
+    </section>
   )
 }
