@@ -44,8 +44,8 @@ Asagidaki klasorlerin tumu silinecek:
 
 ## 5) Post-Deletion Checklist
 - [x] Klasorlerin silindigi dogrulandi
-- [ ] Git durumu kontrol edildi
-- [ ] Degisiklikler commit edildi
+- [x] Git durumu kontrol edildi
+- [x] Degisiklikler commit edildi
 - [ ] Uzak repoya push yapildi
 
 ## 6) Post-Deletion State Snapshot
