@@ -16,15 +16,6 @@ import { getStoredLocale, Locale, t } from '@/lib/i18n'
 interface Book { id: string; title: string; author: string | null; cover_url?: string | null }
 interface Session { book_id: string; progress_percent: number; updated_at: string; books: Book }
 
-const GRADIENTS = [
-  'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
-  'linear-gradient(135deg, #F093FB 0%, #F5576C 100%)',
-  'linear-gradient(135deg, #4FACFE 0%, #00F2FE 100%)',
-  'linear-gradient(135deg, #43E97B 0%, #38F9D7 100%)',
-  'linear-gradient(135deg, #FA709A 0%, #FEE140 100%)',
-  'linear-gradient(135deg, #A18CD1 0%, #FBC2EB 100%)',
-]
-
 const DAILY_GOALS = [15, 30, 45, 60]
 
 const RecommendedForYou = dynamic(() => import('@/components/ui/RecommendedForYou'), { ssr: false })
@@ -38,7 +29,7 @@ const Leaderboard = dynamic(() => import('@/components/ui/Leaderboard'), { ssr: 
 export default function HomePage() {
   const router = useRouter()
   const { user, loading } = useAuth()
-  const { openDrawer, profile } = useAppShell()
+  const { openDrawer, profile, profileLoading } = useAppShell()
   const [sessions, setSessions] = useState<Session[]>([])
   const [trending, setTrending] = useState<Book[]>([])
   const [newBooks, setNewBooks] = useState<Book[]>([])
@@ -113,9 +104,10 @@ export default function HomePage() {
     }
   }, [])
   const fetchSessions = async () => {
+    if (!user) return
     const { data } = await supabase.from('reading_sessions')
       .select('book_id, progress_percent, updated_at, books(*)')
-      .eq('user_id', user!.id).gt('progress_percent', 0).lt('progress_percent', 100)
+      .eq('user_id', user.id).gt('progress_percent', 0).lt('progress_percent', 100)
       .order('updated_at', { ascending: false }).limit(5)
     setSessions((data as any) || [])
   }
@@ -135,8 +127,9 @@ export default function HomePage() {
     setCatalogBooks((data as any) || [])
   }
   const fetchUnread = async () => {
+    if (!user) return
     const { count } = await supabase.from('notifications').select('*', { count: 'exact', head: true })
-      .eq('user_id', user!.id).eq('is_read', false)
+      .eq('user_id', user.id).eq('is_read', false)
     setUnreadCount(count || 0)
   }
 
@@ -211,7 +204,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {profile === null ? (
+      {profileLoading ? (
         <>
           <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.85rem', marginBottom: '0.85rem' }}>
@@ -258,7 +251,7 @@ export default function HomePage() {
               <div style={{ flex: 1, height: '5px', background: 'var(--bg-soft)', borderRadius: 3, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${levelProgress}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', borderRadius: 3, transition: 'width 1s ease' }} />
               </div>
-              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>Sv.{level} • {xp} XP</span>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>{t(locale, 'homeStatLevelShort')}{level} • {xp} XP</span>
             </div>
           </div>
 
@@ -306,7 +299,7 @@ export default function HomePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{todayMinutes} / {dailyGoal} {t(locale, 'homeMinutesWord')}</span>
           <span style={{ fontSize: '0.72rem', fontWeight: 700, color: goalProgress >= 100 ? 'var(--green)' : 'var(--accent)' }}>
-            {goalProgress >= 100 ? `🎉 ${t(locale, 'homeGoalCompleted')}` : `%${Math.round(goalProgress)}`}
+            {goalProgress >= 100 ? `🎉 ${t(locale, 'homeGoalCompleted')}` : locale === 'tr' ? `%${Math.round(goalProgress)}` : `${Math.round(goalProgress)}%`}
           </span>
         </div>
       </div>
@@ -344,7 +337,7 @@ export default function HomePage() {
                   <div style={{ flex: 1, height: '3px', background: 'var(--bg-soft)', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: `${s.progress_percent}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', borderRadius: 2 }} />
                   </div>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>%{Math.round(s.progress_percent)}</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>{locale === 'tr' ? `%${Math.round(s.progress_percent)}` : `${Math.round(s.progress_percent)}%`}</span>
                 </div>
               </div>
               <div style={{ padding: '0.45rem 0.7rem', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', borderRadius: 10, color: 'white', fontSize: '0.72rem', fontWeight: 700, flexShrink: 0 }}>{t(locale, 'homeContinueButton')}</div>
@@ -399,7 +392,7 @@ export default function HomePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1rem 0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <Zap size={15} color="#f59e0b" />
-              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'homeCommunity')}</span>
+              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{t(locale, 'homeNewBooks')}</span>
             </div>
             <button onClick={() => router.push('/explore')} style={{ background: 'none', border: 'none', fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>{t(locale, 'commonAll')}</button>
           </div>
@@ -428,7 +421,7 @@ export default function HomePage() {
             {trending.slice(0, 5).map((book, i) => (
               <div key={book.id} onClick={() => router.push(`/book/${book.id}`)}
                 style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', padding: '0.65rem 1rem', borderTop: i > 0 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
-                <span style={{ fontSize: '1rem', fontWeight: 800, color: i < 3 ? 'var(--accent)' : 'var(--border)', width: '20px', textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                <span style={{ fontSize: '1rem', fontWeight: 800, color: i < 3 ? 'var(--accent)' : 'var(--text-muted)', width: '20px', textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
                 <BookCover title={book.title} coverUrl={book.cover_url} width={38} height={52} borderRadius={6} index={i} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</p>
