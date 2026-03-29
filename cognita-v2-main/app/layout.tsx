@@ -1,6 +1,4 @@
 import './globals.css'
-import AppShell from '@/components/layout/AppShell'
-import NotificationListener from '@/components/ui/NotificationListener'
 
 export const metadata = {
   title: 'Cognita',
@@ -35,12 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           })();
         `}} />
       </head>
-      <body>
-        <AppShell>
-          <NotificationListener />
-          {children}
-        </AppShell>
-      </body>
+      <body>{children}</body>
     </html>
   )
 }
