@@ -663,8 +663,12 @@ export default function ReaderPage() {
 
   const highlightText = (text: string) => {
     if (!searchQuery) return text
-    const regex = new RegExp(`(${searchQuery})`, 'gi')
-    return text.replace(regex, '<mark style="background:#FFE066;border-radius:3px;padding:0 2px">$1</mark>')
+    // Escape HTML entities first to prevent XSS
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    // Escape regex special chars in search query to prevent ReDoS
+    const safeQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(`(${safeQuery})`, 'gi')
+    return escaped.replace(regex, '<mark style="background:#FFE066;border-radius:3px;padding:0 2px">$1</mark>')
   }
 
   if (loading || !user) return <main style={{ minHeight: '100vh', background: '#FAFAF8' }} />

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/api-utils'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const UPSTREAM_TIMEOUT_MS = 30_000
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,6 +13,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body,
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     })
 
     if (!upstream.ok || !upstream.body) {
@@ -26,7 +29,7 @@ export async function POST(req: NextRequest) {
         Connection: 'keep-alive',
       },
     })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }

@@ -1,10 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getServiceSupabase } from '@/lib/auth'
+import { errorResponse } from '@/lib/api-utils'
 
 // Kişiselleştirilmiş Tavsiyeler
 export async function GET(req: NextRequest) {
@@ -18,6 +14,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const supabase = getServiceSupabase()
     const { data: recommendations } = await supabase
       .from('recommendations')
       .select('*, book:books(*)')
@@ -32,12 +29,12 @@ export async function GET(req: NextRequest) {
         .eq('is_public', true)
         .order('rating_count', { ascending: false })
         .limit(6)
-      const wrapped = (trendingBooks || []).map(b => ({ id: b.id, book_id: b.id, book: b, score: 0.5 }))
+      const wrapped = (trendingBooks || []).map((b: Record<string, unknown>) => ({ id: b.id, book_id: b.id, book: b, score: 0.5 }))
       return NextResponse.json({ recommendations: wrapped }, { headers })
     }
 
     return NextResponse.json({ recommendations }, { headers })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch recommendations' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }

@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 from cachetools import TTLCache
 from pypdf import PdfReader
@@ -13,14 +13,42 @@ import io
 import json
 import os
 import re
+import time
+from collections import defaultdict
 
 load_dotenv()
+
+# ── Rate Limiting ──
+_rate_windows: dict[str, list[float]] = defaultdict(list)
+RATE_LIMIT_MAX = 10
+RATE_LIMIT_WINDOW_S = 60
+
+
+def check_rate_limit(identifier: str, max_requests: int = RATE_LIMIT_MAX, window_s: int = RATE_LIMIT_WINDOW_S) -> bool:
+    """Return True if the request is allowed, False if rate limited."""
+    now = time.time()
+    cutoff = now - window_s
+    events = [t for t in _rate_windows[identifier] if t > cutoff]
+    if len(events) >= max_requests:
+        _rate_windows[identifier] = events
+        return False
+    events.append(now)
+    _rate_windows[identifier] = events
+    return True
 
 
 class Settings(BaseSettings):
     groq_api_key: str = ""
     port: int = 8000
-    allowed_origins: str = "*"
+    allowed_origins: str = "http://localhost:3000"
+
+# ── Constants ──
+AI_TEXT_LIMIT_SHORT = 5000
+AI_TEXT_LIMIT_MEDIUM = 7000
+AI_TEXT_LIMIT_LONG = 10000
+AI_CONTEXT_LIMIT = 6000
+MAX_MESSAGE_LENGTH = 5000
+MAX_TITLE_LENGTH = 500
 
 
 settings = Settings()
@@ -53,11 +81,30 @@ class FlashcardRequest(BaseModel):
     count: int = 5
     model: str = "fast"
 
+    @field_validator('text')
+    @classmethod
+    def validate_text(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('text boş olamaz')
+        return v[:AI_TEXT_LIMIT_SHORT]
+
+    @field_validator('count')
+    @classmethod
+    def validate_count(cls, v: int) -> int:
+        return max(1, min(v, 20))
+
 
 class AnalyzeRequest(BaseModel):
     text: str
     book_title: str = ""
     model: str = "quality"
+
+    @field_validator('text')
+    @classmethod
+    def validate_text(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('text boş olamaz')
+        return v[:AI_TEXT_LIMIT_MEDIUM]
 
 
 class ChatRequest(BaseModel):
@@ -67,11 +114,34 @@ class ChatRequest(BaseModel):
     model: str = "fast"
     stream: bool = False
 
+    @field_validator('message')
+    @classmethod
+    def validate_message(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('message boş olamaz')
+        if len(v) > MAX_MESSAGE_LENGTH:
+            raise ValueError(f'message {MAX_MESSAGE_LENGTH} karakterden uzun olamaz')
+        return v
+
+    @field_validator('book_content')
+    @classmethod
+    def validate_book_content(cls, v: str) -> str:
+        return v[:AI_CONTEXT_LIMIT]
+
 
 class WritingAssistantRequest(BaseModel):
     message: str
     genre: str = ""
     model: str = "quality"
+
+    @field_validator('message')
+    @classmethod
+    def validate_message(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('message boş olamaz')
+        if len(v) > MAX_MESSAGE_LENGTH:
+            raise ValueError(f'message {MAX_MESSAGE_LENGTH} karakterden uzun olamaz')
+        return v
 
 
 class QuizRequest(BaseModel):
@@ -81,12 +151,36 @@ class QuizRequest(BaseModel):
     difficulty: str = "orta"
     model: str = "quality"
 
+    @field_validator('text')
+    @classmethod
+    def validate_text(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('text boş olamaz')
+        return v[:AI_TEXT_LIMIT_MEDIUM]
+
+    @field_validator('question_count')
+    @classmethod
+    def validate_count(cls, v: int) -> int:
+        return max(1, min(v, 20))
+
 
 class VocabularyRequest(BaseModel):
     text: str
     language: str = "tr"
     count: int = 10
     model: str = "quality"
+
+    @field_validator('text')
+    @classmethod
+    def validate_text(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('text boş olamaz')
+        return v[:AI_TEXT_LIMIT_MEDIUM]
+
+    @field_validator('count')
+    @classmethod
+    def validate_count(cls, v: int) -> int:
+        return max(1, min(v, 30))
 
 
 class SummaryRequest(BaseModel):
@@ -95,11 +189,28 @@ class SummaryRequest(BaseModel):
     length: str = "orta"
     model: str = "quality"
 
+    @field_validator('text')
+    @classmethod
+    def validate_text(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('text boş olamaz')
+        return v[:AI_TEXT_LIMIT_LONG]
+
 
 class RecommendRequest(BaseModel):
     books: list[str] = Field(default_factory=list)
     interests: list[str] = Field(default_factory=list)
     model: str = "quality"
+
+    @field_validator('books')
+    @classmethod
+    def validate_books(cls, v: list[str]) -> list[str]:
+        return v[:50]
+
+    @field_validator('interests')
+    @classmethod
+    def validate_interests(cls, v: list[str]) -> list[str]:
+        return v[:50]
 
 
 def ensure_groq() -> Groq:
@@ -136,7 +247,19 @@ def ask_json(messages: list[dict], model: str, max_tokens: int = 1000, temperatu
         temperature=temperature,
     )
     content = cleanup_json(completion.choices[0].message.content)
-    return json.loads(content)
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        # Try to extract JSON from within the response
+        for start_char, end_char in [('{', '}'), ('[', ']')]:
+            start = content.find(start_char)
+            end = content.rfind(end_char)
+            if start != -1 and end > start:
+                try:
+                    return json.loads(content[start:end + 1])
+                except json.JSONDecodeError:
+                    continue
+        raise HTTPException(status_code=500, detail="AI geçersiz JSON döndürdü")
 
 
 @app.get("/")
@@ -193,7 +316,10 @@ async def extract_pdf(file: UploadFile = File(...)):
 
 
 @app.post("/api/ai/flashcards")
-async def flashcards(req: FlashcardRequest):
+async def flashcards(req: FlashcardRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"flashcards:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Çok fazla istek. Lütfen biraz bekleyin.")
     payload = req.model_dump_json()
     key = cache_key("flashcards", payload)
     if key in response_cache:
@@ -221,7 +347,10 @@ async def flashcards(req: FlashcardRequest):
 
 
 @app.post("/api/ai/analyze")
-async def analyze(req: AnalyzeRequest):
+async def analyze(req: AnalyzeRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"analyze:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Çok fazla istek. Lütfen biraz bekleyin.")
     payload = req.model_dump_json()
     key = cache_key("analyze", payload)
     if key in response_cache:
@@ -276,7 +405,10 @@ async def _stream_chat(req: ChatRequest):
 
 
 @app.post("/api/ai/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"chat:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Çok fazla istek. Lütfen biraz bekleyin.")
     if req.stream:
         return await _stream_chat(req)
 
@@ -303,7 +435,10 @@ async def chat_stream(req: ChatRequest):
 
 
 @app.post("/api/ai/writing-assistant")
-async def writing_assistant(req: WritingAssistantRequest):
+async def writing_assistant(req: WritingAssistantRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"writing:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Çok fazla istek. Lütfen biraz bekleyin.")
     client = ensure_groq()
     model = resolve_model(req.model)
     completion = client.chat.completions.create(
@@ -322,7 +457,10 @@ async def writing_assistant(req: WritingAssistantRequest):
 
 
 @app.post("/api/ai/quiz")
-async def quiz(req: QuizRequest):
+async def quiz(req: QuizRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"quiz:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Çok fazla istek. Lütfen biraz bekleyin.")
     model = resolve_model(req.model)
     result = ask_json(
         messages=[
@@ -343,7 +481,10 @@ async def quiz(req: QuizRequest):
 
 
 @app.post("/api/ai/vocabulary")
-async def vocabulary(req: VocabularyRequest):
+async def vocabulary(req: VocabularyRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"vocabulary:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Çok fazla istek. Lütfen biraz bekleyin.")
     model = resolve_model(req.model)
     result = ask_json(
         messages=[
@@ -364,7 +505,10 @@ async def vocabulary(req: VocabularyRequest):
 
 
 @app.post("/api/ai/summary")
-async def summary(req: SummaryRequest):
+async def summary(req: SummaryRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"summary:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Çok fazla istek. Lütfen biraz bekleyin.")
     model = resolve_model(req.model)
     result = ask_json(
         messages=[
@@ -385,7 +529,10 @@ async def summary(req: SummaryRequest):
 
 
 @app.post("/api/ai/recommend")
-async def recommend(req: RecommendRequest):
+async def recommend(req: RecommendRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"recommend:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Çok fazla istek. Lütfen biraz bekleyin.")
     model = resolve_model(req.model)
     result = ask_json(
         messages=[

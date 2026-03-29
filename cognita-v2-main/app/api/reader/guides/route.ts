@@ -1,25 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { callAI } from '@/lib/ai-provider-manager'
-
-function getServiceSupabase() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
-
-async function verifyUser(token: string) {
-  const sb = getServiceSupabase()
-  const { data: { user }, error } = await sb.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
+import { requireAuth, getServiceSupabase } from '@/lib/auth'
+import { guidePutSchema } from '@/lib/validation'
+import { errorResponse } from '@/lib/api-utils'
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
     const bookId = req.nextUrl.searchParams.get('book_id')
     const sectionKey = req.nextUrl.searchParams.get('section_key')
@@ -38,35 +27,29 @@ export async function GET(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data: data || null })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }
 
 export async function PUT(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-
-    const body = await req.json()
-    const { book_id, section_key, prediction, character_notes, main_idea } = body
-    if (!book_id || !section_key) {
-      return NextResponse.json({ error: 'book_id ve section_key gerekli' }, { status: 400 })
-    }
+    const body = guidePutSchema.parse(await req.json())
 
     const sb = getServiceSupabase()
     const { data, error } = await sb
       .from('reader_guides')
       .upsert({
         user_id: user.id,
-        book_id,
-        section_key,
-        prediction: prediction || null,
-        character_notes: character_notes || null,
-        main_idea: main_idea || null,
+        book_id: body.book_id,
+        section_key: body.section_key,
+        prediction: body.prediction || null,
+        character_notes: body.character_notes || null,
+        main_idea: body.main_idea || null,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,book_id,section_key' })
       .select('*')
@@ -74,18 +57,15 @@ export async function PUT(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-
-    const user = await verifyUser(token)
-    if (!user) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) return auth
 
     const body = await req.json()
     const { action, content } = body
@@ -102,7 +82,7 @@ export async function POST(req: NextRequest) {
     })
 
     return NextResponse.json({ feedback: result.content })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Hata' }, { status: 500 })
+  } catch (err) {
+    return errorResponse(err)
   }
 }
