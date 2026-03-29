@@ -171,18 +171,20 @@ export default function HomePage() {
   if (loading || !user) return <main style={{ minHeight: '100vh', background: 'var(--bg)' }} />
 
   return (
-    <main style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: '80px', width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
+    <main style={{ minHeight: '100vh', background: 'var(--bg)', paddingTop: '54px', paddingBottom: '80px', width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
 
       {/* Header */}
       <header style={{
-        position: 'sticky', top: 0, zIndex: 100,
-        background: 'var(--nav-bg)', borderBottom: '1px solid var(--border)',
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+        background: 'var(--bg-card)', borderBottom: '1px solid var(--border)',
         padding: '0 1rem', height: '54px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        backdropFilter: 'none', WebkitBackdropFilter: 'none',
         transform: 'translateZ(0)',
         willChange: 'transform',
         isolation: 'isolate',
+        backfaceVisibility: 'hidden',
+        WebkitBackfaceVisibility: 'hidden',
+        contain: 'paint',
       }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', letterSpacing: '-0.5px', color: 'var(--text)' }}>
           cognita
