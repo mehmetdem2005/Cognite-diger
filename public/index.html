@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Oyun</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #000; }
+        canvas { display: block; }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            font-family: monospace;
+            font-size: 14px;
+            text-shadow: 1px 1px 2px #000;
+            pointer-events: none;
+        }
+        #loginPanel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            padding: 24px;
+            border-radius: 8px;
+            color: #fff;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 240px;
+        }
+        #loginPanel h2 { text-align: center; margin-bottom: 8px; }
+        #loginPanel input, #loginPanel select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #222;
+            color: #fff;
+        }
+        #loginPanel button {
+            padding: 10px;
+            background: #3a7bd5;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        #loginPanel button:hover { background: #2a5ba5; }
+    </style>
+</head>
+<body>
+    <div id="loginPanel">
+        <h2>🎮 Oyuna Katıl</h2>
+        <input id="isimInput" type="text" placeholder="Adın" />
+        <select id="tasSelect">
+            <option value="piyon">Piyon (100 HP)</option>
+            <option value="kale">Kale (200 HP)</option>
+            <option value="at">At (150 HP)</option>
+            <option value="fil">Fil (150 HP)</option>
+            <option value="vezir">Vezir (250 HP)</option>
+            <option value="sah">Şah (300 HP)</option>
+        </select>
+        <button id="joinBtn">Katıl</button>
+    </div>
+    <div id="ui" style="display:none">
+        <div id="playerInfo">Bağlanıyor...</div>
+        <div style="margin-top:6px;font-size:12px;color:#aaa">WASD veya Ok tuşları ile hareket</div>
+    </div>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <!-- Colyseus.js client CDN -->
+    <script src="https://unpkg.com/colyseus.js@0.15.17/dist/colyseus.js"></script>
+    <!-- Game client -->
+    <script src="client.js"></script>
+</body>
+</html>
