@@ -1,4 +1,4 @@
-// ========== İSTEMCİ TARAFL 3D MODEL FONKSİYONLARI ==========
+// ========== İSTEMCİ TARAFLI 3D MODEL FONKSİYONLARI ==========
 
 function createTreeModel(x, z) {
     const group = new THREE.Group();
