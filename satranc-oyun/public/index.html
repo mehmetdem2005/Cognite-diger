@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Satranç Oyunu</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Lobby -->
+  <div id="lobby" class="screen">
+    <div class="lobby-card">
+      <h1>♟ Satranç Oyunu</h1>
+      <p class="subtitle">Gerçek zamanlı çok oyunculu satranç</p>
+      <div class="lobby-buttons">
+        <button id="btn-create" class="btn btn-primary">Oda Oluştur</button>
+        <div class="divider">veya</div>
+        <div class="join-row">
+          <input id="room-input" type="text" placeholder="Oda kodu" maxlength="8" />
+          <button id="btn-join" class="btn btn-secondary">Katıl</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Oyun Ekranı -->
+  <div id="game-screen" class="screen hidden">
+    <header class="game-header">
+      <div class="room-info">
+        Oda: <span id="room-id-display">---</span>
+        <button id="btn-copy" title="Kodu kopyala">📋</button>
+      </div>
+      <div id="status-bar" class="status-bar">Oyuncular bekleniyor…</div>
+      <button id="btn-reset" class="btn btn-sm">Yeniden Başlat</button>
+    </header>
+
+    <main class="game-main">
+      <!-- Siyah oyuncu bilgisi -->
+      <div class="player-panel" id="panel-black">
+        <span class="player-color-dot black"></span>
+        <span id="black-label">Siyah</span>
+        <span id="captured-by-black" class="captured"></span>
+      </div>
+
+      <!-- Satranç tahtası -->
+      <div class="board-wrapper">
+        <div id="board" class="board"></div>
+      </div>
+
+      <!-- Beyaz oyuncu bilgisi -->
+      <div class="player-panel" id="panel-white">
+        <span class="player-color-dot white"></span>
+        <span id="white-label">Beyaz</span>
+        <span id="captured-by-white" class="captured"></span>
+      </div>
+    </main>
+
+    <!-- Hamle geçmişi -->
+    <aside class="move-history">
+      <h3>Hamleler</h3>
+      <ol id="move-list"></ol>
+    </aside>
+  </div>
+
+  <!-- Oyun sonu modalı -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="modal-title">Oyun Bitti</h2>
+      <p id="modal-result"></p>
+      <button id="modal-close" class="btn btn-primary">Kapat</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
