@@ -1,0 +1,54 @@
+body { margin: 0; overflow: hidden; font-family: Arial; }
+#ui {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    pointer-events: none;
+    z-index: 10;
+}
+#chat {
+    background: black;
+    color: lime;
+    padding: 10px;
+    margin: 10px auto;
+    width: 80%;
+    border-radius: 20px;
+    font-size: 14px;
+    pointer-events: none;
+}
+#canbar, #tasTipi {
+    background: rgba(0,0,0,0.7);
+    color: white;
+    display: inline-block;
+    padding: 5px 10px;
+    margin: 5px;
+    border-radius: 10px;
+}
+#joyistik {
+    position: fixed;
+    bottom: 30px;
+    left: 20px;
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    border-radius: 60px;
+    display: grid;
+    grid-template-columns: repeat(3, 50px);
+    gap: 5px;
+    pointer-events: auto;
+}
+#joyistik button {
+    width: 50px;
+    height: 50px;
+    background: orange;
+    border: none;
+    border-radius: 30px;
+    font-size: 20px;
+    font-weight: bold;
+}
+#attack {
+    background: red !important;
+    grid-column: span 3;
+    width: auto !important;
+}
