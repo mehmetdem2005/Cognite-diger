@@ -7,14 +7,34 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .database import add_listing, delete_listing, get_listing, init_db, list_listings, set_favorite
-from .models import FavoriteUpdate, ListingIn, ListingOut, SearchLinkOut, SearchLinkRequest, MeclisScanRequest
+from .database import (
+    add_listing,
+    add_saved_search,
+    delete_listing,
+    delete_saved_search,
+    get_listing,
+    get_saved_search,
+    init_db,
+    list_listings,
+    list_saved_searches,
+    set_favorite,
+)
+from .models import (
+    FavoriteUpdate,
+    ListingIn,
+    ListingOut,
+    MeclisScanRequest,
+    SavedSearchIn,
+    SavedSearchOut,
+    SearchLinkOut,
+    SearchLinkRequest,
+)
 from .scoring import score_listing
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT / "frontend"
 
-app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.2.0")
+app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,6 +125,36 @@ def remove_listing(listing_id: int) -> dict:
     if not deleted:
         raise HTTPException(status_code=404, detail="İlan bulunamadı.")
     return {"ok": True, "deleted_id": listing_id}
+
+
+@app.post("/api/saved-searches", response_model=SavedSearchOut)
+def create_saved_search(payload: SavedSearchIn) -> dict:
+    search_id = add_saved_search(payload.model_dump())
+    saved = get_saved_search(search_id)
+    if not saved:
+        raise HTTPException(status_code=500, detail="Arama kaydedildi ama tekrar okunamadı.")
+    return saved
+
+
+@app.get("/api/saved-searches", response_model=list[SavedSearchOut])
+def get_saved_searches(category: str | None = None) -> list[dict]:
+    return list_saved_searches(category=category)
+
+
+@app.get("/api/saved-searches/{search_id}", response_model=SavedSearchOut)
+def read_saved_search(search_id: int) -> dict:
+    saved = get_saved_search(search_id)
+    if not saved:
+        raise HTTPException(status_code=404, detail="Kayıtlı arama bulunamadı.")
+    return saved
+
+
+@app.delete("/api/saved-searches/{search_id}")
+def remove_saved_search(search_id: int) -> dict:
+    deleted = delete_saved_search(search_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Kayıtlı arama bulunamadı.")
+    return {"ok": True, "deleted_id": search_id}
 
 
 @app.post("/api/search-links", response_model=list[SearchLinkOut])
