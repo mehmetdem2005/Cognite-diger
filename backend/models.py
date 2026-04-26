@@ -74,6 +74,17 @@ class SearchLinkOut(BaseModel):
 
 
 class MeclisScanRequest(BaseModel):
-    municipality_name: str
+    municipality_name: str = ""
     municipality_url: str | None = None
     keywords: list[str] = Field(default_factory=list)
+    text: str = ""
+
+
+class MeclisScanResult(BaseModel):
+    source_type: str
+    municipality_name: str = ""
+    total_hits: int
+    matched_keywords: int
+    text_length: int
+    keywords: list[dict[str, Any]]
+    pdf: dict[str, Any] | None = None
