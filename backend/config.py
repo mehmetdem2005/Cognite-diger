@@ -6,7 +6,9 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT_DIR / "frontend"
 DATA_DIR = ROOT_DIR / os.getenv("DATA_DIR", "data")
+DATABASE_ENGINE = os.getenv("DATABASE_ENGINE", "sqlite").lower().strip()
 DATABASE_PATH = Path(os.getenv("DATABASE_PATH", str(DATA_DIR / "app.db")))
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 
 def _csv_env(name: str, default: str = "") -> list[str]:
