@@ -5,12 +5,12 @@ import io
 import json
 from urllib.parse import quote_plus
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
-from .auth import get_current_user, login_user, logout_token, register_user
+from .auth import extract_bearer_token, get_current_user, login_user, logout_token, register_user
 from .config import APP_NAME, APP_VERSION, CORS_ALLOWED_ORIGINS, CORS_ALLOW_CREDENTIALS, FRONTEND_DIR
 from .database import (
     add_data_source,
@@ -72,6 +72,16 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
+
 @app.on_event("startup")
 def _startup() -> None:
     init_db()
@@ -124,8 +134,10 @@ def auth_me(user: dict = Depends(get_current_user)) -> dict:
 
 
 @app.post("/api/auth/logout")
-def auth_logout(user: dict = Depends(get_current_user), authorization: str | None = None) -> dict:
-    # Frontend can also just delete local token. This endpoint exists for server-side revoke when called with Authorization header.
+def auth_logout(user: dict = Depends(get_current_user), authorization: str | None = Header(default=None)) -> dict:
+    token = extract_bearer_token(authorization)
+    if token:
+        logout_token(token)
     return {"ok": True, "user_id": user["id"]}
 
 
