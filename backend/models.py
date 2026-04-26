@@ -19,13 +19,19 @@ class ListingIn(BaseModel):
     properties: dict[str, Any] = Field(default_factory=dict)
     contact: dict[str, Any] = Field(default_factory=dict)
     notes: str = ""
+    is_favorite: bool = False
 
 
 class ListingOut(ListingIn):
     id: int
     score: float
     risk_level: str
+    score_reasons: list[str] = Field(default_factory=list)
     created_at: str
+
+
+class FavoriteUpdate(BaseModel):
+    is_favorite: bool
 
 
 class SearchLinkRequest(BaseModel):
