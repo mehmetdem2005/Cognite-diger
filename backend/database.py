@@ -56,6 +56,20 @@ def init_db() -> None:
         _ensure_column(conn, "listings", "updated_at", "updated_at TEXT DEFAULT CURRENT_TIMESTAMP")
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS saved_searches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                filters_json TEXT NOT NULL,
+                sort_mode TEXT NOT NULL DEFAULT 'newest',
+                notification_enabled INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS scan_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 kind TEXT NOT NULL,
@@ -73,6 +87,13 @@ def _decode_listing(row: sqlite3.Row) -> dict[str, Any]:
     item["contact"] = json.loads(item.pop("contact_json") or "{}")
     item["score_reasons"] = json.loads(item.pop("score_reasons_json") or "[]")
     item["is_favorite"] = bool(item.get("is_favorite"))
+    return item
+
+
+def _decode_saved_search(row: sqlite3.Row) -> dict[str, Any]:
+    item = dict(row)
+    item["filters"] = json.loads(item.pop("filters_json") or "{}")
+    item["notification_enabled"] = bool(item.get("notification_enabled"))
     return item
 
 
@@ -188,4 +209,46 @@ def set_favorite(listing_id: int, is_favorite: bool) -> dict[str, Any] | None:
 def delete_listing(listing_id: int) -> bool:
     with get_conn() as conn:
         cur = conn.execute("DELETE FROM listings WHERE id = ?", (listing_id,))
+        return cur.rowcount > 0
+
+
+def add_saved_search(data: dict[str, Any]) -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO saved_searches (name, category, filters_json, sort_mode, notification_enabled)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                data.get("name"),
+                data.get("category"),
+                json.dumps(data.get("filters") or {}, ensure_ascii=False),
+                data.get("sort_mode", "newest"),
+                1 if data.get("notification_enabled") else 0,
+            ),
+        )
+        return int(cur.lastrowid)
+
+
+def list_saved_searches(category: str | None = None) -> list[dict[str, Any]]:
+    query = "SELECT * FROM saved_searches"
+    params: list[Any] = []
+    if category:
+        query += " WHERE category = ?"
+        params.append(category)
+    query += " ORDER BY updated_at DESC, created_at DESC"
+    with get_conn() as conn:
+        rows = conn.execute(query, params).fetchall()
+        return [_decode_saved_search(row) for row in rows]
+
+
+def get_saved_search(search_id: int) -> dict[str, Any] | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM saved_searches WHERE id = ?", (search_id,)).fetchone()
+        return _decode_saved_search(row) if row else None
+
+
+def delete_saved_search(search_id: int) -> bool:
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM saved_searches WHERE id = ?", (search_id,))
         return cur.rowcount > 0
