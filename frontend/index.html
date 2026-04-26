@@ -48,124 +48,35 @@
       <details class="filter-box" open>
         <summary>İlan ekle</summary>
         <form id="listingForm" class="form-grid">
-          <label class="field common-field">
-            <span>Başlık</span>
-            <input name="title" placeholder="Örn: Seyhan'da 3+1 uygun daire" required />
-          </label>
-          <label class="field common-field">
-            <span>Fiyat</span>
-            <input name="price" placeholder="Örn: 1250000" type="number" required />
-          </label>
-          <label class="field common-field">
-            <span>Şehir</span>
-            <input name="city" placeholder="Örn: Adana" />
-          </label>
-          <label class="field common-field">
-            <span>İlçe</span>
-            <input name="district" placeholder="Örn: Seyhan" />
-          </label>
-          <label class="field common-field">
-            <span>Mahalle</span>
-            <input name="neighborhood" placeholder="Örn: Gürselpaşa" />
-          </label>
-          <label class="field common-field">
-            <span>İlan linki</span>
-            <input name="listing_url" placeholder="https://..." />
-          </label>
-          <label class="field common-field">
-            <span>Görsel linki</span>
-            <input name="image_url" placeholder="https://...jpg" />
-          </label>
-          <label class="field" data-categories="konut arsa isyeri">
-            <span>Metrekare</span>
-            <input name="m2" placeholder="Örn: 120" />
-          </label>
-
-          <label class="field" data-categories="konut">
-            <span>Oda sayısı</span>
-            <input name="oda" placeholder="Örn: 3+1" />
-          </label>
-          <label class="field" data-categories="konut isyeri">
-            <span>Bina yaşı</span>
-            <input name="bina_yasi" placeholder="Örn: 5" />
-          </label>
-          <label class="field" data-categories="konut isyeri">
-            <span>Kat</span>
-            <input name="kat" placeholder="Örn: 3 veya giriş" />
-          </label>
-          <label class="field" data-categories="konut">
-            <span>Isıtma</span>
-            <input name="isitma" placeholder="Örn: doğalgaz" />
-          </label>
-          <label class="check-row" data-categories="konut">
-            <input name="krediye_uygun" type="checkbox" /> Krediye uygun
-          </label>
-
-          <label class="field" data-categories="arsa">
-            <span>İmar durumu</span>
-            <input name="imar" placeholder="Örn: konut imarlı" />
-          </label>
-          <label class="field" data-categories="arsa">
-            <span>Tapu durumu</span>
-            <input name="tapu" placeholder="Örn: müstakil / hisseli" />
-          </label>
-          <label class="field" data-categories="arsa">
-            <span>Ada</span>
-            <input name="ada" placeholder="Örn: 123" />
-          </label>
-          <label class="field" data-categories="arsa">
-            <span>Parsel</span>
-            <input name="parsel" placeholder="Örn: 45" />
-          </label>
-          <label class="check-row" data-categories="arsa">
-            <input name="yol_cephe" type="checkbox" /> Yola cephe
-          </label>
-
-          <label class="field" data-categories="isyeri">
-            <span>İşyeri tipi</span>
-            <input name="isyeri_tipi" placeholder="Örn: dükkan / ofis / depo" />
-          </label>
-          <label class="check-row" data-categories="isyeri">
-            <input name="cadde_uzeri" type="checkbox" /> Cadde üzeri
-          </label>
-          <label class="field" data-categories="isyeri">
-            <span>Kira potansiyeli</span>
-            <input name="kira_potansiyeli" placeholder="Örn: 25000" />
-          </label>
-
-          <label class="field" data-categories="arac">
-            <span>Marka</span>
-            <input name="marka" placeholder="Örn: Toyota" />
-          </label>
-          <label class="field" data-categories="arac">
-            <span>Model</span>
-            <input name="model" placeholder="Örn: Corolla" />
-          </label>
-          <label class="field" data-categories="arac">
-            <span>Yıl</span>
-            <input name="yil" placeholder="Örn: 2018" />
-          </label>
-          <label class="field" data-categories="arac">
-            <span>Kilometre</span>
-            <input name="km" placeholder="Örn: 85000" />
-          </label>
-          <label class="field" data-categories="arac">
-            <span>Yakıt</span>
-            <input name="yakit" placeholder="Örn: benzin" />
-          </label>
-          <label class="field" data-categories="arac">
-            <span>Vites</span>
-            <input name="vites" placeholder="Örn: otomatik" />
-          </label>
-          <label class="field" data-categories="arac">
-            <span>Hasar kaydı TL</span>
-            <input name="hasar_kaydi" placeholder="Örn: 0" />
-          </label>
-
-          <label class="field common-field full">
-            <span>Not</span>
-            <textarea name="notes" placeholder="Kısa not, pazarlık durumu, dikkat edilecek şeyler..."></textarea>
-          </label>
+          <label class="field common-field"><span>Başlık</span><input name="title" placeholder="Örn: Seyhan'da 3+1 uygun daire" required /></label>
+          <label class="field common-field"><span>Fiyat</span><input name="price" placeholder="Örn: 1250000" type="number" required /></label>
+          <label class="field common-field"><span>Şehir</span><input name="city" placeholder="Örn: Adana" /></label>
+          <label class="field common-field"><span>İlçe</span><input name="district" placeholder="Örn: Seyhan" /></label>
+          <label class="field common-field"><span>Mahalle</span><input name="neighborhood" placeholder="Örn: Gürselpaşa" /></label>
+          <label class="field common-field"><span>İlan linki</span><input name="listing_url" placeholder="https://..." /></label>
+          <label class="field common-field"><span>Görsel linki</span><input name="image_url" placeholder="https://...jpg" /></label>
+          <label class="field" data-categories="konut arsa isyeri"><span>Metrekare</span><input name="m2" placeholder="Örn: 120" /></label>
+          <label class="field" data-categories="konut"><span>Oda sayısı</span><input name="oda" placeholder="Örn: 3+1" /></label>
+          <label class="field" data-categories="konut isyeri"><span>Bina yaşı</span><input name="bina_yasi" placeholder="Örn: 5" /></label>
+          <label class="field" data-categories="konut isyeri"><span>Kat</span><input name="kat" placeholder="Örn: 3 veya giriş" /></label>
+          <label class="field" data-categories="konut"><span>Isıtma</span><input name="isitma" placeholder="Örn: doğalgaz" /></label>
+          <label class="check-row" data-categories="konut"><input name="krediye_uygun" type="checkbox" /> Krediye uygun</label>
+          <label class="field" data-categories="arsa"><span>İmar durumu</span><input name="imar" placeholder="Örn: konut imarlı" /></label>
+          <label class="field" data-categories="arsa"><span>Tapu durumu</span><input name="tapu" placeholder="Örn: müstakil / hisseli" /></label>
+          <label class="field" data-categories="arsa"><span>Ada</span><input name="ada" placeholder="Örn: 123" /></label>
+          <label class="field" data-categories="arsa"><span>Parsel</span><input name="parsel" placeholder="Örn: 45" /></label>
+          <label class="check-row" data-categories="arsa"><input name="yol_cephe" type="checkbox" /> Yola cephe</label>
+          <label class="field" data-categories="isyeri"><span>İşyeri tipi</span><input name="isyeri_tipi" placeholder="Örn: dükkan / ofis / depo" /></label>
+          <label class="check-row" data-categories="isyeri"><input name="cadde_uzeri" type="checkbox" /> Cadde üzeri</label>
+          <label class="field" data-categories="isyeri"><span>Kira potansiyeli</span><input name="kira_potansiyeli" placeholder="Örn: 25000" /></label>
+          <label class="field" data-categories="arac"><span>Marka</span><input name="marka" placeholder="Örn: Toyota" /></label>
+          <label class="field" data-categories="arac"><span>Model</span><input name="model" placeholder="Örn: Corolla" /></label>
+          <label class="field" data-categories="arac"><span>Yıl</span><input name="yil" placeholder="Örn: 2018" /></label>
+          <label class="field" data-categories="arac"><span>Kilometre</span><input name="km" placeholder="Örn: 85000" /></label>
+          <label class="field" data-categories="arac"><span>Yakıt</span><input name="yakit" placeholder="Örn: benzin" /></label>
+          <label class="field" data-categories="arac"><span>Vites</span><input name="vites" placeholder="Örn: otomatik" /></label>
+          <label class="field" data-categories="arac"><span>Hasar kaydı TL</span><input name="hasar_kaydi" placeholder="Örn: 0" /></label>
+          <label class="field common-field full"><span>Not</span><textarea name="notes" placeholder="Kısa not, pazarlık durumu, dikkat edilecek şeyler..."></textarea></label>
           <button type="submit">İlanı havuza ekle</button>
         </form>
       </details>
@@ -195,11 +106,7 @@
         </div>
       </details>
 
-      <details class="filter-box" open>
-        <summary>Kayıtlı aramalar</summary>
-        <div id="savedSearches" class="saved-search-list"></div>
-      </details>
-
+      <details class="filter-box" open><summary>Kayıtlı aramalar</summary><div id="savedSearches" class="saved-search-list"></div></details>
       <div id="searchLinks" class="link-list"></div>
       <div id="listings" class="listing-grid"></div>
     </section>
@@ -207,13 +114,7 @@
     <section id="sources" class="panel">
       <h2>Veri Kaynakları</h2>
       <p>Bu sistem izinsiz scraping yapmaz. Tam otomatik veri için resmî API, veri feed'i veya iş ortaklığı adaptörü gerekir.</p>
-      <ul class="policy-list">
-        <li>Resmî API: uygun</li>
-        <li>Partner feed: uygun</li>
-        <li>Manuel kullanıcı kaydı: uygun</li>
-        <li>Gizli HTML kazıma: yok</li>
-        <li>CAPTCHA aşma: yok</li>
-      </ul>
+      <ul class="policy-list"><li>Resmî API: uygun</li><li>Partner feed: uygun</li><li>Manuel kullanıcı kaydı: uygun</li><li>Gizli HTML kazıma: yok</li><li>CAPTCHA aşma: yok</li></ul>
     </section>
 
     <section id="meclis" class="panel">
@@ -229,7 +130,18 @@
 
     <section id="settings" class="panel">
       <h2>Ayarlar</h2>
-      <p>Groq API, bildirim, PWA ve veri dışa aktarma ayarları sonraki fazda eklenecek.</p>
+      <div class="settings-grid">
+        <div class="setting-card">
+          <h3>Yedekleme</h3>
+          <p>İlan havuzunu dışa aktar veya daha önce aldığın JSON yedeğini geri yükle.</p>
+          <div class="toolbar">
+            <a class="button-link" href="/api/export/listings.json" download>JSON indir</a>
+            <a class="button-link secondary" href="/api/export/listings.csv" download>CSV indir</a>
+          </div>
+          <label class="field full"><span>JSON yedeği içe aktar</span><input id="importJsonInput" type="file" accept="application/json,.json" /></label>
+          <button id="importJsonBtn" class="wide-btn">Yedeği içe aktar</button>
+        </div>
+      </div>
     </section>
   </main>
 
