@@ -11,6 +11,7 @@ const categoryHints = {
 };
 
 const categoryLabels = { konut: 'Konut', arsa: 'Arsa', isyeri: 'İşyeri / Ofis', arac: 'Araç' };
+const sourceTypeLabels = { json_feed: 'JSON Feed', rss_feed: 'RSS / Açık Feed' };
 
 function showToast(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; setTimeout(() => { toast.hidden = true; }, 2600); }
 
@@ -31,6 +32,7 @@ function bindTabs() {
     $$('.panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     $('#' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'sources') loadSources();
   }));
   $$('.subtab').forEach(btn => btn.addEventListener('click', () => { setActiveCategory(btn.dataset.category); loadListings(); loadSavedSearches(); }));
 }
@@ -88,45 +90,62 @@ function bindListingForm() {
   $('#listings').addEventListener('click', async (e) => { const target = e.target.closest('[data-action]'); if (!target) return; const id = target.dataset.id; if (target.dataset.action === 'favorite') { const current = target.dataset.current === 'true'; await api(`/api/listings/${id}/favorite`, { method: 'PATCH', body: JSON.stringify({ is_favorite: !current }) }); showToast(!current ? 'Favorilere eklendi.' : 'Favorilerden çıkarıldı.'); await loadListings(); } if (target.dataset.action === 'delete') { if (!confirm('Bu ilan silinsin mi?')) return; await api(`/api/listings/${id}`, { method: 'DELETE' }); showToast('İlan silindi.'); await loadListings(); } });
 }
 
+function sourceStatusText(source) {
+  const status = source.last_status || 'never_run';
+  if (status === 'ok') return `Son durum: başarılı${source.last_synced_at ? ' · ' + source.last_synced_at : ''}`;
+  if (status === 'error') return `Son durum: hata · ${source.last_error || 'bilinmeyen hata'}`;
+  return 'Henüz senkronize edilmedi.';
+}
+
+async function loadSources() {
+  const items = await api('/api/data-sources');
+  if (!items.length) {
+    $('#sourceList').innerHTML = '<div class="empty-state"><b>Henüz veri kaynağı yok.</b><p>İzinli JSON/RSS feed ekleyerek otomatik ilan akışını başlat.</p></div>';
+    return;
+  }
+  $('#sourceList').innerHTML = items.map(source => `<article class="source-card"><div><h3>${source.name}</h3><p>${sourceTypeLabels[source.source_type] || source.source_type} · ${categoryLabels[source.category] || source.category}</p><small>${source.url}</small><span class="source-status ${source.last_status === 'error' ? 'bad' : ''}">${sourceStatusText(source)}</span></div><div class="source-actions"><button data-source-action="sync" data-id="${source.id}">Senkronize Et</button><button data-source-action="delete" data-id="${source.id}" class="danger-small">Sil</button></div></article>`).join('');
+}
+
+function bindSources() {
+  $('#sourceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const raw = formDataToObject(e.currentTarget);
+    await api('/api/data-sources', { method: 'POST', body: JSON.stringify({ name: raw.name, source_type: raw.source_type, url: raw.url, category: raw.category, enabled: true, config: {} }) });
+    e.currentTarget.reset();
+    showToast('Veri kaynağı eklendi.');
+    await loadSources();
+  });
+  $('#sourceList').addEventListener('click', async (e) => {
+    const target = e.target.closest('[data-source-action]');
+    if (!target) return;
+    const id = target.dataset.id;
+    if (target.dataset.sourceAction === 'sync') {
+      target.disabled = true;
+      target.textContent = 'Senkronize ediliyor...';
+      try {
+        const result = await api(`/api/data-sources/${id}/sync`, { method: 'POST' });
+        showToast(`${result.imported_count} yeni ilan eklendi, ${result.skipped_count} tekrar atlandı.`);
+        await loadSources();
+        await loadListings();
+      } catch (err) {
+        showToast('Senkronizasyon başarısız. Kaynak durumunu kontrol et.');
+        await loadSources();
+      }
+    }
+    if (target.dataset.sourceAction === 'delete') {
+      if (!confirm('Veri kaynağı silinsin mi? Daha önce gelen ilanlar silinmez.')) return;
+      await api(`/api/data-sources/${id}`, { method: 'DELETE' });
+      showToast('Veri kaynağı silindi.');
+      await loadSources();
+    }
+  });
+}
+
 function parseKeywords(value) { return (value || '').split(',').map(x => x.trim()).filter(Boolean); }
-
-function renderMeclisResult(result) {
-  $('#meclisSummary').hidden = false;
-  $('#meclisSummary').innerHTML = `<b>${result.matched_keywords} anahtar kelime eşleşti</b><span>${result.total_hits} toplam eşleşme · ${result.text_length} karakter</span>${result.pdf ? `<span>PDF: ${result.pdf.filename} · ${result.pdf.page_count} sayfa${result.pdf.needs_ocr ? ' · OCR gerekebilir' : ''}</span>` : ''}`;
-  const rows = result.keywords || [];
-  if (!rows.length) { $('#meclisResults').innerHTML = '<div class="empty-state"><b>Anahtar kelime yok.</b></div>'; return; }
-  $('#meclisResults').innerHTML = rows.map(row => `<article class="meclis-card ${row.found ? 'hit' : 'miss'}"><div class="meclis-card-head"><b>${row.keyword}</b><span>${row.count} eşleşme</span></div>${row.contexts?.length ? row.contexts.map(ctx => `<p>${ctx}</p>`).join('') : '<p class="muted">Bu kelime bulunamadı.</p>'}</article>`).join('');
-}
-
-async function scanMeclisText(e) {
-  e.preventDefault();
-  const raw = formDataToObject(e.currentTarget);
-  const keywords = parseKeywords(raw.keywords);
-  if (!raw.text?.trim()) { showToast('Metin alanı boş. PDF taramak için PDF butonunu kullan.'); return; }
-  const result = await api('/api/meclis/scan', { method: 'POST', body: JSON.stringify({ municipality_name: raw.municipality_name || '', keywords, text: raw.text }) });
-  renderMeclisResult(result);
-  showToast('Metin tarandı.');
-}
-
-async function scanMeclisPdf() {
-  const form = $('#meclisForm');
-  const raw = formDataToObject(form);
-  const file = $('#meclisPdfInput').files?.[0];
-  const keywords = parseKeywords(raw.keywords);
-  if (!file) { showToast('Önce PDF seç.'); return; }
-  if (!keywords.length) { showToast('En az bir anahtar kelime gir.'); return; }
-  const data = new FormData();
-  data.append('file', file);
-  data.append('keywords_json', JSON.stringify(keywords));
-  data.append('municipality_name', raw.municipality_name || '');
-  const res = await fetch('/api/meclis/scan-pdf', { method: 'POST', body: data });
-  if (!res.ok) { showToast(await res.text()); return; }
-  const result = await res.json();
-  renderMeclisResult(result);
-  showToast('PDF tarandı.');
-}
-
+function renderMeclisResult(result) { $('#meclisSummary').hidden = false; $('#meclisSummary').innerHTML = `<b>${result.matched_keywords} anahtar kelime eşleşti</b><span>${result.total_hits} toplam eşleşme · ${result.text_length} karakter</span>${result.pdf ? `<span>PDF: ${result.pdf.filename} · ${result.pdf.page_count} sayfa${result.pdf.needs_ocr ? ' · OCR gerekebilir' : ''}</span>` : ''}`; const rows = result.keywords || []; if (!rows.length) { $('#meclisResults').innerHTML = '<div class="empty-state"><b>Anahtar kelime yok.</b></div>'; return; } $('#meclisResults').innerHTML = rows.map(row => `<article class="meclis-card ${row.found ? 'hit' : 'miss'}"><div class="meclis-card-head"><b>${row.keyword}</b><span>${row.count} eşleşme</span></div>${row.contexts?.length ? row.contexts.map(ctx => `<p>${ctx}</p>`).join('') : '<p class="muted">Bu kelime bulunamadı.</p>'}</article>`).join(''); }
+async function scanMeclisText(e) { e.preventDefault(); const raw = formDataToObject(e.currentTarget); const keywords = parseKeywords(raw.keywords); if (!raw.text?.trim()) { showToast('Metin alanı boş. PDF taramak için PDF butonunu kullan.'); return; } const result = await api('/api/meclis/scan', { method: 'POST', body: JSON.stringify({ municipality_name: raw.municipality_name || '', keywords, text: raw.text }) }); renderMeclisResult(result); showToast('Metin tarandı.'); }
+async function scanMeclisPdf() { const form = $('#meclisForm'); const raw = formDataToObject(form); const file = $('#meclisPdfInput').files?.[0]; const keywords = parseKeywords(raw.keywords); if (!file) { showToast('Önce PDF seç.'); return; } if (!keywords.length) { showToast('En az bir anahtar kelime gir.'); return; } const data = new FormData(); data.append('file', file); data.append('keywords_json', JSON.stringify(keywords)); data.append('municipality_name', raw.municipality_name || ''); const res = await fetch('/api/meclis/scan-pdf', { method: 'POST', body: data }); if (!res.ok) { showToast(await res.text()); return; } const result = await res.json(); renderMeclisResult(result); showToast('PDF tarandı.'); }
 function bindMeclis() { $('#meclisForm').addEventListener('submit', scanMeclisText); $('#scanPdfBtn').addEventListener('click', scanMeclisPdf); }
 function bindPolicy() { $('#policyBtn').addEventListener('click', async () => { const policy = await api('/api/policy'); alert(policy.scraping + '\n\nİzinli yollar:\n- ' + policy.allowed_sources.join('\n- ')); }); }
 
-bindTabs(); bindListingForm(); bindSavedSearches(); bindBackupControls(); bindMeclis(); bindPolicy(); syncCategoryFields(); loadListings(); loadSavedSearches();
+bindTabs(); bindListingForm(); bindSavedSearches(); bindBackupControls(); bindSources(); bindMeclis(); bindPolicy(); syncCategoryFields(); loadListings(); loadSavedSearches(); loadSources();
