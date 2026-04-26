@@ -3,18 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import quote_plus
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .database import add_listing, init_db, list_listings
-from .models import ListingIn, ListingOut, SearchLinkOut, SearchLinkRequest, MeclisScanRequest
+from .database import add_listing, delete_listing, get_listing, init_db, list_listings, set_favorite
+from .models import FavoriteUpdate, ListingIn, ListingOut, SearchLinkOut, SearchLinkRequest, MeclisScanRequest
 from .scoring import score_listing
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT / "frontend"
 
-app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.1.0")
+app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,14 +52,59 @@ def policy() -> dict:
 @app.post("/api/listings", response_model=ListingOut)
 def create_listing(payload: ListingIn) -> dict:
     data = payload.model_dump()
-    score, risk = score_listing(data)
-    listing_id = add_listing(data, score, risk)
-    return {**data, "id": listing_id, "score": score, "risk_level": risk, "created_at": "şimdi"}
+    score, risk, reasons = score_listing(data)
+    listing_id = add_listing(data, score, risk, reasons)
+    created = get_listing(listing_id)
+    if not created:
+        raise HTTPException(status_code=500, detail="İlan kaydedildi ama tekrar okunamadı.")
+    return created
 
 
 @app.get("/api/listings")
-def get_listings(category: str | None = None, sort: str = "newest") -> list[dict]:
-    return list_listings(category=category, sort=sort)
+def get_listings(
+    category: str | None = None,
+    sort: str = "newest",
+    q: str | None = None,
+    city: str | None = None,
+    district: str | None = None,
+    favorites: bool = False,
+    min_price: float | None = Query(default=None, ge=0),
+    max_price: float | None = Query(default=None, ge=0),
+) -> list[dict]:
+    return list_listings(
+        category=category,
+        sort=sort,
+        query_text=q,
+        city=city,
+        district=district,
+        favorites_only=favorites,
+        min_price=min_price,
+        max_price=max_price,
+    )
+
+
+@app.get("/api/listings/{listing_id}")
+def read_listing(listing_id: int) -> dict:
+    item = get_listing(listing_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
+    return item
+
+
+@app.patch("/api/listings/{listing_id}/favorite")
+def update_favorite(listing_id: int, payload: FavoriteUpdate) -> dict:
+    item = set_favorite(listing_id, payload.is_favorite)
+    if not item:
+        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
+    return item
+
+
+@app.delete("/api/listings/{listing_id}")
+def remove_listing(listing_id: int) -> dict:
+    deleted = delete_listing(listing_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
+    return {"ok": True, "deleted_id": listing_id}
 
 
 @app.post("/api/search-links", response_model=list[SearchLinkOut])
