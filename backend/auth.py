@@ -28,6 +28,19 @@ def _b64(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
 
 
+def normalize_email(email: str) -> str:
+    return email.lower().strip()
+
+
+def extract_bearer_token(authorization: str | None) -> str | None:
+    if not authorization:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        return None
+    return token.strip()
+
+
 def hash_password(password: str, salt: bytes | None = None) -> str:
     if len(password) < 8:
         raise ValueError("Şifre en az 8 karakter olmalı.")
@@ -62,16 +75,17 @@ def create_auth_token(user_id: str) -> str:
 
 
 def register_user(email: str, password: str, full_name: str | None = None) -> tuple[dict[str, Any], str]:
-    if get_user_by_email(email):
+    normalized_email = normalize_email(email)
+    if get_user_by_email(normalized_email):
         raise ValueError("Bu e-posta zaten kayıtlı.")
     user_id = str(uuid.uuid4())
-    user = create_user(user_id=user_id, email=email, full_name=full_name, password_hash=hash_password(password))
+    user = create_user(user_id=user_id, email=normalized_email, full_name=full_name, password_hash=hash_password(password))
     token = create_auth_token(user_id)
     return user, token
 
 
 def login_user(email: str, password: str) -> tuple[dict[str, Any], str]:
-    user = get_user_by_email(email)
+    user = get_user_by_email(normalize_email(email))
     if not user or not user.get("is_active"):
         raise ValueError("E-posta veya şifre hatalı.")
     if not verify_password(password, user["password_hash"]):
@@ -88,8 +102,8 @@ def logout_token(token: str) -> bool:
 def get_current_user(authorization: str | None = Header(default=None)) -> dict[str, Any]:
     if not authorization:
         return {"id": LOCAL_USER_ID, "email": "local@app", "full_name": "Local Kullanıcı", "is_active": 1}
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not token:
+    token = extract_bearer_token(authorization)
+    if not token:
         raise HTTPException(status_code=401, detail="Geçersiz oturum başlığı.")
     session = get_session_by_token_hash(hash_token(token))
     if not session or not session.get("is_active"):
