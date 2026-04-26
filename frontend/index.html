@@ -29,7 +29,7 @@
       <p>Bu repo yeni proje için sıfırdan kuruldu. İlk hedef: hukuka uygun, mobil uyumlu, kaynak adaptörlü fırsat avcısı.</p>
       <div class="cards">
         <div class="card"><b>İlan havuzu</b><span id="listingCount">0 kayıt</span></div>
-        <div class="card"><b>Veri modu</b><span>Resmî / kullanıcı onaylı</span></div>
+        <div class="card"><b>Favoriler</b><span id="favoriteCount">0 kayıt</span></div>
         <div class="card"><b>Puanlama</b><span>Kelepir motoru aktif</span></div>
       </div>
     </section>
@@ -43,30 +43,51 @@
         <button data-category="arac" class="subtab">Araç</button>
       </div>
 
-      <form id="listingForm" class="form-grid">
-        <input name="title" placeholder="İlan başlığı" required />
-        <input name="price" placeholder="Fiyat" type="number" required />
-        <input name="city" placeholder="Şehir" />
-        <input name="district" placeholder="İlçe" />
-        <input name="neighborhood" placeholder="Mahalle" />
-        <input name="listing_url" placeholder="İlan linki" />
-        <input name="image_url" placeholder="Görsel linki" />
-        <input name="m2" placeholder="m2 / metrekare" />
-        <input name="yil" placeholder="Araç yılı" />
-        <input name="km" placeholder="Araç km" />
-        <textarea name="notes" placeholder="Not"></textarea>
-        <button type="submit">İlanı havuza ekle</button>
-      </form>
+      <details class="filter-box" open>
+        <summary>İlan ekle</summary>
+        <form id="listingForm" class="form-grid">
+          <input name="title" placeholder="İlan başlığı" required />
+          <input name="price" placeholder="Fiyat" type="number" required />
+          <input name="city" placeholder="Şehir" />
+          <input name="district" placeholder="İlçe" />
+          <input name="neighborhood" placeholder="Mahalle" />
+          <input name="listing_url" placeholder="İlan linki" />
+          <input name="image_url" placeholder="Görsel linki" />
+          <input name="m2" placeholder="m2 / metrekare" />
+          <input name="bina_yasi" placeholder="Bina yaşı" />
+          <input name="imar" placeholder="Arsa imar durumu" />
+          <input name="tapu" placeholder="Tapu durumu" />
+          <input name="yil" placeholder="Araç yılı" />
+          <input name="km" placeholder="Araç km" />
+          <input name="hasar_kaydi" placeholder="Hasar kaydı TL" />
+          <textarea name="notes" placeholder="Not"></textarea>
+          <button type="submit">İlanı havuza ekle</button>
+        </form>
+      </details>
 
-      <div class="toolbar">
-        <button id="makeLinksBtn">Resmî arama linkleri oluştur</button>
-        <select id="sortMode">
-          <option value="newest">En yeni</option>
-          <option value="price_asc">En ucuz</option>
-          <option value="price_desc">En pahalı</option>
-          <option value="score_desc">En iyi fırsat</option>
-        </select>
-      </div>
+      <details class="filter-box" open>
+        <summary>Filtrele ve sırala</summary>
+        <div class="form-grid compact">
+          <input id="filterQ" placeholder="Başlık, not veya konum ara" />
+          <input id="filterCity" placeholder="Şehir" />
+          <input id="filterDistrict" placeholder="İlçe" />
+          <input id="filterMinPrice" type="number" placeholder="Min fiyat" />
+          <input id="filterMaxPrice" type="number" placeholder="Max fiyat" />
+          <label class="check-row"><input id="filterFavorites" type="checkbox" /> Sadece favoriler</label>
+        </div>
+        <div class="toolbar">
+          <button id="applyFiltersBtn">Filtreleri uygula</button>
+          <button id="clearFiltersBtn" class="secondary">Temizle</button>
+          <button id="makeLinksBtn">Resmî arama linkleri oluştur</button>
+          <select id="sortMode">
+            <option value="newest">En yeni</option>
+            <option value="price_asc">En ucuz</option>
+            <option value="price_desc">En pahalı</option>
+            <option value="score_desc">En iyi fırsat</option>
+            <option value="m2_price_asc">m² fiyatı düşük</option>
+          </select>
+        </div>
+      </details>
 
       <div id="searchLinks" class="link-list"></div>
       <div id="listings" class="listing-grid"></div>
@@ -101,6 +122,7 @@
     </section>
   </main>
 
+  <div id="toast" class="toast" hidden></div>
   <script src="/app.js"></script>
 </body>
 </html>
