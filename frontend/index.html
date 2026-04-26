@@ -43,24 +43,129 @@
         <button data-category="arac" class="subtab">Araç</button>
       </div>
 
+      <div class="category-hint" id="categoryHint">Konut için fiyat, m², oda, bina yaşı ve krediye uygunluk bilgileri önceliklidir.</div>
+
       <details class="filter-box" open>
         <summary>İlan ekle</summary>
         <form id="listingForm" class="form-grid">
-          <input name="title" placeholder="İlan başlığı" required />
-          <input name="price" placeholder="Fiyat" type="number" required />
-          <input name="city" placeholder="Şehir" />
-          <input name="district" placeholder="İlçe" />
-          <input name="neighborhood" placeholder="Mahalle" />
-          <input name="listing_url" placeholder="İlan linki" />
-          <input name="image_url" placeholder="Görsel linki" />
-          <input name="m2" placeholder="m2 / metrekare" />
-          <input name="bina_yasi" placeholder="Bina yaşı" />
-          <input name="imar" placeholder="Arsa imar durumu" />
-          <input name="tapu" placeholder="Tapu durumu" />
-          <input name="yil" placeholder="Araç yılı" />
-          <input name="km" placeholder="Araç km" />
-          <input name="hasar_kaydi" placeholder="Hasar kaydı TL" />
-          <textarea name="notes" placeholder="Not"></textarea>
+          <label class="field common-field">
+            <span>Başlık</span>
+            <input name="title" placeholder="Örn: Seyhan'da 3+1 uygun daire" required />
+          </label>
+          <label class="field common-field">
+            <span>Fiyat</span>
+            <input name="price" placeholder="Örn: 1250000" type="number" required />
+          </label>
+          <label class="field common-field">
+            <span>Şehir</span>
+            <input name="city" placeholder="Örn: Adana" />
+          </label>
+          <label class="field common-field">
+            <span>İlçe</span>
+            <input name="district" placeholder="Örn: Seyhan" />
+          </label>
+          <label class="field common-field">
+            <span>Mahalle</span>
+            <input name="neighborhood" placeholder="Örn: Gürselpaşa" />
+          </label>
+          <label class="field common-field">
+            <span>İlan linki</span>
+            <input name="listing_url" placeholder="https://..." />
+          </label>
+          <label class="field common-field">
+            <span>Görsel linki</span>
+            <input name="image_url" placeholder="https://...jpg" />
+          </label>
+          <label class="field" data-categories="konut arsa isyeri">
+            <span>Metrekare</span>
+            <input name="m2" placeholder="Örn: 120" />
+          </label>
+
+          <label class="field" data-categories="konut">
+            <span>Oda sayısı</span>
+            <input name="oda" placeholder="Örn: 3+1" />
+          </label>
+          <label class="field" data-categories="konut isyeri">
+            <span>Bina yaşı</span>
+            <input name="bina_yasi" placeholder="Örn: 5" />
+          </label>
+          <label class="field" data-categories="konut isyeri">
+            <span>Kat</span>
+            <input name="kat" placeholder="Örn: 3 veya giriş" />
+          </label>
+          <label class="field" data-categories="konut">
+            <span>Isıtma</span>
+            <input name="isitma" placeholder="Örn: doğalgaz" />
+          </label>
+          <label class="check-row" data-categories="konut">
+            <input name="krediye_uygun" type="checkbox" /> Krediye uygun
+          </label>
+
+          <label class="field" data-categories="arsa">
+            <span>İmar durumu</span>
+            <input name="imar" placeholder="Örn: konut imarlı" />
+          </label>
+          <label class="field" data-categories="arsa">
+            <span>Tapu durumu</span>
+            <input name="tapu" placeholder="Örn: müstakil / hisseli" />
+          </label>
+          <label class="field" data-categories="arsa">
+            <span>Ada</span>
+            <input name="ada" placeholder="Örn: 123" />
+          </label>
+          <label class="field" data-categories="arsa">
+            <span>Parsel</span>
+            <input name="parsel" placeholder="Örn: 45" />
+          </label>
+          <label class="check-row" data-categories="arsa">
+            <input name="yol_cephe" type="checkbox" /> Yola cephe
+          </label>
+
+          <label class="field" data-categories="isyeri">
+            <span>İşyeri tipi</span>
+            <input name="isyeri_tipi" placeholder="Örn: dükkan / ofis / depo" />
+          </label>
+          <label class="check-row" data-categories="isyeri">
+            <input name="cadde_uzeri" type="checkbox" /> Cadde üzeri
+          </label>
+          <label class="field" data-categories="isyeri">
+            <span>Kira potansiyeli</span>
+            <input name="kira_potansiyeli" placeholder="Örn: 25000" />
+          </label>
+
+          <label class="field" data-categories="arac">
+            <span>Marka</span>
+            <input name="marka" placeholder="Örn: Toyota" />
+          </label>
+          <label class="field" data-categories="arac">
+            <span>Model</span>
+            <input name="model" placeholder="Örn: Corolla" />
+          </label>
+          <label class="field" data-categories="arac">
+            <span>Yıl</span>
+            <input name="yil" placeholder="Örn: 2018" />
+          </label>
+          <label class="field" data-categories="arac">
+            <span>Kilometre</span>
+            <input name="km" placeholder="Örn: 85000" />
+          </label>
+          <label class="field" data-categories="arac">
+            <span>Yakıt</span>
+            <input name="yakit" placeholder="Örn: benzin" />
+          </label>
+          <label class="field" data-categories="arac">
+            <span>Vites</span>
+            <input name="vites" placeholder="Örn: otomatik" />
+          </label>
+          <label class="field" data-categories="arac">
+            <span>Hasar kaydı TL</span>
+            <input name="hasar_kaydi" placeholder="Örn: 0" />
+          </label>
+
+          <label class="field common-field full">
+            <span>Not</span>
+            <textarea name="notes" placeholder="Kısa not, pazarlık durumu, dikkat edilecek şeyler..."></textarea>
+          </label>
           <button type="submit">İlanı havuza ekle</button>
         </form>
       </details>
