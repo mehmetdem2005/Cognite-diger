@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import csv
+import io
+import json
 from pathlib import Path
 from urllib.parse import quote_plus
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from .database import (
@@ -21,6 +25,8 @@ from .database import (
 )
 from .models import (
     FavoriteUpdate,
+    ImportListingsRequest,
+    ImportListingsResult,
     ListingIn,
     ListingOut,
     MeclisScanRequest,
@@ -34,7 +40,7 @@ from .scoring import score_listing
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT / "frontend"
 
-app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.3.0")
+app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.4.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -125,6 +131,67 @@ def remove_listing(listing_id: int) -> dict:
     if not deleted:
         raise HTTPException(status_code=404, detail="İlan bulunamadı.")
     return {"ok": True, "deleted_id": listing_id}
+
+
+@app.get("/api/export/listings.json")
+def export_listings_json() -> Response:
+    listings = list_listings()
+    payload = {
+        "schema": "firsat-avcisi.listings.v1",
+        "listings": listings,
+    }
+    return Response(
+        content=json.dumps(payload, ensure_ascii=False, indent=2),
+        media_type="application/json; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=firsat-avcisi-listings.json"},
+    )
+
+
+@app.get("/api/export/listings.csv")
+def export_listings_csv() -> Response:
+    listings = list_listings()
+    buffer = io.StringIO()
+    writer = csv.DictWriter(
+        buffer,
+        fieldnames=[
+            "id",
+            "category",
+            "title",
+            "price",
+            "currency",
+            "city",
+            "district",
+            "neighborhood",
+            "score",
+            "risk_level",
+            "is_favorite",
+            "listing_url",
+            "notes",
+        ],
+        extrasaction="ignore",
+    )
+    writer.writeheader()
+    writer.writerows(listings)
+    return Response(
+        content="\ufeff" + buffer.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=firsat-avcisi-listings.csv"},
+    )
+
+
+@app.post("/api/import/listings", response_model=ImportListingsResult)
+def import_listings(payload: ImportListingsRequest) -> ImportListingsResult:
+    imported = 0
+    skipped = 0
+    for listing in payload.listings:
+        try:
+            data = listing.model_dump()
+            score, risk, reasons = score_listing(data)
+            add_listing(data, score, risk, reasons)
+            imported += 1
+        except Exception:
+            skipped += 1
+    return ImportListingsResult(imported_count=imported, skipped_count=skipped)
 
 
 @app.post("/api/saved-searches", response_model=SavedSearchOut)
