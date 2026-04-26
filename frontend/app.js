@@ -10,6 +10,13 @@ const categoryHints = {
   arac: 'Araç için marka, model, yıl, kilometre ve hasar kaydı bilgileri önceliklidir.',
 };
 
+const categoryLabels = {
+  konut: 'Konut',
+  arsa: 'Arsa',
+  isyeri: 'İşyeri / Ofis',
+  arac: 'Araç',
+};
+
 function showToast(message) {
   const toast = $('#toast');
   toast.textContent = message;
@@ -29,6 +36,12 @@ function syncCategoryFields() {
   });
 }
 
+function setActiveCategory(category) {
+  activeCategory = category;
+  $$('.subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.category === category));
+  syncCategoryFields();
+}
+
 function bindTabs() {
   $$('.tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -41,11 +54,9 @@ function bindTabs() {
 
   $$('.subtab').forEach(btn => {
     btn.addEventListener('click', () => {
-      $$('.subtab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeCategory = btn.dataset.category;
-      syncCategoryFields();
+      setActiveCategory(btn.dataset.category);
       loadListings();
+      loadSavedSearches();
     });
   });
 }
@@ -140,24 +151,39 @@ function renderProperties(item) {
     .filter(Boolean).join(' · ');
 }
 
+function currentFilters() {
+  return {
+    q: $('#filterQ').value.trim(),
+    city: $('#filterCity').value.trim(),
+    district: $('#filterDistrict').value.trim(),
+    min_price: $('#filterMinPrice').value.trim(),
+    max_price: $('#filterMaxPrice').value.trim(),
+    favorites: $('#filterFavorites').checked,
+  };
+}
+
+function applyFilters(filters = {}, sortMode = 'newest') {
+  $('#filterQ').value = filters.q || '';
+  $('#filterCity').value = filters.city || '';
+  $('#filterDistrict').value = filters.district || '';
+  $('#filterMinPrice').value = filters.min_price || '';
+  $('#filterMaxPrice').value = filters.max_price || '';
+  $('#filterFavorites').checked = Boolean(filters.favorites);
+  $('#sortMode').value = sortMode || 'newest';
+}
+
 function buildQueryParams() {
   const params = new URLSearchParams();
+  const filters = currentFilters();
   params.set('category', activeCategory);
   params.set('sort', $('#sortMode').value);
 
-  const q = $('#filterQ').value.trim();
-  const city = $('#filterCity').value.trim();
-  const district = $('#filterDistrict').value.trim();
-  const minPrice = $('#filterMinPrice').value.trim();
-  const maxPrice = $('#filterMaxPrice').value.trim();
-  const favorites = $('#filterFavorites').checked;
-
-  if (q) params.set('q', q);
-  if (city) params.set('city', city);
-  if (district) params.set('district', district);
-  if (minPrice) params.set('min_price', minPrice);
-  if (maxPrice) params.set('max_price', maxPrice);
-  if (favorites) params.set('favorites', 'true');
+  if (filters.q) params.set('q', filters.q);
+  if (filters.city) params.set('city', filters.city);
+  if (filters.district) params.set('district', filters.district);
+  if (filters.min_price) params.set('min_price', filters.min_price);
+  if (filters.max_price) params.set('max_price', filters.max_price);
+  if (filters.favorites) params.set('favorites', 'true');
 
   return params.toString();
 }
@@ -212,6 +238,70 @@ async function loadListings() {
   `).join('');
 }
 
+async function loadSavedSearches() {
+  const items = await api(`/api/saved-searches?category=${activeCategory}`);
+  if (!items.length) {
+    $('#savedSearches').innerHTML = '<div class="empty-mini">Bu kategori için kayıtlı arama yok.</div>';
+    return;
+  }
+
+  $('#savedSearches').innerHTML = items.map(item => `
+    <div class="saved-search-card">
+      <div>
+        <b>${item.name}</b>
+        <span>${categoryLabels[item.category] || item.category} · ${item.sort_mode}</span>
+      </div>
+      <div class="saved-actions">
+        <button data-search-action="load" data-id="${item.id}">Yükle</button>
+        <button data-search-action="delete" data-id="${item.id}" class="danger-small">Sil</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function saveCurrentSearch() {
+  const name = prompt('Bu aramaya isim ver:', `${categoryLabels[activeCategory]} aramam`);
+  if (!name || !name.trim()) return;
+  await api('/api/saved-searches', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: name.trim(),
+      category: activeCategory,
+      filters: currentFilters(),
+      sort_mode: $('#sortMode').value,
+      notification_enabled: false,
+    }),
+  });
+  showToast('Arama kaydedildi.');
+  await loadSavedSearches();
+}
+
+function bindSavedSearches() {
+  $('#saveSearchBtn').addEventListener('click', saveCurrentSearch);
+  $('#savedSearches').addEventListener('click', async (e) => {
+    const target = e.target.closest('[data-search-action]');
+    if (!target) return;
+    const id = target.dataset.id;
+
+    if (target.dataset.searchAction === 'load') {
+      const saved = await api(`/api/saved-searches/${id}`);
+      setActiveCategory(saved.category);
+      applyFilters(saved.filters, saved.sort_mode);
+      await loadListings();
+      await loadSavedSearches();
+      showToast('Kayıtlı arama yüklendi.');
+    }
+
+    if (target.dataset.searchAction === 'delete') {
+      const ok = confirm('Kayıtlı arama silinsin mi?');
+      if (!ok) return;
+      await api(`/api/saved-searches/${id}`, { method: 'DELETE' });
+      showToast('Kayıtlı arama silindi.');
+      await loadSavedSearches();
+    }
+  });
+}
+
 function bindListingForm() {
   $('#listingForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -242,8 +332,7 @@ function bindListingForm() {
   $('#filterFavorites').addEventListener('change', loadListings);
 
   $('#clearFiltersBtn').addEventListener('click', async () => {
-    ['#filterQ', '#filterCity', '#filterDistrict', '#filterMinPrice', '#filterMaxPrice'].forEach(id => { $(id).value = ''; });
-    $('#filterFavorites').checked = false;
+    applyFilters({}, 'newest');
     await loadListings();
   });
 
@@ -305,7 +394,9 @@ function bindPolicy() {
 
 bindTabs();
 bindListingForm();
+bindSavedSearches();
 bindMeclis();
 bindPolicy();
 syncCategoryFields();
 loadListings();
+loadSavedSearches();
