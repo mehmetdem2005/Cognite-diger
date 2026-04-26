@@ -6,3 +6,6 @@ httpx
 apscheduler
 python-multipart
 pypdf
+pytest
+pytest-asyncio
+ruff
