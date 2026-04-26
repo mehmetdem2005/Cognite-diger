@@ -9,10 +9,37 @@
 <body>
   <header class="topbar">
     <div><strong>Fırsat Avcısı</strong><span>Meclis Takip</span></div>
-    <button id="policyBtn">Veri Politikası</button>
+    <div class="topbar-actions">
+      <span id="currentUserLabel">Local kullanıcı</span>
+      <button id="authToggleBtn">Giriş / Kayıt</button>
+      <button id="logoutBtn" hidden>Çıkış</button>
+      <button id="policyBtn">Veri Politikası</button>
+    </div>
   </header>
 
   <main class="shell">
+    <section id="authPanel" class="auth-panel" hidden>
+      <div class="auth-card">
+        <div class="auth-head"><h2>Hesap</h2><button id="closeAuthBtn">Kapat</button></div>
+        <div class="auth-grid">
+          <form id="loginForm" class="auth-form">
+            <h3>Giriş yap</h3>
+            <label class="field"><span>E-posta</span><input name="email" type="email" required autocomplete="email" /></label>
+            <label class="field"><span>Şifre</span><input name="password" type="password" required autocomplete="current-password" /></label>
+            <button type="submit">Giriş yap</button>
+          </form>
+          <form id="registerForm" class="auth-form">
+            <h3>Kayıt ol</h3>
+            <label class="field"><span>Ad soyad</span><input name="full_name" autocomplete="name" /></label>
+            <label class="field"><span>E-posta</span><input name="email" type="email" required autocomplete="email" /></label>
+            <label class="field"><span>Şifre</span><input name="password" type="password" required minlength="8" autocomplete="new-password" /></label>
+            <button type="submit">Kayıt ol</button>
+          </form>
+        </div>
+        <p class="muted">Giriş yapmazsan uygulama “local” kullanıcıyla çalışır. Giriş yapınca kaynaklar, ilanlar, kayıtlı aramalar ve işler hesabına ayrılır.</p>
+      </div>
+    </section>
+
     <nav class="tabs">
       <button class="tab active" data-tab="dashboard">Dashboard</button>
       <button class="tab" data-tab="firsat">Fırsat Avcısı</button>
@@ -144,7 +171,10 @@
 
     <section id="settings" class="panel">
       <h2>Ayarlar</h2>
-      <div class="settings-grid"><div class="setting-card"><h3>Yedekleme</h3><p>İlan havuzunu dışa aktar veya daha önce aldığın JSON yedeğini geri yükle.</p><div class="toolbar"><a class="button-link" href="/api/export/listings.json" download>JSON indir</a><a class="button-link secondary" href="/api/export/listings.csv" download>CSV indir</a></div><label class="field full"><span>JSON yedeği içe aktar</span><input id="importJsonInput" type="file" accept="application/json,.json" /></label><button id="importJsonBtn" class="wide-btn">Yedeği içe aktar</button></div></div>
+      <div class="settings-grid">
+        <div class="setting-card"><h3>Hesap</h3><p id="settingsUserText">Local kullanıcı ile çalışıyorsun.</p><button id="settingsAuthBtn" class="wide-btn">Giriş / Kayıt</button></div>
+        <div class="setting-card"><h3>Yedekleme</h3><p>İlan havuzunu dışa aktar veya daha önce aldığın JSON yedeğini geri yükle.</p><div class="toolbar"><a class="button-link" href="/api/export/listings.json" download>JSON indir</a><a class="button-link secondary" href="/api/export/listings.csv" download>CSV indir</a></div><label class="field full"><span>JSON yedeği içe aktar</span><input id="importJsonInput" type="file" accept="application/json,.json" /></label><button id="importJsonBtn" class="wide-btn">Yedeği içe aktar</button></div>
+      </div>
     </section>
   </main>
   <div id="toast" class="toast" hidden></div><script src="/app.js"></script>
