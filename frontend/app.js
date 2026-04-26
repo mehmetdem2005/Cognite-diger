@@ -1,4 +1,5 @@
 let activeCategory = 'konut';
+let activeJobPoll = null;
 
 const $ = (q) => document.querySelector(q);
 const $$ = (q) => [...document.querySelectorAll(q)];
@@ -12,6 +13,7 @@ const categoryHints = {
 
 const categoryLabels = { konut: 'Konut', arsa: 'Arsa', isyeri: 'İşyeri / Ofis', arac: 'Araç' };
 const sourceTypeLabels = { json_feed: 'JSON Feed', rss_feed: 'RSS / Açık Feed' };
+const jobStatusLabels = { queued: 'Sırada', running: 'Çalışıyor', succeeded: 'Tamamlandı', failed: 'Hata' };
 
 function showToast(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; setTimeout(() => { toast.hidden = true; }, 2600); }
 
@@ -33,6 +35,7 @@ function bindTabs() {
     btn.classList.add('active');
     $('#' + btn.dataset.tab).classList.add('active');
     if (btn.dataset.tab === 'sources') loadSources();
+    if (btn.dataset.tab === 'jobs') loadJobs();
   }));
   $$('.subtab').forEach(btn => btn.addEventListener('click', () => { setActiveCategory(btn.dataset.category); loadListings(); loadSavedSearches(); }));
 }
@@ -108,17 +111,17 @@ async function loadSources() {
 
 async function syncAllSourcesNow(button) {
   button.disabled = true;
-  button.textContent = 'Tüm kaynaklar senkronize ediliyor...';
+  button.textContent = 'İş oluşturuluyor...';
   try {
-    const result = await api('/api/data-sources/sync-all', { method: 'POST' });
-    showToast(`${result.imported_count} yeni ilan eklendi, ${result.error_count} kaynak hata verdi.`);
-    await loadSources();
-    await loadListings();
+    const result = await api('/api/jobs/source-sync-all', { method: 'POST' });
+    showToast(`Arka plan işi oluşturuldu: #${result.job_id}`);
+    await loadJobs();
+    showJobDetail(result.job_id);
   } catch (err) {
-    showToast('Toplu senkronizasyon başarısız.');
+    showToast('Arka plan işi oluşturulamadı.');
   } finally {
     button.disabled = false;
-    button.textContent = 'Tüm Kaynakları Şimdi Senkronize Et';
+    button.textContent = 'Tüm Kaynakları Arka Planda Senkronize Et';
   }
 }
 
@@ -158,6 +161,54 @@ function bindSources() {
   });
 }
 
+function progressText(job) {
+  const total = Number(job.progress_total || 0);
+  const current = Number(job.progress_current || 0);
+  return total > 0 ? `${current}/${total}` : jobStatusLabels[job.status] || job.status;
+}
+
+function progressPercent(job) {
+  const total = Number(job.progress_total || 0);
+  if (total <= 0) return job.status === 'succeeded' ? 100 : 0;
+  return Math.min(100, Math.round((Number(job.progress_current || 0) / total) * 100));
+}
+
+async function loadJobs() {
+  const jobs = await api('/api/jobs?limit=30');
+  if (!jobs.length) {
+    $('#jobList').innerHTML = '<div class="empty-state"><b>Henüz iş yok.</b><p>Veri Kaynakları sekmesinden toplu senkronizasyon başlatabilirsin.</p></div>';
+    return;
+  }
+  $('#jobList').innerHTML = jobs.map(job => `<article class="job-card ${job.status}"><div><b>#${job.id} · ${job.title}</b><span>${jobStatusLabels[job.status] || job.status} · ${progressText(job)}</span><div class="progress"><i style="width:${progressPercent(job)}%"></i></div></div><button data-job-id="${job.id}">Detay</button></article>`).join('');
+}
+
+async function showJobDetail(jobId) {
+  const [job, events] = await Promise.all([api(`/api/jobs/${jobId}`), api(`/api/jobs/${jobId}/events`)]);
+  $('#jobDetail').innerHTML = `<div class="job-detail-card"><h3>İş #${job.id}</h3><p><b>Durum:</b> ${jobStatusLabels[job.status] || job.status}</p><p><b>İlerleme:</b> ${progressText(job)}</p>${job.error ? `<p class="danger-text"><b>Hata:</b> ${job.error}</p>` : ''}<div class="progress"><i style="width:${progressPercent(job)}%"></i></div><h4>Olaylar</h4>${events.length ? events.map(ev => `<div class="job-event ${ev.level}"><b>${ev.created_at || ''}</b><span>${ev.message}</span></div>`).join('') : '<p class="muted">Henüz olay yok.</p>'}</div>`;
+  if (activeJobPoll) clearInterval(activeJobPoll);
+  if (['queued', 'running'].includes(job.status)) {
+    activeJobPoll = setInterval(async () => {
+      await loadJobs();
+      await showJobDetail(jobId);
+      const fresh = await api(`/api/jobs/${jobId}`);
+      if (!['queued', 'running'].includes(fresh.status)) {
+        clearInterval(activeJobPoll);
+        activeJobPoll = null;
+        await loadSources();
+        await loadListings();
+      }
+    }, 2500);
+  }
+}
+
+function bindJobs() {
+  $('#refreshJobsBtn').addEventListener('click', loadJobs);
+  $('#jobList').addEventListener('click', (e) => {
+    const target = e.target.closest('[data-job-id]');
+    if (target) showJobDetail(target.dataset.jobId);
+  });
+}
+
 function parseKeywords(value) { return (value || '').split(',').map(x => x.trim()).filter(Boolean); }
 function renderMeclisResult(result) { $('#meclisSummary').hidden = false; $('#meclisSummary').innerHTML = `<b>${result.matched_keywords} anahtar kelime eşleşti</b><span>${result.total_hits} toplam eşleşme · ${result.text_length} karakter</span>${result.pdf ? `<span>PDF: ${result.pdf.filename} · ${result.pdf.page_count} sayfa${result.pdf.needs_ocr ? ' · OCR gerekebilir' : ''}</span>` : ''}`; const rows = result.keywords || []; if (!rows.length) { $('#meclisResults').innerHTML = '<div class="empty-state"><b>Anahtar kelime yok.</b></div>'; return; } $('#meclisResults').innerHTML = rows.map(row => `<article class="meclis-card ${row.found ? 'hit' : 'miss'}"><div class="meclis-card-head"><b>${row.keyword}</b><span>${row.count} eşleşme</span></div>${row.contexts?.length ? row.contexts.map(ctx => `<p>${ctx}</p>`).join('') : '<p class="muted">Bu kelime bulunamadı.</p>'}</article>`).join(''); }
 async function scanMeclisText(e) { e.preventDefault(); const raw = formDataToObject(e.currentTarget); const keywords = parseKeywords(raw.keywords); if (!raw.text?.trim()) { showToast('Metin alanı boş. PDF taramak için PDF butonunu kullan.'); return; } const result = await api('/api/meclis/scan', { method: 'POST', body: JSON.stringify({ municipality_name: raw.municipality_name || '', keywords, text: raw.text }) }); renderMeclisResult(result); showToast('Metin tarandı.'); }
@@ -165,4 +216,4 @@ async function scanMeclisPdf() { const form = $('#meclisForm'); const raw = form
 function bindMeclis() { $('#meclisForm').addEventListener('submit', scanMeclisText); $('#scanPdfBtn').addEventListener('click', scanMeclisPdf); }
 function bindPolicy() { $('#policyBtn').addEventListener('click', async () => { const policy = await api('/api/policy'); alert(policy.scraping + '\n\nİzinli yollar:\n- ' + policy.allowed_sources.join('\n- ')); }); }
 
-bindTabs(); bindListingForm(); bindSavedSearches(); bindBackupControls(); bindSources(); bindMeclis(); bindPolicy(); syncCategoryFields(); loadListings(); loadSavedSearches(); loadSources();
+bindTabs(); bindListingForm(); bindSavedSearches(); bindBackupControls(); bindSources(); bindJobs(); bindMeclis(); bindPolicy(); syncCategoryFields(); loadListings(); loadSavedSearches(); loadSources(); loadJobs();
