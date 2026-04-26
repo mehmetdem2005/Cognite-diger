@@ -103,8 +103,19 @@
 
     <section id="sources" class="panel">
       <h2>Veri Kaynakları</h2>
-      <p>Bu sistemin ana hedefi manuel giriş değil; resmî API, yetkili XML/JSON feed, RSS veya e-posta alarmı gibi izinli kaynaklardan otomatik senkronizasyondur.</p>
-      <ul class="policy-list"><li>Resmî API: uygun</li><li>Partner feed: uygun</li><li>RSS / açık veri: uygun</li><li>E-posta alarmı: uygun</li><li>Gizli HTML kazıma: yok</li><li>CAPTCHA aşma: yok</li></ul>
+      <p>Manuel giriş ana yol değil. Burada izinli JSON/RSS feed kaynaklarını ekleyip otomatik senkronize edeceğiz.</p>
+      <div class="category-hint">Kaynak sadece izinli/resmî feed olmalı. Gizli scraping, CAPTCHA aşma ve kullanım şartı baypası yok.</div>
+      <details class="filter-box" open>
+        <summary>Yeni veri kaynağı ekle</summary>
+        <form id="sourceForm" class="form-grid">
+          <label class="field"><span>Kaynak adı</span><input name="name" placeholder="Örn: Yetkili Emlak Ofisi Feed" required /></label>
+          <label class="field"><span>Kaynak türü</span><select name="source_type" required><option value="json_feed">JSON Feed</option><option value="rss_feed">RSS / Açık Feed</option></select></label>
+          <label class="field"><span>Kategori</span><select name="category" required><option value="konut">Konut</option><option value="arsa">Arsa</option><option value="isyeri">İşyeri / Ofis</option><option value="arac">Araç</option></select></label>
+          <label class="field full"><span>Feed URL</span><input name="url" placeholder="https://firma.com/ilanlar.json veya RSS URL" required /></label>
+          <button type="submit">Kaynağı ekle</button>
+        </form>
+      </details>
+      <div id="sourceList" class="source-grid"></div>
     </section>
 
     <section id="meclis" class="panel">
@@ -115,10 +126,7 @@
         <label class="field"><span>Anahtar kelimeler</span><input name="keywords" placeholder="imar, parsel, ada, mahalle" required /></label>
         <label class="field full"><span>Karar metni</span><textarea name="text" placeholder="PDF yoksa karar metnini buraya yapıştır..."></textarea></label>
         <label class="field full"><span>PDF dosyası</span><input id="meclisPdfInput" type="file" accept="application/pdf,.pdf" /></label>
-        <div class="toolbar full-row">
-          <button type="submit">Metni tara</button>
-          <button type="button" id="scanPdfBtn" class="secondary">PDF'i tara</button>
-        </div>
+        <div class="toolbar full-row"><button type="submit">Metni tara</button><button type="button" id="scanPdfBtn" class="secondary">PDF'i tara</button></div>
       </form>
       <div id="meclisSummary" class="meclis-summary" hidden></div>
       <div id="meclisResults" class="meclis-results"></div>
