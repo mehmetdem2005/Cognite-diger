@@ -17,6 +17,7 @@ def _csv_env(name: str, default: str = "") -> list[str]:
 APP_NAME = os.getenv("APP_NAME", "Fırsat Avcısı + Meclis Takip")
 APP_VERSION = os.getenv("APP_VERSION", "0.8.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # Development kolaylığı için default *; production deploy'da mutlaka gerçek domain yazılmalı.
 CORS_ALLOWED_ORIGINS = _csv_env("CORS_ALLOWED_ORIGINS", "*")
