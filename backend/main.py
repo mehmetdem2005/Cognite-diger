@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import io
 import json
-from pathlib import Path
 from urllib.parse import quote_plus
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
@@ -11,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
+from .config import APP_NAME, APP_VERSION, CORS_ALLOWED_ORIGINS, CORS_ALLOW_CREDENTIALS, FRONTEND_DIR
 from .database import (
     add_data_source,
     add_listing,
@@ -49,15 +49,12 @@ from .scheduler import start_scheduler, stop_scheduler
 from .scoring import score_listing
 from .services.source_sync import sync_all_sources, sync_source
 
-ROOT = Path(__file__).resolve().parents[1]
-FRONTEND_DIR = ROOT / "frontend"
-
-app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.7.0")
+app = FastAPI(title=APP_NAME, version=APP_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ALLOWED_ORIGINS,
+    allow_credentials=CORS_ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -76,7 +73,7 @@ def _shutdown() -> None:
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "project": "firsat-avcisi-meclis-takip"}
+    return {"ok": True, "project": "firsat-avcisi-meclis-takip", "version": APP_VERSION}
 
 
 @app.get("/api/policy")
