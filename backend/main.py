@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from urllib.parse import quote_plus
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
@@ -30,17 +30,20 @@ from .models import (
     ListingIn,
     ListingOut,
     MeclisScanRequest,
+    MeclisScanResult,
     SavedSearchIn,
     SavedSearchOut,
     SearchLinkOut,
     SearchLinkRequest,
 )
+from .pdf_utils import PdfExtractionError, extract_text_from_pdf_bytes
+from .scanner import scan_text
 from .scoring import score_listing
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT / "frontend"
 
-app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.4.0")
+app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.5.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -136,10 +139,7 @@ def remove_listing(listing_id: int) -> dict:
 @app.get("/api/export/listings.json")
 def export_listings_json() -> Response:
     listings = list_listings()
-    payload = {
-        "schema": "firsat-avcisi.listings.v1",
-        "listings": listings,
-    }
+    payload = {"schema": "firsat-avcisi.listings.v1", "listings": listings}
     return Response(
         content=json.dumps(payload, ensure_ascii=False, indent=2),
         media_type="application/json; charset=utf-8",
@@ -153,21 +153,7 @@ def export_listings_csv() -> Response:
     buffer = io.StringIO()
     writer = csv.DictWriter(
         buffer,
-        fieldnames=[
-            "id",
-            "category",
-            "title",
-            "price",
-            "currency",
-            "city",
-            "district",
-            "neighborhood",
-            "score",
-            "risk_level",
-            "is_favorite",
-            "listing_url",
-            "notes",
-        ],
+        fieldnames=["id", "category", "title", "price", "currency", "city", "district", "neighborhood", "score", "risk_level", "is_favorite", "listing_url", "notes"],
         extrasaction="ignore",
     )
     writer.writeheader()
@@ -229,34 +215,58 @@ def build_search_links(payload: SearchLinkRequest) -> list[SearchLinkOut]:
     parts = [payload.category, payload.city, payload.district, payload.neighborhood, payload.keywords]
     q = " ".join(str(p) for p in parts if p)
     encoded = quote_plus(q)
-
-    links = [
-        SearchLinkOut(
-            source="sahibinden",
-            url=f"https://www.sahibinden.com/arama?query={encoded}",
-            note="Resmî site arama sayfası. Veri kazıma yapılmaz.",
-        ),
-        SearchLinkOut(
-            source="hepsiemlak",
-            url=f"https://www.hepsiemlak.com/ara?q={encoded}",
-            note="Resmî site arama sayfası. Veri kazıma yapılmaz.",
-        ),
-        SearchLinkOut(
-            source="arabam",
-            url=f"https://www.arabam.com/ikinci-el/arama?searchText={encoded}",
-            note="Resmî site arama sayfası. Veri kazıma yapılmaz.",
-        ),
+    return [
+        SearchLinkOut(source="sahibinden", url=f"https://www.sahibinden.com/arama?query={encoded}", note="Resmî site arama sayfası. Veri kazıma yapılmaz."),
+        SearchLinkOut(source="hepsiemlak", url=f"https://www.hepsiemlak.com/ara?q={encoded}", note="Resmî site arama sayfası. Veri kazıma yapılmaz."),
+        SearchLinkOut(source="arabam", url=f"https://www.arabam.com/ikinci-el/arama?searchText={encoded}", note="Resmî site arama sayfası. Veri kazıma yapılmaz."),
     ]
-    return links
 
 
-@app.post("/api/meclis/scan")
+@app.post("/api/meclis/scan", response_model=MeclisScanResult)
 def meclis_scan(payload: MeclisScanRequest) -> dict:
+    if not payload.text.strip():
+        raise HTTPException(status_code=400, detail="Taranacak metin boş.")
+    if not payload.keywords:
+        raise HTTPException(status_code=400, detail="En az bir anahtar kelime gir.")
+    result = scan_text(payload.text, payload.keywords)
+    return {"source_type": "text", "municipality_name": payload.municipality_name, **result, "pdf": None}
+
+
+@app.post("/api/meclis/scan-pdf", response_model=MeclisScanResult)
+async def meclis_scan_pdf(
+    file: UploadFile = File(...),
+    keywords_json: str = "[]",
+    municipality_name: str = "",
+) -> dict:
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Sadece PDF dosyası yüklenebilir.")
+    try:
+        keywords = json.loads(keywords_json)
+        if not isinstance(keywords, list):
+            raise ValueError
+    except Exception:
+        raise HTTPException(status_code=400, detail="Anahtar kelimeler JSON listesi olmalı.")
+    if not keywords:
+        raise HTTPException(status_code=400, detail="En az bir anahtar kelime gir.")
+
+    data = await file.read()
+    try:
+        pdf_info = extract_text_from_pdf_bytes(data)
+    except PdfExtractionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    result = scan_text(pdf_info["text"], keywords)
     return {
-        "status": "planned",
-        "message": "PDF indirme, metin çıkarma ve OCR modülü sonraki fazda eklenecek.",
-        "municipality_name": payload.municipality_name,
-        "keywords": payload.keywords,
+        "source_type": "pdf",
+        "municipality_name": municipality_name,
+        **result,
+        "pdf": {
+            "filename": file.filename,
+            "page_count": pdf_info["page_count"],
+            "text_length": pdf_info["text_length"],
+            "needs_ocr": pdf_info["needs_ocr"],
+            "pages": pdf_info["pages"],
+        },
     }
 
 
