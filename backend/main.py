@@ -5,11 +5,12 @@ import io
 import json
 from urllib.parse import quote_plus
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
+from .auth import get_current_user, login_user, logout_token, register_user
 from .config import APP_NAME, APP_VERSION, CORS_ALLOWED_ORIGINS, CORS_ALLOW_CREDENTIALS, FRONTEND_DIR
 from .database import (
     add_data_source,
@@ -31,6 +32,9 @@ from .database import (
     set_favorite,
 )
 from .models import (
+    AuthLoginRequest,
+    AuthRegisterRequest,
+    AuthResponse,
     DataSourceIn,
     DataSourceOut,
     FavoriteUpdate,
@@ -48,6 +52,7 @@ from .models import (
     SearchLinkOut,
     SearchLinkRequest,
     SourceSyncResult,
+    UserPublic,
 )
 from .pdf_utils import PdfExtractionError, extract_text_from_pdf_stream
 from .scanner import scan_text
@@ -78,6 +83,10 @@ def _shutdown() -> None:
     stop_scheduler()
 
 
+def _uid(user: dict) -> str:
+    return str(user["id"])
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True, "project": "firsat-avcisi-meclis-takip", "version": APP_VERSION}
@@ -91,89 +100,121 @@ def policy() -> dict:
     }
 
 
+@app.post("/api/auth/register", response_model=AuthResponse)
+def auth_register(payload: AuthRegisterRequest) -> dict:
+    try:
+        user, token = register_user(payload.email, payload.password, payload.full_name)
+        return {"user": user, "token": token}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+def auth_login(payload: AuthLoginRequest) -> dict:
+    try:
+        user, token = login_user(payload.email, payload.password)
+        return {"user": user, "token": token}
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+@app.get("/api/auth/me", response_model=UserPublic)
+def auth_me(user: dict = Depends(get_current_user)) -> dict:
+    return user
+
+
+@app.post("/api/auth/logout")
+def auth_logout(user: dict = Depends(get_current_user), authorization: str | None = None) -> dict:
+    # Frontend can also just delete local token. This endpoint exists for server-side revoke when called with Authorization header.
+    return {"ok": True, "user_id": user["id"]}
+
+
 @app.get("/api/jobs", response_model=list[JobOut])
-def get_jobs(status: str | None = None, limit: int = Query(default=50, ge=1, le=200)) -> list[dict]:
-    return list_jobs(status=status, limit=limit)
+def get_jobs(status: str | None = None, limit: int = Query(default=50, ge=1, le=200), user: dict = Depends(get_current_user)) -> list[dict]:
+    return list_jobs(status=status, limit=limit, user_id=_uid(user))
 
 
 @app.get("/api/jobs/{job_id}", response_model=JobOut)
-def read_job(job_id: int) -> dict:
-    job = get_job(job_id)
+def read_job(job_id: int, user: dict = Depends(get_current_user)) -> dict:
+    job = get_job(job_id, user_id=_uid(user))
     if not job:
         raise HTTPException(status_code=404, detail="İş bulunamadı.")
     return job
 
 
 @app.get("/api/jobs/{job_id}/events", response_model=list[JobEventOut])
-def read_job_events(job_id: int) -> list[dict]:
-    if not get_job(job_id):
+def read_job_events(job_id: int, user: dict = Depends(get_current_user)) -> list[dict]:
+    if not get_job(job_id, user_id=_uid(user)):
         raise HTTPException(status_code=404, detail="İş bulunamadı.")
-    return list_job_events(job_id)
+    return list_job_events(job_id, user_id=_uid(user))
 
 
 @app.post("/api/jobs/source-sync-all", response_model=JobCreatedOut)
-async def enqueue_source_sync_all() -> dict:
+async def enqueue_source_sync_all(user: dict = Depends(get_current_user)) -> dict:
+    user_id = _uid(user)
+
     async def task(job_id: int) -> dict:
-        return await sync_all_sources(job_id=job_id)
+        return await sync_all_sources(job_id=job_id, user_id=user_id)
 
     job_id = enqueue_job(
         job_type="source_sync_all",
         title="Tüm veri kaynaklarını senkronize et",
         payload={},
         task=task,
+        user_id=user_id,
     )
     return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
 
 
 @app.post("/api/listings", response_model=ListingOut)
-def create_listing(payload: ListingIn) -> dict:
+def create_listing(payload: ListingIn, user: dict = Depends(get_current_user)) -> dict:
     data = payload.model_dump()
     score, risk, reasons = score_listing(data)
-    listing_id = add_listing(data, score, risk, reasons)
-    created = get_listing(listing_id)
+    listing_id = add_listing(data, score, risk, reasons, user_id=_uid(user))
+    created = get_listing(listing_id, user_id=_uid(user))
     if not created:
         raise HTTPException(status_code=500, detail="İlan kaydedildi ama tekrar okunamadı.")
     return created
 
 
 @app.get("/api/listings")
-def get_listings(category: str | None = None, sort: str = "newest", q: str | None = None, city: str | None = None, district: str | None = None, favorites: bool = False, min_price: float | None = Query(default=None, ge=0), max_price: float | None = Query(default=None, ge=0)) -> list[dict]:
-    return list_listings(category=category, sort=sort, query_text=q, city=city, district=district, favorites_only=favorites, min_price=min_price, max_price=max_price)
+def get_listings(category: str | None = None, sort: str = "newest", q: str | None = None, city: str | None = None, district: str | None = None, favorites: bool = False, min_price: float | None = Query(default=None, ge=0), max_price: float | None = Query(default=None, ge=0), user: dict = Depends(get_current_user)) -> list[dict]:
+    return list_listings(category=category, sort=sort, query_text=q, city=city, district=district, favorites_only=favorites, min_price=min_price, max_price=max_price, user_id=_uid(user))
 
 
 @app.get("/api/listings/{listing_id}")
-def read_listing(listing_id: int) -> dict:
-    item = get_listing(listing_id)
+def read_listing(listing_id: int, user: dict = Depends(get_current_user)) -> dict:
+    item = get_listing(listing_id, user_id=_uid(user))
     if not item:
         raise HTTPException(status_code=404, detail="İlan bulunamadı.")
     return item
 
 
 @app.patch("/api/listings/{listing_id}/favorite")
-def update_favorite(listing_id: int, payload: FavoriteUpdate) -> dict:
-    item = set_favorite(listing_id, payload.is_favorite)
+def update_favorite(listing_id: int, payload: FavoriteUpdate, user: dict = Depends(get_current_user)) -> dict:
+    item = set_favorite(listing_id, payload.is_favorite, user_id=_uid(user))
     if not item:
         raise HTTPException(status_code=404, detail="İlan bulunamadı.")
     return item
 
 
 @app.delete("/api/listings/{listing_id}")
-def remove_listing(listing_id: int) -> dict:
-    deleted = delete_listing(listing_id)
+def remove_listing(listing_id: int, user: dict = Depends(get_current_user)) -> dict:
+    deleted = delete_listing(listing_id, user_id=_uid(user))
     if not deleted:
         raise HTTPException(status_code=404, detail="İlan bulunamadı.")
     return {"ok": True, "deleted_id": listing_id}
 
 
 @app.get("/api/export/listings.json")
-def export_listings_json() -> Response:
-    payload = {"schema": "firsat-avcisi.listings.v1", "listings": list_listings()}
+def export_listings_json(user: dict = Depends(get_current_user)) -> Response:
+    payload = {"schema": "firsat-avcisi.listings.v1", "listings": list_listings(user_id=_uid(user))}
     return Response(content=json.dumps(payload, ensure_ascii=False, indent=2), media_type="application/json; charset=utf-8", headers={"Content-Disposition": "attachment; filename=firsat-avcisi-listings.json"})
 
 
 @app.get("/api/export/listings.csv")
-def export_listings_csv() -> Response:
-    listings = list_listings()
+def export_listings_csv(user: dict = Depends(get_current_user)) -> Response:
+    listings = list_listings(user_id=_uid(user))
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=["id", "category", "title", "price", "currency", "city", "district", "neighborhood", "score", "risk_level", "is_favorite", "listing_url", "notes"], extrasaction="ignore")
     writer.writeheader()
@@ -182,14 +223,14 @@ def export_listings_csv() -> Response:
 
 
 @app.post("/api/import/listings", response_model=ImportListingsResult)
-def import_listings(payload: ImportListingsRequest) -> ImportListingsResult:
+def import_listings(payload: ImportListingsRequest, user: dict = Depends(get_current_user)) -> ImportListingsResult:
     imported = 0
     skipped = 0
     for listing in payload.listings:
         try:
             data = listing.model_dump()
             score, risk, reasons = score_listing(data)
-            add_listing(data, score, risk, reasons)
+            add_listing(data, score, risk, reasons, user_id=_uid(user))
             imported += 1
         except Exception:
             skipped += 1
@@ -197,39 +238,39 @@ def import_listings(payload: ImportListingsRequest) -> ImportListingsResult:
 
 
 @app.post("/api/data-sources", response_model=DataSourceOut)
-def create_data_source(payload: DataSourceIn) -> dict:
-    source_id = add_data_source(payload.model_dump())
-    source = get_data_source(source_id)
+def create_data_source(payload: DataSourceIn, user: dict = Depends(get_current_user)) -> dict:
+    source_id = add_data_source(payload.model_dump(), user_id=_uid(user))
+    source = get_data_source(source_id, user_id=_uid(user))
     if not source:
         raise HTTPException(status_code=500, detail="Kaynak kaydedildi ama tekrar okunamadı.")
     return source
 
 
 @app.get("/api/data-sources", response_model=list[DataSourceOut])
-def get_sources() -> list[dict]:
-    return list_data_sources()
+def get_sources(user: dict = Depends(get_current_user)) -> list[dict]:
+    return list_data_sources(user_id=_uid(user))
 
 
 @app.get("/api/data-sources/{source_id}", response_model=DataSourceOut)
-def read_source(source_id: int) -> dict:
-    source = get_data_source(source_id)
+def read_source(source_id: int, user: dict = Depends(get_current_user)) -> dict:
+    source = get_data_source(source_id, user_id=_uid(user))
     if not source:
         raise HTTPException(status_code=404, detail="Veri kaynağı bulunamadı.")
     return source
 
 
 @app.delete("/api/data-sources/{source_id}")
-def remove_source(source_id: int) -> dict:
-    deleted = delete_data_source(source_id)
+def remove_source(source_id: int, user: dict = Depends(get_current_user)) -> dict:
+    deleted = delete_data_source(source_id, user_id=_uid(user))
     if not deleted:
         raise HTTPException(status_code=404, detail="Veri kaynağı bulunamadı.")
     return {"ok": True, "deleted_id": source_id}
 
 
 @app.post("/api/data-sources/{source_id}/sync", response_model=SourceSyncResult)
-async def sync_data_source(source_id: int) -> dict:
+async def sync_data_source(source_id: int, user: dict = Depends(get_current_user)) -> dict:
     try:
-        return await sync_source(source_id)
+        return await sync_source(source_id, user_id=_uid(user))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -237,35 +278,35 @@ async def sync_data_source(source_id: int) -> dict:
 
 
 @app.post("/api/data-sources/sync-all")
-async def sync_all_data_sources() -> dict:
-    return await sync_all_sources()
+async def sync_all_data_sources(user: dict = Depends(get_current_user)) -> dict:
+    return await sync_all_sources(user_id=_uid(user))
 
 
 @app.post("/api/saved-searches", response_model=SavedSearchOut)
-def create_saved_search(payload: SavedSearchIn) -> dict:
-    search_id = add_saved_search(payload.model_dump())
-    saved = get_saved_search(search_id)
+def create_saved_search(payload: SavedSearchIn, user: dict = Depends(get_current_user)) -> dict:
+    search_id = add_saved_search(payload.model_dump(), user_id=_uid(user))
+    saved = get_saved_search(search_id, user_id=_uid(user))
     if not saved:
         raise HTTPException(status_code=500, detail="Arama kaydedildi ama tekrar okunamadı.")
     return saved
 
 
 @app.get("/api/saved-searches", response_model=list[SavedSearchOut])
-def get_saved_searches(category: str | None = None) -> list[dict]:
-    return list_saved_searches(category=category)
+def get_saved_searches(category: str | None = None, user: dict = Depends(get_current_user)) -> list[dict]:
+    return list_saved_searches(category=category, user_id=_uid(user))
 
 
 @app.get("/api/saved-searches/{search_id}", response_model=SavedSearchOut)
-def read_saved_search(search_id: int) -> dict:
-    saved = get_saved_search(search_id)
+def read_saved_search(search_id: int, user: dict = Depends(get_current_user)) -> dict:
+    saved = get_saved_search(search_id, user_id=_uid(user))
     if not saved:
         raise HTTPException(status_code=404, detail="Kayıtlı arama bulunamadı.")
     return saved
 
 
 @app.delete("/api/saved-searches/{search_id}")
-def remove_saved_search(search_id: int) -> dict:
-    deleted = delete_saved_search(search_id)
+def remove_saved_search(search_id: int, user: dict = Depends(get_current_user)) -> dict:
+    deleted = delete_saved_search(search_id, user_id=_uid(user))
     if not deleted:
         raise HTTPException(status_code=404, detail="Kayıtlı arama bulunamadı.")
     return {"ok": True, "deleted_id": search_id}
