@@ -19,10 +19,13 @@ from .database import (
     delete_listing,
     delete_saved_search,
     get_data_source,
+    get_job,
     get_listing,
     get_saved_search,
     init_db,
     list_data_sources,
+    list_job_events,
+    list_jobs,
     list_listings,
     list_saved_searches,
     set_favorite,
@@ -33,6 +36,9 @@ from .models import (
     FavoriteUpdate,
     ImportListingsRequest,
     ImportListingsResult,
+    JobCreatedOut,
+    JobEventOut,
+    JobOut,
     ListingIn,
     ListingOut,
     MeclisScanRequest,
@@ -47,6 +53,7 @@ from .pdf_utils import PdfExtractionError, extract_text_from_pdf_stream
 from .scanner import scan_text
 from .scheduler import start_scheduler, stop_scheduler
 from .scoring import score_listing
+from .services.job_runner import enqueue_job
 from .services.source_sync import sync_all_sources, sync_source
 
 app = FastAPI(title=APP_NAME, version=APP_VERSION)
@@ -82,6 +89,40 @@ def policy() -> dict:
         "scraping": "Gizli scraping, CAPTCHA aşma, CORS dolanma ve izinsiz toplu veri çekme yok.",
         "allowed_sources": ["resmî API", "izinli partner feed", "RSS/açık veri", "yetkili JSON/XML feed", "e-posta alarmı"],
     }
+
+
+@app.get("/api/jobs", response_model=list[JobOut])
+def get_jobs(status: str | None = None, limit: int = Query(default=50, ge=1, le=200)) -> list[dict]:
+    return list_jobs(status=status, limit=limit)
+
+
+@app.get("/api/jobs/{job_id}", response_model=JobOut)
+def read_job(job_id: int) -> dict:
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="İş bulunamadı.")
+    return job
+
+
+@app.get("/api/jobs/{job_id}/events", response_model=list[JobEventOut])
+def read_job_events(job_id: int) -> list[dict]:
+    if not get_job(job_id):
+        raise HTTPException(status_code=404, detail="İş bulunamadı.")
+    return list_job_events(job_id)
+
+
+@app.post("/api/jobs/source-sync-all", response_model=JobCreatedOut)
+async def enqueue_source_sync_all() -> dict:
+    async def task(job_id: int) -> dict:
+        return await sync_all_sources(job_id=job_id)
+
+    job_id = enqueue_job(
+        job_type="source_sync_all",
+        title="Tüm veri kaynaklarını senkronize et",
+        payload={},
+        task=task,
+    )
+    return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
 
 
 @app.post("/api/listings", response_model=ListingOut)
