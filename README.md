@@ -91,6 +91,16 @@ Alternatif Uvicorn komutu:
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+## Test çalıştırma
+
+```bash
+make test
+```
+
+Testler normal `data/app.db` dosyasına dokunmaz. Pytest her test için geçici bir SQLite dosyası kullanır.
+
+Test izolasyonu `DATABASE_PATH` ortam değişkeni üzerinden yapılır.
+
 ## Docker ile çalıştırma
 
 ```bash
@@ -117,6 +127,7 @@ CORS_ALLOW_CREDENTIALS=false
 ENABLE_SCHEDULER=true
 SOURCE_SYNC_INTERVAL_MINUTES=60
 DATA_DIR=data
+DATABASE_PATH=data/app.db
 ```
 
 Production'da `CORS_ALLOWED_ORIGINS=*` kullanmak yerine gerçek domain yazılmalıdır.
@@ -180,9 +191,9 @@ PDF için sabit MB limiti yoktur. Gerçek sınır, sunucunun RAM/disk/timeout ka
 
 ## Sonraki aşamalar
 
-1. PostgreSQL geçiş hazırlığı
-2. Auth sistemi
-3. Background job queue
-4. E-posta alarmı adaptörü
-5. Groq analiz modülü
-6. PWA / Android wrapper
+1. Production gözlemlenebilirlik
+2. PostgreSQL geçiş hazırlığı
+3. E-posta alarmı adaptörü
+4. Groq analiz modülü
+5. PWA / Android wrapper
+6. Frontend modülerleşme
