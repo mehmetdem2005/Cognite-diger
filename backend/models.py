@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 Category = Literal["konut", "arsa", "isyeri", "arac"]
 SortMode = Literal["newest", "price_asc", "price_desc", "score_desc", "m2_price_asc"]
+SourceType = Literal["json_feed", "rss_feed"]
 
 
 class ListingIn(BaseModel):
@@ -46,6 +47,31 @@ class SavedSearchOut(SavedSearchIn):
     id: int
     created_at: str
     updated_at: str | None = None
+
+
+class DataSourceIn(BaseModel):
+    name: str = Field(min_length=1)
+    source_type: SourceType
+    url: str = Field(min_length=6)
+    category: Category
+    enabled: bool = True
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+class DataSourceOut(DataSourceIn):
+    id: int
+    last_status: str | None = None
+    last_error: str | None = None
+    last_synced_at: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class SourceSyncResult(BaseModel):
+    source_id: int
+    fetched_count: int
+    imported_count: int
+    skipped_count: int
 
 
 class ImportListingsRequest(BaseModel):
