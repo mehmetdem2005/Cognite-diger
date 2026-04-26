@@ -157,12 +157,17 @@ Session/JWT planı
 Auth middleware
 user_id kolonları
 Veri erişim izolasyonu
+Auth testleri
+Güvenlik header'ları
 ```
 
 Çıkış kriteri:
 
 ```txt
 Kullanıcı A, kullanıcı B'nin verisini göremez
+Register/login/logout testleri geçer
+Şifre hash doğrulama testleri geçer
+Logout sonrası token geçersiz olur
 ```
 
 ### Faz 5 — Frontend ürün kalitesi
@@ -172,13 +177,28 @@ Hedef: Vanilla JS arayüzü profesyonel kullanılabilirlik seviyesine getirmek.
 Yapılacaklar:
 
 ```txt
-Bileşen mantığına ayrılmış JS dosyaları
+Beyaz tema + turkuaz marka sistemi
+Mobil bottom navigation
 Loading state
 Error state
 Empty state
 Form validation
-Mobil bottom navigation
 Erişilebilir renk/kontrast
+```
+
+Ertelenmiş not:
+
+```txt
+Frontend modülerleşme şu an yapılmayacak.
+Ama teknik borç olarak not edildi.
+İleride app.js şu modüllere ayrılacak:
+- frontend/modules/api.js
+- frontend/modules/auth.js
+- frontend/modules/listings.js
+- frontend/modules/sources.js
+- frontend/modules/jobs.js
+- frontend/modules/meclis.js
+- frontend/modules/ui.js
 ```
 
 Çıkış kriteri:
@@ -252,12 +272,23 @@ En doğru geliştirme sırası:
 1. Test ve kalite altyapısı
 2. DB soyutlama / migration hazırlığı
 3. Job sistemi
-4. Auth
-5. Frontend modülerleşme
-6. PostgreSQL geçişi
-7. E-posta alarmı adaptörü
-8. Groq analiz modülü
-9. PWA / Android wrapper
+4. Auth + auth testleri + güvenlik sertleştirme
+5. Test database izolasyonu
+6. Production gözlemlenebilirlik
+7. PostgreSQL geçişi
+8. E-posta alarmı adaptörü
+9. Groq analiz modülü
+10. PWA / Android wrapper
+11. Frontend modülerleşme
+```
+
+## Ertelenmiş teknik borçlar
+
+```txt
+Frontend modülerleşme ertelendi.
+Sebep: Şu an güvenlik, test izolasyonu ve backend sağlamlığı daha kritik.
+Risk: app.js büyüdükçe bakım zorlaşır.
+Çözüm zamanı: Auth/güvenlik/test/database işleri oturduktan sonra yapılacak.
 ```
 
 ## Profesyonel başarı ölçütleri
