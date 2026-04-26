@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from ..auth import LOCAL_USER_ID
 from ..db.connection import get_conn
 
 
@@ -19,29 +20,29 @@ def _decode_event(row) -> dict[str, Any]:
     return item
 
 
-def create_job(job_type: str, title: str, payload: dict[str, Any] | None = None, progress_total: int = 0) -> int:
+def create_job(job_type: str, title: str, payload: dict[str, Any] | None = None, progress_total: int = 0, user_id: str = LOCAL_USER_ID) -> int:
     with get_conn() as conn:
         cur = conn.execute(
             """
-            INSERT INTO jobs (job_type, title, payload_json, progress_total)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO jobs (user_id, job_type, title, payload_json, progress_total)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (job_type, title, json.dumps(payload or {}, ensure_ascii=False), progress_total),
+            (user_id, job_type, title, json.dumps(payload or {}, ensure_ascii=False), progress_total),
         )
         return int(cur.lastrowid)
 
 
-def get_job(job_id: int) -> dict[str, Any] | None:
+def get_job(job_id: int, user_id: str = LOCAL_USER_ID) -> dict[str, Any] | None:
     with get_conn() as conn:
-        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        row = conn.execute("SELECT * FROM jobs WHERE id = ? AND user_id = ?", (job_id, user_id)).fetchone()
         return _decode_job(row) if row else None
 
 
-def list_jobs(status: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
-    query = "SELECT * FROM jobs"
-    params: list[Any] = []
+def list_jobs(status: str | None = None, limit: int = 50, user_id: str = LOCAL_USER_ID) -> list[dict[str, Any]]:
+    query = "SELECT * FROM jobs WHERE user_id = ?"
+    params: list[Any] = [user_id]
     if status:
-        query += " WHERE status = ?"
+        query += " AND status = ?"
         params.append(status)
     query += " ORDER BY created_at DESC LIMIT ?"
     params.append(limit)
@@ -111,6 +112,18 @@ def add_job_event(job_id: int, message: str, level: str = "info", data: dict[str
         return int(cur.lastrowid)
 
 
-def list_job_events(job_id: int) -> list[dict[str, Any]]:
+def list_job_events(job_id: int, user_id: str = LOCAL_USER_ID) -> list[dict[str, Any]]:
     with get_conn() as conn:
-        return [_decode_event(row) for row in conn.execute("SELECT * FROM job_events WHERE job_id = ? ORDER BY id ASC", (job_id,)).fetchall()]
+        return [
+            _decode_event(row)
+            for row in conn.execute(
+                """
+                SELECT e.*
+                FROM job_events e
+                JOIN jobs j ON j.id = e.job_id
+                WHERE e.job_id = ? AND j.user_id = ?
+                ORDER BY e.id ASC
+                """,
+                (job_id, user_id),
+            ).fetchall()
+        ]
