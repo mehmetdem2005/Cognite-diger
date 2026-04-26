@@ -70,6 +70,37 @@ def init_db() -> None:
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS data_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                url TEXT NOT NULL,
+                category TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                config_json TEXT NOT NULL DEFAULT '{}',
+                last_status TEXT DEFAULT 'never_run',
+                last_error TEXT,
+                last_synced_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS source_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_id INTEGER NOT NULL,
+                external_id TEXT NOT NULL,
+                listing_id INTEGER,
+                first_seen_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                last_seen_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(source_id, external_id)
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS scan_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 kind TEXT NOT NULL,
@@ -97,6 +128,13 @@ def _decode_saved_search(row: sqlite3.Row) -> dict[str, Any]:
     return item
 
 
+def _decode_source(row: sqlite3.Row) -> dict[str, Any]:
+    item = dict(row)
+    item["enabled"] = bool(item.get("enabled"))
+    item["config"] = json.loads(item.pop("config_json") or "{}")
+    return item
+
+
 def add_listing(data: dict[str, Any], score: float, risk_level: str, score_reasons: list[str]) -> int:
     with get_conn() as conn:
         cur = conn.execute(
@@ -108,85 +146,47 @@ def add_listing(data: dict[str, Any], score: float, risk_level: str, score_reaso
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                data.get("source", "manual"),
-                data.get("category"),
-                data.get("title"),
-                data.get("price"),
-                data.get("currency", "TRY"),
-                data.get("city", ""),
-                data.get("district", ""),
-                data.get("neighborhood", ""),
-                data.get("listing_url"),
-                data.get("image_url"),
-                json.dumps(data.get("properties") or {}, ensure_ascii=False),
-                json.dumps(data.get("contact") or {}, ensure_ascii=False),
-                data.get("notes", ""),
-                score,
-                risk_level,
-                json.dumps(score_reasons, ensure_ascii=False),
-                1 if data.get("is_favorite") else 0,
+                data.get("source", "manual"), data.get("category"), data.get("title"), data.get("price"), data.get("currency", "TRY"),
+                data.get("city", ""), data.get("district", ""), data.get("neighborhood", ""), data.get("listing_url"), data.get("image_url"),
+                json.dumps(data.get("properties") or {}, ensure_ascii=False), json.dumps(data.get("contact") or {}, ensure_ascii=False), data.get("notes", ""),
+                score, risk_level, json.dumps(score_reasons, ensure_ascii=False), 1 if data.get("is_favorite") else 0,
             ),
         )
         return int(cur.lastrowid)
 
 
-def list_listings(
-    category: str | None = None,
-    sort: str = "newest",
-    query_text: str | None = None,
-    city: str | None = None,
-    district: str | None = None,
-    favorites_only: bool = False,
-    min_price: float | None = None,
-    max_price: float | None = None,
-) -> list[dict[str, Any]]:
-    order_map = {
-        "newest": "created_at DESC",
-        "price_asc": "price ASC",
-        "price_desc": "price DESC",
-        "score_desc": "score DESC",
-    }
+def list_listings(category: str | None = None, sort: str = "newest", query_text: str | None = None, city: str | None = None, district: str | None = None, favorites_only: bool = False, min_price: float | None = None, max_price: float | None = None) -> list[dict[str, Any]]:
+    order_map = {"newest": "created_at DESC", "price_asc": "price ASC", "price_desc": "price DESC", "score_desc": "score DESC"}
     order_by = order_map.get(sort, "created_at DESC")
     where: list[str] = []
     params: list[Any] = []
-
     if category:
-        where.append("category = ?")
-        params.append(category)
+        where.append("category = ?"); params.append(category)
     if query_text:
         where.append("(title LIKE ? OR notes LIKE ? OR city LIKE ? OR district LIKE ? OR neighborhood LIKE ?)")
-        like = f"%{query_text}%"
-        params.extend([like, like, like, like, like])
+        like = f"%{query_text}%"; params.extend([like, like, like, like, like])
     if city:
-        where.append("city LIKE ?")
-        params.append(f"%{city}%")
+        where.append("city LIKE ?"); params.append(f"%{city}%")
     if district:
-        where.append("district LIKE ?")
-        params.append(f"%{district}%")
+        where.append("district LIKE ?"); params.append(f"%{district}%")
     if favorites_only:
         where.append("is_favorite = 1")
     if min_price is not None:
-        where.append("price >= ?")
-        params.append(min_price)
+        where.append("price >= ?"); params.append(min_price)
     if max_price is not None:
-        where.append("price <= ?")
-        params.append(max_price)
-
+        where.append("price <= ?"); params.append(max_price)
     query = "SELECT * FROM listings"
     if where:
         query += " WHERE " + " AND ".join(where)
     query += f" ORDER BY {order_by}"
-
     with get_conn() as conn:
         rows = conn.execute(query, params).fetchall()
         items = [_decode_listing(row) for row in rows]
-
     if sort == "m2_price_asc":
         def m2_price(item: dict[str, Any]) -> float:
             m2 = float(item.get("properties", {}).get("m2") or item.get("properties", {}).get("metrekare") or 0)
             return item["price"] / m2 if m2 > 0 else float("inf")
         items.sort(key=m2_price)
-
     return items
 
 
@@ -198,10 +198,7 @@ def get_listing(listing_id: int) -> dict[str, Any] | None:
 
 def set_favorite(listing_id: int, is_favorite: bool) -> dict[str, Any] | None:
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE listings SET is_favorite = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (1 if is_favorite else 0, listing_id),
-        )
+        conn.execute("UPDATE listings SET is_favorite = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (1 if is_favorite else 0, listing_id))
         row = conn.execute("SELECT * FROM listings WHERE id = ?", (listing_id,)).fetchone()
         return _decode_listing(row) if row else None
 
@@ -214,32 +211,17 @@ def delete_listing(listing_id: int) -> bool:
 
 def add_saved_search(data: dict[str, Any]) -> int:
     with get_conn() as conn:
-        cur = conn.execute(
-            """
-            INSERT INTO saved_searches (name, category, filters_json, sort_mode, notification_enabled)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                data.get("name"),
-                data.get("category"),
-                json.dumps(data.get("filters") or {}, ensure_ascii=False),
-                data.get("sort_mode", "newest"),
-                1 if data.get("notification_enabled") else 0,
-            ),
-        )
+        cur = conn.execute("INSERT INTO saved_searches (name, category, filters_json, sort_mode, notification_enabled) VALUES (?, ?, ?, ?, ?)", (data.get("name"), data.get("category"), json.dumps(data.get("filters") or {}, ensure_ascii=False), data.get("sort_mode", "newest"), 1 if data.get("notification_enabled") else 0))
         return int(cur.lastrowid)
 
 
 def list_saved_searches(category: str | None = None) -> list[dict[str, Any]]:
-    query = "SELECT * FROM saved_searches"
-    params: list[Any] = []
+    query = "SELECT * FROM saved_searches"; params: list[Any] = []
     if category:
-        query += " WHERE category = ?"
-        params.append(category)
+        query += " WHERE category = ?"; params.append(category)
     query += " ORDER BY updated_at DESC, created_at DESC"
     with get_conn() as conn:
-        rows = conn.execute(query, params).fetchall()
-        return [_decode_saved_search(row) for row in rows]
+        return [_decode_saved_search(row) for row in conn.execute(query, params).fetchall()]
 
 
 def get_saved_search(search_id: int) -> dict[str, Any] | None:
@@ -252,3 +234,42 @@ def delete_saved_search(search_id: int) -> bool:
     with get_conn() as conn:
         cur = conn.execute("DELETE FROM saved_searches WHERE id = ?", (search_id,))
         return cur.rowcount > 0
+
+
+def add_data_source(data: dict[str, Any]) -> int:
+    with get_conn() as conn:
+        cur = conn.execute("INSERT INTO data_sources (name, source_type, url, category, enabled, config_json) VALUES (?, ?, ?, ?, ?, ?)", (data.get("name"), data.get("source_type"), data.get("url"), data.get("category"), 1 if data.get("enabled", True) else 0, json.dumps(data.get("config") or {}, ensure_ascii=False)))
+        return int(cur.lastrowid)
+
+
+def list_data_sources() -> list[dict[str, Any]]:
+    with get_conn() as conn:
+        return [_decode_source(row) for row in conn.execute("SELECT * FROM data_sources ORDER BY created_at DESC").fetchall()]
+
+
+def get_data_source(source_id: int) -> dict[str, Any] | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM data_sources WHERE id = ?", (source_id,)).fetchone()
+        return _decode_source(row) if row else None
+
+
+def delete_data_source(source_id: int) -> bool:
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM data_sources WHERE id = ?", (source_id,))
+        return cur.rowcount > 0
+
+
+def update_data_source_status(source_id: int, status: str, error: str | None = None) -> None:
+    with get_conn() as conn:
+        conn.execute("UPDATE data_sources SET last_status = ?, last_error = ?, last_synced_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (status, error, source_id))
+
+
+def source_item_exists(source_id: int, external_id: str) -> bool:
+    with get_conn() as conn:
+        row = conn.execute("SELECT id FROM source_items WHERE source_id = ? AND external_id = ?", (source_id, external_id)).fetchone()
+        return bool(row)
+
+
+def add_source_item(source_id: int, external_id: str, listing_id: int) -> None:
+    with get_conn() as conn:
+        conn.execute("INSERT OR REPLACE INTO source_items (source_id, external_id, listing_id, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", (source_id, external_id, listing_id))
