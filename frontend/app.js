@@ -10,75 +10,39 @@ const categoryHints = {
   arac: 'Araç için marka, model, yıl, kilometre ve hasar kaydı bilgileri önceliklidir.',
 };
 
-const categoryLabels = {
-  konut: 'Konut',
-  arsa: 'Arsa',
-  isyeri: 'İşyeri / Ofis',
-  arac: 'Araç',
-};
+const categoryLabels = { konut: 'Konut', arsa: 'Arsa', isyeri: 'İşyeri / Ofis', arac: 'Araç' };
 
-function showToast(message) {
-  const toast = $('#toast');
-  toast.textContent = message;
-  toast.hidden = false;
-  setTimeout(() => { toast.hidden = true; }, 2600);
-}
+function showToast(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; setTimeout(() => { toast.hidden = true; }, 2600); }
 
 function syncCategoryFields() {
   $('#categoryHint').textContent = categoryHints[activeCategory] || '';
   $$('[data-categories]').forEach(field => {
-    const allowed = (field.dataset.categories || '').split(' ');
-    const visible = allowed.includes(activeCategory);
+    const visible = (field.dataset.categories || '').split(' ').includes(activeCategory);
     field.hidden = !visible;
-    field.querySelectorAll('input, textarea, select').forEach(input => {
-      input.disabled = !visible;
-    });
+    field.querySelectorAll('input, textarea, select').forEach(input => { input.disabled = !visible; });
   });
 }
 
-function setActiveCategory(category) {
-  activeCategory = category;
-  $$('.subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.category === category));
-  syncCategoryFields();
-}
+function setActiveCategory(category) { activeCategory = category; $$('.subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.category === category)); syncCategoryFields(); }
 
 function bindTabs() {
-  $$('.tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      $$('.tab').forEach(b => b.classList.remove('active'));
-      $$('.panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      $('#' + btn.dataset.tab).classList.add('active');
-    });
-  });
-
-  $$('.subtab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      setActiveCategory(btn.dataset.category);
-      loadListings();
-      loadSavedSearches();
-    });
-  });
+  $$('.tab').forEach(btn => btn.addEventListener('click', () => {
+    $$('.tab').forEach(b => b.classList.remove('active'));
+    $$('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $('#' + btn.dataset.tab).classList.add('active');
+  }));
+  $$('.subtab').forEach(btn => btn.addEventListener('click', () => { setActiveCategory(btn.dataset.category); loadListings(); loadSavedSearches(); }));
 }
 
 async function api(path, options = {}) {
-  const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
-function formDataToObject(form) {
-  return Object.fromEntries(new FormData(form).entries());
-}
-
-function cleanValue(value) {
-  if (value === undefined || value === null) return null;
-  if (typeof value === 'string' && value.trim() === '') return null;
-  return value;
-}
+function formDataToObject(form) { return Object.fromEntries(new FormData(form).entries()); }
+function cleanValue(value) { if (value === undefined || value === null) return null; if (typeof value === 'string' && value.trim() === '') return null; return value; }
 
 function buildCategoryProperties(raw) {
   const common = { m2: cleanValue(raw.m2) };
@@ -97,209 +61,72 @@ function renderProperties(item) {
   return [p.m2 ? `${p.m2} m²` : '', p.oda, p.bina_yasi ? `${p.bina_yasi} yaş` : '', p.krediye_uygun ? 'krediye uygun' : ''].filter(Boolean).join(' · ');
 }
 
-function currentFilters() {
-  return { q: $('#filterQ').value.trim(), city: $('#filterCity').value.trim(), district: $('#filterDistrict').value.trim(), min_price: $('#filterMinPrice').value.trim(), max_price: $('#filterMaxPrice').value.trim(), favorites: $('#filterFavorites').checked };
-}
+function currentFilters() { return { q: $('#filterQ').value.trim(), city: $('#filterCity').value.trim(), district: $('#filterDistrict').value.trim(), min_price: $('#filterMinPrice').value.trim(), max_price: $('#filterMaxPrice').value.trim(), favorites: $('#filterFavorites').checked }; }
+function applyFilters(filters = {}, sortMode = 'newest') { $('#filterQ').value = filters.q || ''; $('#filterCity').value = filters.city || ''; $('#filterDistrict').value = filters.district || ''; $('#filterMinPrice').value = filters.min_price || ''; $('#filterMaxPrice').value = filters.max_price || ''; $('#filterFavorites').checked = Boolean(filters.favorites); $('#sortMode').value = sortMode || 'newest'; }
+function buildQueryParams() { const params = new URLSearchParams(); const filters = currentFilters(); params.set('category', activeCategory); params.set('sort', $('#sortMode').value); if (filters.q) params.set('q', filters.q); if (filters.city) params.set('city', filters.city); if (filters.district) params.set('district', filters.district); if (filters.min_price) params.set('min_price', filters.min_price); if (filters.max_price) params.set('max_price', filters.max_price); if (filters.favorites) params.set('favorites', 'true'); return params.toString(); }
+function renderReasons(reasons = []) { if (!reasons.length) return '<p class="muted">Puan açıklaması yok.</p>'; return `<ul class="reasons">${reasons.map(reason => `<li>${reason}</li>`).join('')}</ul>`; }
 
-function applyFilters(filters = {}, sortMode = 'newest') {
-  $('#filterQ').value = filters.q || '';
-  $('#filterCity').value = filters.city || '';
-  $('#filterDistrict').value = filters.district || '';
-  $('#filterMinPrice').value = filters.min_price || '';
-  $('#filterMaxPrice').value = filters.max_price || '';
-  $('#filterFavorites').checked = Boolean(filters.favorites);
-  $('#sortMode').value = sortMode || 'newest';
-}
-
-function buildQueryParams() {
-  const params = new URLSearchParams();
-  const filters = currentFilters();
-  params.set('category', activeCategory);
-  params.set('sort', $('#sortMode').value);
-  if (filters.q) params.set('q', filters.q);
-  if (filters.city) params.set('city', filters.city);
-  if (filters.district) params.set('district', filters.district);
-  if (filters.min_price) params.set('min_price', filters.min_price);
-  if (filters.max_price) params.set('max_price', filters.max_price);
-  if (filters.favorites) params.set('favorites', 'true');
-  return params.toString();
-}
-
-function renderReasons(reasons = []) {
-  if (!reasons.length) return '<p class="muted">Puan açıklaması yok.</p>';
-  return `<ul class="reasons">${reasons.map(reason => `<li>${reason}</li>`).join('')}</ul>`;
-}
-
-async function updateCounts() {
-  const all = await api('/api/listings');
-  const favs = await api('/api/listings?favorites=true');
-  $('#listingCount').textContent = `${all.length} kayıt`;
-  $('#favoriteCount').textContent = `${favs.length} kayıt`;
-}
+async function updateCounts() { const all = await api('/api/listings'); const favs = await api('/api/listings?favorites=true'); $('#listingCount').textContent = `${all.length} kayıt`; $('#favoriteCount').textContent = `${favs.length} kayıt`; }
 
 async function loadListings() {
-  const items = await api(`/api/listings?${buildQueryParams()}`);
-  await updateCounts();
-  if (!items.length) {
-    $('#listings').innerHTML = `<div class="empty-state"><b>Bu kategoride ilan bulunamadı.</b><p>İlk ilanı ekleyebilir, filtreleri temizleyebilir veya resmî arama linki oluşturabilirsin.</p></div>`;
-    return;
-  }
-  $('#listings').innerHTML = items.map(item => `
-    <article class="listing">
-      ${item.image_url ? `<img src="${item.image_url}" alt="${item.title}">` : `<div class="image-placeholder">Görsel yok</div>`}
-      <div class="listing-body">
-        <div class="listing-head"><h3>${item.title}</h3><button class="icon-btn" data-action="favorite" data-id="${item.id}" data-current="${item.is_favorite}">${item.is_favorite ? '★' : '☆'}</button></div>
-        <div class="price">${Number(item.price).toLocaleString('tr-TR')} ${item.currency}</div>
-        <p>${[item.city, item.district, item.neighborhood].filter(Boolean).join(' / ') || 'Konum yok'}</p>
-        <p class="property-line">${renderProperties(item) || 'Kategori özelliği yok'}</p>
-        <span class="score">${item.score} · ${item.risk_level}</span>
-        <details class="score-details"><summary>Puan nedenleri</summary>${renderReasons(item.score_reasons)}</details>
-        <div class="listing-actions">${item.listing_url ? `<a href="${item.listing_url}" target="_blank" rel="noopener">İlanı aç</a>` : ''}<button class="danger-link" data-action="delete" data-id="${item.id}">Sil</button></div>
-      </div>
-    </article>`).join('');
+  const items = await api(`/api/listings?${buildQueryParams()}`); await updateCounts();
+  if (!items.length) { $('#listings').innerHTML = `<div class="empty-state"><b>Bu kategoride ilan bulunamadı.</b><p>İlk ilanı ekleyebilir, filtreleri temizleyebilir veya resmî arama linki oluşturabilirsin.</p></div>`; return; }
+  $('#listings').innerHTML = items.map(item => `<article class="listing">${item.image_url ? `<img src="${item.image_url}" alt="${item.title}">` : `<div class="image-placeholder">Görsel yok</div>`}<div class="listing-body"><div class="listing-head"><h3>${item.title}</h3><button class="icon-btn" data-action="favorite" data-id="${item.id}" data-current="${item.is_favorite}">${item.is_favorite ? '★' : '☆'}</button></div><div class="price">${Number(item.price).toLocaleString('tr-TR')} ${item.currency}</div><p>${[item.city, item.district, item.neighborhood].filter(Boolean).join(' / ') || 'Konum yok'}</p><p class="property-line">${renderProperties(item) || 'Kategori özelliği yok'}</p><span class="score">${item.score} · ${item.risk_level}</span><details class="score-details"><summary>Puan nedenleri</summary>${renderReasons(item.score_reasons)}</details><div class="listing-actions">${item.listing_url ? `<a href="${item.listing_url}" target="_blank" rel="noopener">İlanı aç</a>` : ''}<button class="danger-link" data-action="delete" data-id="${item.id}">Sil</button></div></div></article>`).join('');
 }
 
-async function loadSavedSearches() {
-  const items = await api(`/api/saved-searches?category=${activeCategory}`);
-  if (!items.length) {
-    $('#savedSearches').innerHTML = '<div class="empty-mini">Bu kategori için kayıtlı arama yok.</div>';
-    return;
-  }
-  $('#savedSearches').innerHTML = items.map(item => `<div class="saved-search-card"><div><b>${item.name}</b><span>${categoryLabels[item.category] || item.category} · ${item.sort_mode}</span></div><div class="saved-actions"><button data-search-action="load" data-id="${item.id}">Yükle</button><button data-search-action="delete" data-id="${item.id}" class="danger-small">Sil</button></div></div>`).join('');
-}
+async function loadSavedSearches() { const items = await api(`/api/saved-searches?category=${activeCategory}`); if (!items.length) { $('#savedSearches').innerHTML = '<div class="empty-mini">Bu kategori için kayıtlı arama yok.</div>'; return; } $('#savedSearches').innerHTML = items.map(item => `<div class="saved-search-card"><div><b>${item.name}</b><span>${categoryLabels[item.category] || item.category} · ${item.sort_mode}</span></div><div class="saved-actions"><button data-search-action="load" data-id="${item.id}">Yükle</button><button data-search-action="delete" data-id="${item.id}" class="danger-small">Sil</button></div></div>`).join(''); }
+async function saveCurrentSearch() { const name = prompt('Bu aramaya isim ver:', `${categoryLabels[activeCategory]} aramam`); if (!name || !name.trim()) return; await api('/api/saved-searches', { method: 'POST', body: JSON.stringify({ name: name.trim(), category: activeCategory, filters: currentFilters(), sort_mode: $('#sortMode').value, notification_enabled: false }) }); showToast('Arama kaydedildi.'); await loadSavedSearches(); }
+function bindSavedSearches() { $('#saveSearchBtn').addEventListener('click', saveCurrentSearch); $('#savedSearches').addEventListener('click', async (e) => { const target = e.target.closest('[data-search-action]'); if (!target) return; const id = target.dataset.id; if (target.dataset.searchAction === 'load') { const saved = await api(`/api/saved-searches/${id}`); setActiveCategory(saved.category); applyFilters(saved.filters, saved.sort_mode); await loadListings(); await loadSavedSearches(); showToast('Kayıtlı arama yüklendi.'); } if (target.dataset.searchAction === 'delete') { if (!confirm('Kayıtlı arama silinsin mi?')) return; await api(`/api/saved-searches/${id}`, { method: 'DELETE' }); showToast('Kayıtlı arama silindi.'); await loadSavedSearches(); } }); }
 
-async function saveCurrentSearch() {
-  const name = prompt('Bu aramaya isim ver:', `${categoryLabels[activeCategory]} aramam`);
-  if (!name || !name.trim()) return;
-  await api('/api/saved-searches', { method: 'POST', body: JSON.stringify({ name: name.trim(), category: activeCategory, filters: currentFilters(), sort_mode: $('#sortMode').value, notification_enabled: false }) });
-  showToast('Arama kaydedildi.');
-  await loadSavedSearches();
-}
-
-function bindSavedSearches() {
-  $('#saveSearchBtn').addEventListener('click', saveCurrentSearch);
-  $('#savedSearches').addEventListener('click', async (e) => {
-    const target = e.target.closest('[data-search-action]');
-    if (!target) return;
-    const id = target.dataset.id;
-    if (target.dataset.searchAction === 'load') {
-      const saved = await api(`/api/saved-searches/${id}`);
-      setActiveCategory(saved.category);
-      applyFilters(saved.filters, saved.sort_mode);
-      await loadListings();
-      await loadSavedSearches();
-      showToast('Kayıtlı arama yüklendi.');
-    }
-    if (target.dataset.searchAction === 'delete') {
-      if (!confirm('Kayıtlı arama silinsin mi?')) return;
-      await api(`/api/saved-searches/${id}`, { method: 'DELETE' });
-      showToast('Kayıtlı arama silindi.');
-      await loadSavedSearches();
-    }
-  });
-}
-
-async function importListingsFromJsonFile() {
-  const file = $('#importJsonInput').files?.[0];
-  if (!file) {
-    showToast('Önce bir JSON dosyası seç.');
-    return;
-  }
-  const text = await file.text();
-  let parsed;
-  try { parsed = JSON.parse(text); } catch { showToast('JSON dosyası okunamadı.'); return; }
-  const listings = Array.isArray(parsed) ? parsed : parsed.listings;
-  if (!Array.isArray(listings)) { showToast('Yedek dosyasında listings listesi yok.'); return; }
-  const normalized = listings.map(item => ({
-    source: item.source || 'manual',
-    category: item.category,
-    title: item.title,
-    price: Number(item.price || 0),
-    currency: item.currency || 'TRY',
-    city: item.city || '',
-    district: item.district || '',
-    neighborhood: item.neighborhood || '',
-    listing_url: item.listing_url || null,
-    image_url: item.image_url || null,
-    properties: item.properties || {},
-    contact: item.contact || {},
-    notes: item.notes || '',
-    is_favorite: Boolean(item.is_favorite),
-  }));
-  const result = await api('/api/import/listings', { method: 'POST', body: JSON.stringify({ listings: normalized }) });
-  showToast(`${result.imported_count} ilan içe aktarıldı.`);
-  $('#importJsonInput').value = '';
-  await loadListings();
-}
-
-function bindBackupControls() {
-  $('#importJsonBtn').addEventListener('click', importListingsFromJsonFile);
-}
+async function importListingsFromJsonFile() { const file = $('#importJsonInput').files?.[0]; if (!file) { showToast('Önce bir JSON dosyası seç.'); return; } const text = await file.text(); let parsed; try { parsed = JSON.parse(text); } catch { showToast('JSON dosyası okunamadı.'); return; } const listings = Array.isArray(parsed) ? parsed : parsed.listings; if (!Array.isArray(listings)) { showToast('Yedek dosyasında listings listesi yok.'); return; } const normalized = listings.map(item => ({ source: item.source || 'manual', category: item.category, title: item.title, price: Number(item.price || 0), currency: item.currency || 'TRY', city: item.city || '', district: item.district || '', neighborhood: item.neighborhood || '', listing_url: item.listing_url || null, image_url: item.image_url || null, properties: item.properties || {}, contact: item.contact || {}, notes: item.notes || '', is_favorite: Boolean(item.is_favorite) })); const result = await api('/api/import/listings', { method: 'POST', body: JSON.stringify({ listings: normalized }) }); showToast(`${result.imported_count} ilan içe aktarıldı.`); $('#importJsonInput').value = ''; await loadListings(); }
+function bindBackupControls() { $('#importJsonBtn').addEventListener('click', importListingsFromJsonFile); }
 
 function bindListingForm() {
-  $('#listingForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const raw = formDataToObject(e.currentTarget);
-    const payload = { source: 'manual', category: activeCategory, title: raw.title, price: Number(raw.price || 0), city: raw.city || '', district: raw.district || '', neighborhood: raw.neighborhood || '', listing_url: raw.listing_url || null, image_url: raw.image_url || null, notes: raw.notes || '', properties: buildCategoryProperties(raw), contact: {} };
-    await api('/api/listings', { method: 'POST', body: JSON.stringify(payload) });
-    e.currentTarget.reset();
-    syncCategoryFields();
-    showToast('İlan havuza eklendi.');
-    await loadListings();
-  });
-  $('#sortMode').addEventListener('change', loadListings);
-  $('#applyFiltersBtn').addEventListener('click', loadListings);
-  $('#filterFavorites').addEventListener('change', loadListings);
-  $('#clearFiltersBtn').addEventListener('click', async () => { applyFilters({}, 'newest'); await loadListings(); });
-  $('#makeLinksBtn').addEventListener('click', async () => {
-    const city = $('#filterCity').value || $('#listingForm [name="city"]').value || '';
-    const district = $('#filterDistrict').value || $('#listingForm [name="district"]').value || '';
-    const neighborhood = $('#listingForm [name="neighborhood"]').value || '';
-    const links = await api('/api/search-links', { method: 'POST', body: JSON.stringify({ category: activeCategory, city, district, neighborhood, keywords: $('#filterQ').value || '' }) });
-    $('#searchLinks').innerHTML = links.map(x => `<a href="${x.url}" target="_blank" rel="noopener">${x.source}: ${x.url}<br><small>${x.note}</small></a>`).join('');
-  });
-  $('#listings').addEventListener('click', async (e) => {
-    const target = e.target.closest('[data-action]');
-    if (!target) return;
-    const id = target.dataset.id;
-    if (target.dataset.action === 'favorite') {
-      const current = target.dataset.current === 'true';
-      await api(`/api/listings/${id}/favorite`, { method: 'PATCH', body: JSON.stringify({ is_favorite: !current }) });
-      showToast(!current ? 'Favorilere eklendi.' : 'Favorilerden çıkarıldı.');
-      await loadListings();
-    }
-    if (target.dataset.action === 'delete') {
-      if (!confirm('Bu ilan silinsin mi?')) return;
-      await api(`/api/listings/${id}`, { method: 'DELETE' });
-      showToast('İlan silindi.');
-      await loadListings();
-    }
-  });
+  $('#listingForm').addEventListener('submit', async (e) => { e.preventDefault(); const raw = formDataToObject(e.currentTarget); const payload = { source: 'manual', category: activeCategory, title: raw.title, price: Number(raw.price || 0), city: raw.city || '', district: raw.district || '', neighborhood: raw.neighborhood || '', listing_url: raw.listing_url || null, image_url: raw.image_url || null, notes: raw.notes || '', properties: buildCategoryProperties(raw), contact: {} }; await api('/api/listings', { method: 'POST', body: JSON.stringify(payload) }); e.currentTarget.reset(); syncCategoryFields(); showToast('İlan havuza eklendi.'); await loadListings(); });
+  $('#sortMode').addEventListener('change', loadListings); $('#applyFiltersBtn').addEventListener('click', loadListings); $('#filterFavorites').addEventListener('change', loadListings); $('#clearFiltersBtn').addEventListener('click', async () => { applyFilters({}, 'newest'); await loadListings(); });
+  $('#makeLinksBtn').addEventListener('click', async () => { const city = $('#filterCity').value || $('#listingForm [name="city"]').value || ''; const district = $('#filterDistrict').value || $('#listingForm [name="district"]').value || ''; const neighborhood = $('#listingForm [name="neighborhood"]').value || ''; const links = await api('/api/search-links', { method: 'POST', body: JSON.stringify({ category: activeCategory, city, district, neighborhood, keywords: $('#filterQ').value || '' }) }); $('#searchLinks').innerHTML = links.map(x => `<a href="${x.url}" target="_blank" rel="noopener">${x.source}: ${x.url}<br><small>${x.note}</small></a>`).join(''); });
+  $('#listings').addEventListener('click', async (e) => { const target = e.target.closest('[data-action]'); if (!target) return; const id = target.dataset.id; if (target.dataset.action === 'favorite') { const current = target.dataset.current === 'true'; await api(`/api/listings/${id}/favorite`, { method: 'PATCH', body: JSON.stringify({ is_favorite: !current }) }); showToast(!current ? 'Favorilere eklendi.' : 'Favorilerden çıkarıldı.'); await loadListings(); } if (target.dataset.action === 'delete') { if (!confirm('Bu ilan silinsin mi?')) return; await api(`/api/listings/${id}`, { method: 'DELETE' }); showToast('İlan silindi.'); await loadListings(); } });
 }
 
-function bindMeclis() {
-  $('#meclisForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const raw = formDataToObject(e.currentTarget);
-    const keywords = (raw.keywords || '').split(',').map(x => x.trim()).filter(Boolean);
-    const result = await api('/api/meclis/scan', { method: 'POST', body: JSON.stringify({ municipality_name: raw.municipality_name, municipality_url: raw.municipality_url || null, keywords }) });
-    $('#meclisResult').textContent = JSON.stringify(result, null, 2);
-  });
+function parseKeywords(value) { return (value || '').split(',').map(x => x.trim()).filter(Boolean); }
+
+function renderMeclisResult(result) {
+  $('#meclisSummary').hidden = false;
+  $('#meclisSummary').innerHTML = `<b>${result.matched_keywords} anahtar kelime eşleşti</b><span>${result.total_hits} toplam eşleşme · ${result.text_length} karakter</span>${result.pdf ? `<span>PDF: ${result.pdf.filename} · ${result.pdf.page_count} sayfa${result.pdf.needs_ocr ? ' · OCR gerekebilir' : ''}</span>` : ''}`;
+  const rows = result.keywords || [];
+  if (!rows.length) { $('#meclisResults').innerHTML = '<div class="empty-state"><b>Anahtar kelime yok.</b></div>'; return; }
+  $('#meclisResults').innerHTML = rows.map(row => `<article class="meclis-card ${row.found ? 'hit' : 'miss'}"><div class="meclis-card-head"><b>${row.keyword}</b><span>${row.count} eşleşme</span></div>${row.contexts?.length ? row.contexts.map(ctx => `<p>${ctx}</p>`).join('') : '<p class="muted">Bu kelime bulunamadı.</p>'}</article>`).join('');
 }
 
-function bindPolicy() {
-  $('#policyBtn').addEventListener('click', async () => {
-    const policy = await api('/api/policy');
-    alert(policy.scraping + '\n\nİzinli yollar:\n- ' + policy.allowed_sources.join('\n- '));
-  });
+async function scanMeclisText(e) {
+  e.preventDefault();
+  const raw = formDataToObject(e.currentTarget);
+  const keywords = parseKeywords(raw.keywords);
+  if (!raw.text?.trim()) { showToast('Metin alanı boş. PDF taramak için PDF butonunu kullan.'); return; }
+  const result = await api('/api/meclis/scan', { method: 'POST', body: JSON.stringify({ municipality_name: raw.municipality_name || '', keywords, text: raw.text }) });
+  renderMeclisResult(result);
+  showToast('Metin tarandı.');
 }
 
-bindTabs();
-bindListingForm();
-bindSavedSearches();
-bindBackupControls();
-bindMeclis();
-bindPolicy();
-syncCategoryFields();
-loadListings();
-loadSavedSearches();
+async function scanMeclisPdf() {
+  const form = $('#meclisForm');
+  const raw = formDataToObject(form);
+  const file = $('#meclisPdfInput').files?.[0];
+  const keywords = parseKeywords(raw.keywords);
+  if (!file) { showToast('Önce PDF seç.'); return; }
+  if (!keywords.length) { showToast('En az bir anahtar kelime gir.'); return; }
+  const data = new FormData();
+  data.append('file', file);
+  data.append('keywords_json', JSON.stringify(keywords));
+  data.append('municipality_name', raw.municipality_name || '');
+  const res = await fetch('/api/meclis/scan-pdf', { method: 'POST', body: data });
+  if (!res.ok) { showToast(await res.text()); return; }
+  const result = await res.json();
+  renderMeclisResult(result);
+  showToast('PDF tarandı.');
+}
+
+function bindMeclis() { $('#meclisForm').addEventListener('submit', scanMeclisText); $('#scanPdfBtn').addEventListener('click', scanMeclisPdf); }
+function bindPolicy() { $('#policyBtn').addEventListener('click', async () => { const policy = await api('/api/policy'); alert(policy.scraping + '\n\nİzinli yollar:\n- ' + policy.allowed_sources.join('\n- ')); }); }
+
+bindTabs(); bindListingForm(); bindSavedSearches(); bindBackupControls(); bindMeclis(); bindPolicy(); syncCategoryFields(); loadListings(); loadSavedSearches();
