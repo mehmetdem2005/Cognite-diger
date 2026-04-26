@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..auth import LOCAL_USER_ID
 from ..database import (
     add_job_event,
     add_listing,
@@ -16,8 +17,14 @@ from ..scoring import score_listing
 from ..sources.feed_adapters import fetch_source_items
 
 
-async def sync_source(source_id: int, job_id: int | None = None, progress_index: int | None = None, progress_total: int | None = None) -> dict[str, Any]:
-    source = get_data_source(source_id)
+async def sync_source(
+    source_id: int,
+    job_id: int | None = None,
+    progress_index: int | None = None,
+    progress_total: int | None = None,
+    user_id: str = LOCAL_USER_ID,
+) -> dict[str, Any]:
+    source = get_data_source(source_id, user_id=user_id)
     if not source:
         raise ValueError("Veri kaynağı bulunamadı.")
     if not source.get("enabled"):
@@ -35,7 +42,7 @@ async def sync_source(source_id: int, job_id: int | None = None, progress_index:
                 skipped += 1
                 continue
             score, risk, reasons = score_listing(item)
-            listing_id = add_listing(item, score, risk, reasons)
+            listing_id = add_listing(item, score, risk, reasons, user_id=user_id)
             add_source_item(source_id, external_id, listing_id)
             imported += 1
         update_data_source_status(source_id, "ok", None)
@@ -54,8 +61,8 @@ async def sync_source(source_id: int, job_id: int | None = None, progress_index:
         raise
 
 
-async def sync_all_sources(job_id: int | None = None) -> dict[str, Any]:
-    sources = [source for source in list_data_sources() if source.get("enabled")]
+async def sync_all_sources(job_id: int | None = None, user_id: str = LOCAL_USER_ID) -> dict[str, Any]:
+    sources = [source for source in list_data_sources(user_id=user_id) if source.get("enabled")]
     results: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
 
@@ -65,7 +72,7 @@ async def sync_all_sources(job_id: int | None = None) -> dict[str, Any]:
 
     for index, source in enumerate(sources, start=1):
         try:
-            results.append(await sync_source(int(source["id"]), job_id=job_id, progress_index=index, progress_total=len(sources)))
+            results.append(await sync_source(int(source["id"]), job_id=job_id, progress_index=index, progress_total=len(sources), user_id=user_id))
         except Exception as exc:
             errors.append({"source_id": source.get("id"), "name": source.get("name"), "error": str(exc)})
 
