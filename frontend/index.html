@@ -183,6 +183,7 @@
         <div class="toolbar">
           <button id="applyFiltersBtn">Filtreleri uygula</button>
           <button id="clearFiltersBtn" class="secondary">Temizle</button>
+          <button id="saveSearchBtn" class="secondary">Bu aramayı kaydet</button>
           <button id="makeLinksBtn">Resmî arama linkleri oluştur</button>
           <select id="sortMode">
             <option value="newest">En yeni</option>
@@ -192,6 +193,11 @@
             <option value="m2_price_asc">m² fiyatı düşük</option>
           </select>
         </div>
+      </details>
+
+      <details class="filter-box" open>
+        <summary>Kayıtlı aramalar</summary>
+        <div id="savedSearches" class="saved-search-list"></div>
       </details>
 
       <div id="searchLinks" class="link-list"></div>
