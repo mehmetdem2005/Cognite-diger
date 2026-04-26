@@ -17,6 +17,7 @@
       <button class="tab active" data-tab="dashboard">Dashboard</button>
       <button class="tab" data-tab="firsat">Fırsat Avcısı</button>
       <button class="tab" data-tab="sources">Veri Kaynakları</button>
+      <button class="tab" data-tab="jobs">İşler</button>
       <button class="tab" data-tab="meclis">Meclis</button>
       <button class="tab" data-tab="settings">Ayarlar</button>
     </nav>
@@ -105,7 +106,7 @@
       <h2>Veri Kaynakları</h2>
       <p>Manuel giriş ana yol değil. Burada izinli JSON/RSS feed kaynaklarını ekleyip otomatik senkronize edeceğiz.</p>
       <div class="category-hint">Kaynak sadece izinli/resmî feed olmalı. Gizli scraping, CAPTCHA aşma ve kullanım şartı baypası yok.</div>
-      <div class="toolbar"><button id="syncAllSourcesBtn">Tüm Kaynakları Şimdi Senkronize Et</button></div>
+      <div class="toolbar"><button id="syncAllSourcesBtn">Tüm Kaynakları Arka Planda Senkronize Et</button></div>
       <details class="filter-box" open>
         <summary>Yeni veri kaynağı ekle</summary>
         <form id="sourceForm" class="form-grid">
@@ -117,6 +118,14 @@
         </form>
       </details>
       <div id="sourceList" class="source-grid"></div>
+    </section>
+
+    <section id="jobs" class="panel">
+      <h2>İşler</h2>
+      <p class="muted">Uzun süren kaynak senkronizasyonları burada takip edilir.</p>
+      <div class="toolbar"><button id="refreshJobsBtn">İşleri Yenile</button></div>
+      <div id="jobList" class="job-grid"></div>
+      <div id="jobDetail" class="job-detail"></div>
     </section>
 
     <section id="meclis" class="panel">
