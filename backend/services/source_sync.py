@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.database import (
+from ..database import (
     add_listing,
     add_source_item,
     get_data_source,
+    list_data_sources,
     source_item_exists,
     update_data_source_status,
 )
-from backend.scoring import score_listing
-from backend.sources.feed_adapters import fetch_source_items
+from ..scoring import score_listing
+from ..sources.feed_adapters import fetch_source_items
 
 
 async def sync_source(source_id: int) -> dict[str, Any]:
@@ -38,3 +39,25 @@ async def sync_source(source_id: int) -> dict[str, Any]:
     except Exception as exc:
         update_data_source_status(source_id, "error", str(exc))
         raise
+
+
+async def sync_all_sources() -> dict[str, Any]:
+    sources = [source for source in list_data_sources() if source.get("enabled")]
+    results: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+
+    for source in sources:
+        try:
+            results.append(await sync_source(int(source["id"])))
+        except Exception as exc:
+            errors.append({"source_id": source.get("id"), "name": source.get("name"), "error": str(exc)})
+
+    return {
+        "source_count": len(sources),
+        "success_count": len(results),
+        "error_count": len(errors),
+        "imported_count": sum(item.get("imported_count", 0) for item in results),
+        "skipped_count": sum(item.get("skipped_count", 0) for item in results),
+        "results": results,
+        "errors": errors,
+    }
