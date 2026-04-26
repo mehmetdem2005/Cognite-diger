@@ -8,12 +8,12 @@
 </head>
 <body>
   <header class="topbar">
-    <div><strong>Fırsat Avcısı</strong><span>Meclis Takip</span></div>
+    <div class="brand"><span class="brand-icon">⌂</span><div><strong>Fırsat Avcısı</strong><small>Meclis Takip</small></div></div>
     <div class="topbar-actions">
       <span id="currentUserLabel">Local kullanıcı</span>
-      <button id="authToggleBtn">Giriş / Kayıt</button>
-      <button id="logoutBtn" hidden>Çıkış</button>
-      <button id="policyBtn">Veri Politikası</button>
+      <button id="authToggleBtn" class="ghost-btn">Giriş / Kayıt</button>
+      <button id="logoutBtn" class="ghost-btn" hidden>Çıkış</button>
+      <button id="policyBtn" class="ghost-btn">Veri Politikası</button>
     </div>
   </header>
 
@@ -23,13 +23,13 @@
         <div class="auth-head"><h2>Hesap</h2><button id="closeAuthBtn">Kapat</button></div>
         <div class="auth-grid">
           <form id="loginForm" class="auth-form">
-            <h3>Giriş yap</h3>
+            <h3><span class="mini-icon">↪</span> Giriş yap</h3>
             <label class="field"><span>E-posta</span><input name="email" type="email" required autocomplete="email" /></label>
             <label class="field"><span>Şifre</span><input name="password" type="password" required autocomplete="current-password" /></label>
             <button type="submit">Giriş yap</button>
           </form>
           <form id="registerForm" class="auth-form">
-            <h3>Kayıt ol</h3>
+            <h3><span class="mini-icon">＋</span> Kayıt ol</h3>
             <label class="field"><span>Ad soyad</span><input name="full_name" autocomplete="name" /></label>
             <label class="field"><span>E-posta</span><input name="email" type="email" required autocomplete="email" /></label>
             <label class="field"><span>Şifre</span><input name="password" type="password" required minlength="8" autocomplete="new-password" /></label>
@@ -40,27 +40,26 @@
       </div>
     </section>
 
-    <nav class="tabs">
-      <button class="tab active" data-tab="dashboard">Dashboard</button>
-      <button class="tab" data-tab="firsat">Fırsat Avcısı</button>
-      <button class="tab" data-tab="sources">Veri Kaynakları</button>
-      <button class="tab" data-tab="jobs">İşler</button>
-      <button class="tab" data-tab="meclis">Meclis</button>
-      <button class="tab" data-tab="settings">Ayarlar</button>
+    <nav class="tabs" aria-label="Ana menü">
+      <button class="tab active" data-tab="dashboard"><span class="tab-ico">⌂</span><span>Dashboard</span></button>
+      <button class="tab" data-tab="firsat"><span class="tab-ico">⌕</span><span>Fırsat Avcısı</span></button>
+      <button class="tab" data-tab="sources"><span class="tab-ico">▣</span><span>Veri Kaynakları</span></button>
+      <button class="tab" data-tab="jobs"><span class="tab-ico">▤</span><span>İşler</span></button>
+      <button class="tab" data-tab="meclis"><span class="tab-ico">♜</span><span>Meclis</span></button>
+      <button class="tab" data-tab="settings"><span class="tab-ico">⚙</span><span>Ayarlar</span></button>
     </nav>
 
-    <section id="dashboard" class="panel active">
-      <h1>Temiz başlangıç hazır</h1>
-      <p>Bu repo yeni proje için sıfırdan kuruldu. İlk hedef: hukuka uygun, mobil uyumlu, kaynak adaptörlü fırsat avcısı.</p>
-      <div class="cards">
-        <div class="card"><b>İlan havuzu</b><span id="listingCount">0 kayıt</span></div>
-        <div class="card"><b>Favoriler</b><span id="favoriteCount">0 kayıt</span></div>
-        <div class="card"><b>Puanlama</b><span>Kelepir motoru aktif</span></div>
+    <section id="dashboard" class="panel active hero-panel">
+      <div class="section-head"><div><h1>Temiz başlangıç hazır</h1><p>Hukuka uygun, mobil uyumlu, kaynak adaptörlü fırsat avcısı.</p></div><button class="primary-action" data-open-tab="firsat">Fırsatları aç</button></div>
+      <div class="cards metric-cards">
+        <div class="card metric-card"><span class="metric-icon">▤</span><b>İlan havuzu</b><strong id="listingCount">0 kayıt</strong></div>
+        <div class="card metric-card"><span class="metric-icon">♥</span><b>Favoriler</b><strong id="favoriteCount">0 kayıt</strong></div>
+        <div class="card metric-card"><span class="metric-icon">🏆</span><b>Puanlama</b><strong>Kelepir motoru aktif</strong></div>
       </div>
     </section>
 
     <section id="firsat" class="panel">
-      <h2>Fırsat Avcısı</h2>
+      <div class="section-head"><div><h2>Fırsat Avcısı</h2><p>Kelepir fırsatları kaçırma.</p></div><button class="primary-action" id="quickSaveSearchBtn" type="button">Yeni arama kaydet</button></div>
       <div class="subtabs">
         <button data-category="konut" class="subtab active">Konut</button>
         <button data-category="arsa" class="subtab">Arsa</button>
@@ -69,8 +68,8 @@
       </div>
       <div class="category-hint" id="categoryHint">Konut için fiyat, m², oda, bina yaşı ve krediye uygunluk bilgileri önceliklidir.</div>
 
-      <details class="filter-box" open>
-        <summary>İlan ekle</summary>
+      <details class="filter-box compact-on-mobile" open>
+        <summary><span class="summary-icon">＋</span> İlan ekle</summary>
         <form id="listingForm" class="form-grid">
           <label class="field common-field"><span>Başlık</span><input name="title" placeholder="Örn: Seyhan'da 3+1 uygun daire" required /></label>
           <label class="field common-field"><span>Fiyat</span><input name="price" placeholder="Örn: 1250000" type="number" required /></label>
@@ -106,7 +105,7 @@
       </details>
 
       <details class="filter-box" open>
-        <summary>Filtrele ve sırala</summary>
+        <summary><span class="summary-icon">⌕</span> Filtrele ve sırala</summary>
         <div class="form-grid compact">
           <input id="filterQ" placeholder="Başlık, not veya konum ara" />
           <input id="filterCity" placeholder="Şehir" />
@@ -125,17 +124,15 @@
           </select>
         </div>
       </details>
-      <details class="filter-box" open><summary>Kayıtlı aramalar</summary><div id="savedSearches" class="saved-search-list"></div></details>
+      <details class="filter-box" open><summary><span class="summary-icon">☆</span> Kayıtlı aramalar</summary><div id="savedSearches" class="saved-search-list"></div></details>
       <div id="searchLinks" class="link-list"></div><div id="listings" class="listing-grid"></div>
     </section>
 
     <section id="sources" class="panel">
-      <h2>Veri Kaynakları</h2>
-      <p>Manuel giriş ana yol değil. Burada izinli JSON/RSS feed kaynaklarını ekleyip otomatik senkronize edeceğiz.</p>
+      <div class="section-head"><div><h2>Veri Kaynakları</h2><p>İzinli veri kaynaklarınızı yönetin.</p></div><button id="syncAllSourcesBtn" class="primary-action">Tümünü senkronize et</button></div>
       <div class="category-hint">Kaynak sadece izinli/resmî feed olmalı. Gizli scraping, CAPTCHA aşma ve kullanım şartı baypası yok.</div>
-      <div class="toolbar"><button id="syncAllSourcesBtn">Tüm Kaynakları Arka Planda Senkronize Et</button></div>
       <details class="filter-box" open>
-        <summary>Yeni veri kaynağı ekle</summary>
+        <summary><span class="summary-icon">＋</span> Yeni veri kaynağı ekle</summary>
         <form id="sourceForm" class="form-grid">
           <label class="field"><span>Kaynak adı</span><input name="name" placeholder="Örn: Yetkili Emlak Ofisi Feed" required /></label>
           <label class="field"><span>Kaynak türü</span><select name="source_type" required><option value="json_feed">JSON Feed</option><option value="rss_feed">RSS / Açık Feed</option></select></label>
@@ -148,16 +145,13 @@
     </section>
 
     <section id="jobs" class="panel">
-      <h2>İşler</h2>
-      <p class="muted">Uzun süren kaynak senkronizasyonları burada takip edilir.</p>
-      <div class="toolbar"><button id="refreshJobsBtn">İşleri Yenile</button></div>
+      <div class="section-head"><div><h2>İşler</h2><p>Arka planda çalışan görevler.</p></div><button id="refreshJobsBtn" class="primary-action">Yenile</button></div>
       <div id="jobList" class="job-grid"></div>
       <div id="jobDetail" class="job-detail"></div>
     </section>
 
     <section id="meclis" class="panel">
-      <h2>Meclis Takip</h2>
-      <p class="muted">PDF yükle veya karar metnini yapıştır. Sistem anahtar kelimeleri bulup geçtiği bağlamı gösterir.</p>
+      <div class="section-head"><div><h2>Meclis Takip</h2><p>PDF veya karar metni taraması.</p></div></div>
       <form id="meclisForm" class="form-grid">
         <label class="field"><span>Belediye adı</span><input name="municipality_name" placeholder="Örn: Seyhan Belediyesi" /></label>
         <label class="field"><span>Anahtar kelimeler</span><input name="keywords" placeholder="imar, parsel, ada, mahalle" required /></label>
@@ -170,10 +164,10 @@
     </section>
 
     <section id="settings" class="panel">
-      <h2>Ayarlar</h2>
+      <div class="section-head"><div><h2>Ayarlar</h2><p>Uygulama ayarlarını yönetin.</p></div></div>
       <div class="settings-grid">
-        <div class="setting-card"><h3>Hesap</h3><p id="settingsUserText">Local kullanıcı ile çalışıyorsun.</p><button id="settingsAuthBtn" class="wide-btn">Giriş / Kayıt</button></div>
-        <div class="setting-card"><h3>Yedekleme</h3><p>İlan havuzunu dışa aktar veya daha önce aldığın JSON yedeğini geri yükle.</p><div class="toolbar"><a class="button-link" href="/api/export/listings.json" download>JSON indir</a><a class="button-link secondary" href="/api/export/listings.csv" download>CSV indir</a></div><label class="field full"><span>JSON yedeği içe aktar</span><input id="importJsonInput" type="file" accept="application/json,.json" /></label><button id="importJsonBtn" class="wide-btn">Yedeği içe aktar</button></div>
+        <div class="setting-card"><span class="metric-icon">◎</span><h3>Hesap</h3><p id="settingsUserText">Local kullanıcı ile çalışıyorsun.</p><button id="settingsAuthBtn" class="wide-btn">Giriş / Kayıt</button></div>
+        <div class="setting-card"><span class="metric-icon">⇩</span><h3>Yedekleme</h3><p>İlan havuzunu dışa aktar veya daha önce aldığın JSON yedeğini geri yükle.</p><div class="toolbar"><a class="button-link" href="/api/export/listings.json" download>JSON indir</a><a class="button-link secondary" href="/api/export/listings.csv" download>CSV indir</a></div><label class="field full"><span>JSON yedeği içe aktar</span><input id="importJsonInput" type="file" accept="application/json,.json" /></label><button id="importJsonBtn" class="wide-btn">Yedeği içe aktar</button></div>
       </div>
     </section>
   </main>
