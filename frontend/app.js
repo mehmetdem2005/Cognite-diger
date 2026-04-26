@@ -1,8 +1,11 @@
 let activeCategory = 'konut';
 let activeJobPoll = null;
+let currentUser = null;
 
 const $ = (q) => document.querySelector(q);
 const $$ = (q) => [...document.querySelectorAll(q)];
+
+const AUTH_TOKEN_KEY = 'firsat_auth_token';
 
 const categoryHints = {
   konut: 'Konut için fiyat, m², oda, bina yaşı ve krediye uygunluk bilgileri önceliklidir.',
@@ -15,7 +18,54 @@ const categoryLabels = { konut: 'Konut', arsa: 'Arsa', isyeri: 'İşyeri / Ofis'
 const sourceTypeLabels = { json_feed: 'JSON Feed', rss_feed: 'RSS / Açık Feed' };
 const jobStatusLabels = { queued: 'Sırada', running: 'Çalışıyor', succeeded: 'Tamamlandı', failed: 'Hata' };
 
+function getToken() { return localStorage.getItem(AUTH_TOKEN_KEY); }
+function setToken(token) { localStorage.setItem(AUTH_TOKEN_KEY, token); }
+function clearToken() { localStorage.removeItem(AUTH_TOKEN_KEY); }
+
 function showToast(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; setTimeout(() => { toast.hidden = true; }, 2600); }
+function showAuthPanel() { $('#authPanel').hidden = false; }
+function hideAuthPanel() { $('#authPanel').hidden = true; }
+
+function updateAuthUi(user) {
+  currentUser = user;
+  const isLocal = !getToken() || user?.id === 'local';
+  const label = user?.email || 'local@app';
+  $('#currentUserLabel').textContent = isLocal ? 'Local kullanıcı' : label;
+  $('#logoutBtn').hidden = isLocal;
+  $('#authToggleBtn').hidden = !isLocal;
+  $('#settingsUserText').textContent = isLocal ? 'Local kullanıcı ile çalışıyorsun. Giriş yaparsan verilerin hesabına ayrılır.' : `${label} hesabıyla çalışıyorsun.`;
+  $('#settingsAuthBtn').textContent = isLocal ? 'Giriş / Kayıt' : 'Hesabı değiştir';
+}
+
+async function refreshAllData() {
+  await Promise.allSettled([loadListings(), loadSavedSearches(), loadSources(), loadJobs()]);
+}
+
+async function loadCurrentUser() {
+  try {
+    const user = await api('/api/auth/me');
+    updateAuthUi(user);
+  } catch (err) {
+    clearToken();
+    updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' });
+  }
+}
+
+async function api(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  const isFormData = options.body instanceof FormData;
+  if (!isFormData && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const token = getToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const res = await fetch(path, { ...options, headers });
+  if (res.status === 401) {
+    clearToken();
+    updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' });
+    throw new Error('Oturum süresi dolmuş. Tekrar giriş yap.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
 
 function syncCategoryFields() {
   $('#categoryHint').textContent = categoryHints[activeCategory] || '';
@@ -38,12 +88,6 @@ function bindTabs() {
     if (btn.dataset.tab === 'jobs') loadJobs();
   }));
   $$('.subtab').forEach(btn => btn.addEventListener('click', () => { setActiveCategory(btn.dataset.category); loadListings(); loadSavedSearches(); }));
-}
-
-async function api(path, options = {}) {
-  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
 }
 
 function formDataToObject(form) { return Object.fromEntries(new FormData(form).entries()); }
@@ -212,8 +256,56 @@ function bindJobs() {
 function parseKeywords(value) { return (value || '').split(',').map(x => x.trim()).filter(Boolean); }
 function renderMeclisResult(result) { $('#meclisSummary').hidden = false; $('#meclisSummary').innerHTML = `<b>${result.matched_keywords} anahtar kelime eşleşti</b><span>${result.total_hits} toplam eşleşme · ${result.text_length} karakter</span>${result.pdf ? `<span>PDF: ${result.pdf.filename} · ${result.pdf.page_count} sayfa${result.pdf.needs_ocr ? ' · OCR gerekebilir' : ''}</span>` : ''}`; const rows = result.keywords || []; if (!rows.length) { $('#meclisResults').innerHTML = '<div class="empty-state"><b>Anahtar kelime yok.</b></div>'; return; } $('#meclisResults').innerHTML = rows.map(row => `<article class="meclis-card ${row.found ? 'hit' : 'miss'}"><div class="meclis-card-head"><b>${row.keyword}</b><span>${row.count} eşleşme</span></div>${row.contexts?.length ? row.contexts.map(ctx => `<p>${ctx}</p>`).join('') : '<p class="muted">Bu kelime bulunamadı.</p>'}</article>`).join(''); }
 async function scanMeclisText(e) { e.preventDefault(); const raw = formDataToObject(e.currentTarget); const keywords = parseKeywords(raw.keywords); if (!raw.text?.trim()) { showToast('Metin alanı boş. PDF taramak için PDF butonunu kullan.'); return; } const result = await api('/api/meclis/scan', { method: 'POST', body: JSON.stringify({ municipality_name: raw.municipality_name || '', keywords, text: raw.text }) }); renderMeclisResult(result); showToast('Metin tarandı.'); }
-async function scanMeclisPdf() { const form = $('#meclisForm'); const raw = formDataToObject(form); const file = $('#meclisPdfInput').files?.[0]; const keywords = parseKeywords(raw.keywords); if (!file) { showToast('Önce PDF seç.'); return; } if (!keywords.length) { showToast('En az bir anahtar kelime gir.'); return; } const data = new FormData(); data.append('file', file); data.append('keywords_json', JSON.stringify(keywords)); data.append('municipality_name', raw.municipality_name || ''); const res = await fetch('/api/meclis/scan-pdf', { method: 'POST', body: data }); if (!res.ok) { showToast(await res.text()); return; } const result = await res.json(); renderMeclisResult(result); showToast('PDF tarandı.'); }
+async function scanMeclisPdf() { const form = $('#meclisForm'); const raw = formDataToObject(form); const file = $('#meclisPdfInput').files?.[0]; const keywords = parseKeywords(raw.keywords); if (!file) { showToast('Önce PDF seç.'); return; } if (!keywords.length) { showToast('En az bir anahtar kelime gir.'); return; } const data = new FormData(); data.append('file', file); data.append('keywords_json', JSON.stringify(keywords)); data.append('municipality_name', raw.municipality_name || ''); const res = await fetch('/api/meclis/scan-pdf', { method: 'POST', body: data, headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} }); if (!res.ok) { showToast(await res.text()); return; } const result = await res.json(); renderMeclisResult(result); showToast('PDF tarandı.'); }
 function bindMeclis() { $('#meclisForm').addEventListener('submit', scanMeclisText); $('#scanPdfBtn').addEventListener('click', scanMeclisPdf); }
 function bindPolicy() { $('#policyBtn').addEventListener('click', async () => { const policy = await api('/api/policy'); alert(policy.scraping + '\n\nİzinli yollar:\n- ' + policy.allowed_sources.join('\n- ')); }); }
 
-bindTabs(); bindListingForm(); bindSavedSearches(); bindBackupControls(); bindSources(); bindJobs(); bindMeclis(); bindPolicy(); syncCategoryFields(); loadListings(); loadSavedSearches(); loadSources(); loadJobs();
+async function handleLogin(e) {
+  e.preventDefault();
+  const raw = formDataToObject(e.currentTarget);
+  try {
+    const result = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: raw.email, password: raw.password }) });
+    setToken(result.token);
+    updateAuthUi(result.user);
+    hideAuthPanel();
+    e.currentTarget.reset();
+    showToast('Giriş yapıldı.');
+    await refreshAllData();
+  } catch (err) {
+    showToast('Giriş başarısız. Bilgileri kontrol et.');
+  }
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  const raw = formDataToObject(e.currentTarget);
+  try {
+    const result = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email: raw.email, password: raw.password, full_name: raw.full_name || null }) });
+    setToken(result.token);
+    updateAuthUi(result.user);
+    hideAuthPanel();
+    e.currentTarget.reset();
+    showToast('Kayıt oluşturuldu ve giriş yapıldı.');
+    await refreshAllData();
+  } catch (err) {
+    showToast('Kayıt başarısız. E-posta kullanılıyor olabilir veya şifre kısa olabilir.');
+  }
+}
+
+async function handleLogout() {
+  clearToken();
+  updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' });
+  showToast('Çıkış yapıldı. Local kullanıcıya geçildi.');
+  await refreshAllData();
+}
+
+function bindAuth() {
+  $('#authToggleBtn').addEventListener('click', showAuthPanel);
+  $('#settingsAuthBtn').addEventListener('click', showAuthPanel);
+  $('#closeAuthBtn').addEventListener('click', hideAuthPanel);
+  $('#loginForm').addEventListener('submit', handleLogin);
+  $('#registerForm').addEventListener('submit', handleRegister);
+  $('#logoutBtn').addEventListener('click', handleLogout);
+}
+
+bindTabs(); bindAuth(); bindListingForm(); bindSavedSearches(); bindBackupControls(); bindSources(); bindJobs(); bindMeclis(); bindPolicy(); syncCategoryFields(); loadCurrentUser().then(refreshAllData);
