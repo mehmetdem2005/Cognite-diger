@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fırsat Avcısı + Meclis Takip</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <strong>Fırsat Avcısı</strong>
+      <span>Meclis Takip</span>
+    </div>
+    <button id="policyBtn">Veri Politikası</button>
+  </header>
+
+  <main class="shell">
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="firsat">Fırsat Avcısı</button>
+      <button class="tab" data-tab="sources">Veri Kaynakları</button>
+      <button class="tab" data-tab="meclis">Meclis</button>
+      <button class="tab" data-tab="settings">Ayarlar</button>
+    </nav>
+
+    <section id="dashboard" class="panel active">
+      <h1>Temiz başlangıç hazır</h1>
+      <p>Bu repo yeni proje için sıfırdan kuruldu. İlk hedef: hukuka uygun, mobil uyumlu, kaynak adaptörlü fırsat avcısı.</p>
+      <div class="cards">
+        <div class="card"><b>İlan havuzu</b><span id="listingCount">0 kayıt</span></div>
+        <div class="card"><b>Veri modu</b><span>Resmî / kullanıcı onaylı</span></div>
+        <div class="card"><b>Puanlama</b><span>Kelepir motoru aktif</span></div>
+      </div>
+    </section>
+
+    <section id="firsat" class="panel">
+      <h2>Fırsat Avcısı</h2>
+      <div class="subtabs">
+        <button data-category="konut" class="subtab active">Konut</button>
+        <button data-category="arsa" class="subtab">Arsa</button>
+        <button data-category="isyeri" class="subtab">İşyeri / Ofis</button>
+        <button data-category="arac" class="subtab">Araç</button>
+      </div>
+
+      <form id="listingForm" class="form-grid">
+        <input name="title" placeholder="İlan başlığı" required />
+        <input name="price" placeholder="Fiyat" type="number" required />
+        <input name="city" placeholder="Şehir" />
+        <input name="district" placeholder="İlçe" />
+        <input name="neighborhood" placeholder="Mahalle" />
+        <input name="listing_url" placeholder="İlan linki" />
+        <input name="image_url" placeholder="Görsel linki" />
+        <input name="m2" placeholder="m2 / metrekare" />
+        <input name="yil" placeholder="Araç yılı" />
+        <input name="km" placeholder="Araç km" />
+        <textarea name="notes" placeholder="Not"></textarea>
+        <button type="submit">İlanı havuza ekle</button>
+      </form>
+
+      <div class="toolbar">
+        <button id="makeLinksBtn">Resmî arama linkleri oluştur</button>
+        <select id="sortMode">
+          <option value="newest">En yeni</option>
+          <option value="price_asc">En ucuz</option>
+          <option value="price_desc">En pahalı</option>
+          <option value="score_desc">En iyi fırsat</option>
+        </select>
+      </div>
+
+      <div id="searchLinks" class="link-list"></div>
+      <div id="listings" class="listing-grid"></div>
+    </section>
+
+    <section id="sources" class="panel">
+      <h2>Veri Kaynakları</h2>
+      <p>Bu sistem izinsiz scraping yapmaz. Tam otomatik veri için resmî API, veri feed'i veya iş ortaklığı adaptörü gerekir.</p>
+      <ul class="policy-list">
+        <li>Resmî API: uygun</li>
+        <li>Partner feed: uygun</li>
+        <li>Manuel kullanıcı kaydı: uygun</li>
+        <li>Gizli HTML kazıma: yok</li>
+        <li>CAPTCHA aşma: yok</li>
+      </ul>
+    </section>
+
+    <section id="meclis" class="panel">
+      <h2>Meclis Takip</h2>
+      <form id="meclisForm" class="form-grid">
+        <input name="municipality_name" placeholder="Belediye adı" required />
+        <input name="municipality_url" placeholder="Belediye karar sayfası" />
+        <textarea name="keywords" placeholder="Anahtar kelimeler: imar, parsel, ada..."></textarea>
+        <button type="submit">Tarama iskeletini test et</button>
+      </form>
+      <pre id="meclisResult"></pre>
+    </section>
+
+    <section id="settings" class="panel">
+      <h2>Ayarlar</h2>
+      <p>Groq API, bildirim, PWA ve veri dışa aktarma ayarları sonraki fazda eklenecek.</p>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

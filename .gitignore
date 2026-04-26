@@ -1,7 +1,12 @@
-node_modules
-.next
+__pycache__/
+*.py[cod]
+.venv/
 .env
 .env.local
+data/*.db
+data/*.sqlite
+node_modules/
+dist/
+build/
 .DS_Store
-coverage
 *.log
