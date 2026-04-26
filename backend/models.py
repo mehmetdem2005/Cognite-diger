@@ -48,6 +48,15 @@ class SavedSearchOut(SavedSearchIn):
     updated_at: str | None = None
 
 
+class ImportListingsRequest(BaseModel):
+    listings: list[ListingIn] = Field(default_factory=list)
+
+
+class ImportListingsResult(BaseModel):
+    imported_count: int
+    skipped_count: int = 0
+
+
 class SearchLinkRequest(BaseModel):
     category: Category
     city: str = ""
