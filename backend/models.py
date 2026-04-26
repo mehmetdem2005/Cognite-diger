@@ -34,6 +34,20 @@ class FavoriteUpdate(BaseModel):
     is_favorite: bool
 
 
+class SavedSearchIn(BaseModel):
+    name: str = Field(min_length=1)
+    category: Category
+    filters: dict[str, Any] = Field(default_factory=dict)
+    sort_mode: SortMode = "newest"
+    notification_enabled: bool = False
+
+
+class SavedSearchOut(SavedSearchIn):
+    id: int
+    created_at: str
+    updated_at: str | None = None
+
+
 class SearchLinkRequest(BaseModel):
     category: Category
     city: str = ""
