@@ -3,21 +3,23 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from ..auth import LOCAL_USER_ID
 from ..db.connection import get_conn
 from .decoders import decode_listing
 
 
-def add_listing(data: dict[str, Any], score: float, risk_level: str, score_reasons: list[str]) -> int:
+def add_listing(data: dict[str, Any], score: float, risk_level: str, score_reasons: list[str], user_id: str = LOCAL_USER_ID) -> int:
     with get_conn() as conn:
         cur = conn.execute(
             """
             INSERT INTO listings (
-                source, category, title, price, currency, city, district, neighborhood,
+                user_id, source, category, title, price, currency, city, district, neighborhood,
                 listing_url, image_url, properties_json, contact_json, notes, score, risk_level,
                 score_reasons_json, is_favorite
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                user_id,
                 data.get("source", "manual"),
                 data.get("category"),
                 data.get("title"),
@@ -49,11 +51,12 @@ def list_listings(
     favorites_only: bool = False,
     min_price: float | None = None,
     max_price: float | None = None,
+    user_id: str = LOCAL_USER_ID,
 ) -> list[dict[str, Any]]:
     order_map = {"newest": "created_at DESC", "price_asc": "price ASC", "price_desc": "price DESC", "score_desc": "score DESC"}
     order_by = order_map.get(sort, "created_at DESC")
-    where: list[str] = []
-    params: list[Any] = []
+    where: list[str] = ["user_id = ?"]
+    params: list[Any] = [user_id]
 
     if category:
         where.append("category = ?")
@@ -77,9 +80,7 @@ def list_listings(
         where.append("price <= ?")
         params.append(max_price)
 
-    query = "SELECT * FROM listings"
-    if where:
-        query += " WHERE " + " AND ".join(where)
+    query = "SELECT * FROM listings WHERE " + " AND ".join(where)
     query += f" ORDER BY {order_by}"
 
     with get_conn() as conn:
@@ -96,23 +97,23 @@ def list_listings(
     return items
 
 
-def get_listing(listing_id: int) -> dict[str, Any] | None:
+def get_listing(listing_id: int, user_id: str = LOCAL_USER_ID) -> dict[str, Any] | None:
     with get_conn() as conn:
-        row = conn.execute("SELECT * FROM listings WHERE id = ?", (listing_id,)).fetchone()
+        row = conn.execute("SELECT * FROM listings WHERE id = ? AND user_id = ?", (listing_id, user_id)).fetchone()
         return decode_listing(row) if row else None
 
 
-def set_favorite(listing_id: int, is_favorite: bool) -> dict[str, Any] | None:
+def set_favorite(listing_id: int, is_favorite: bool, user_id: str = LOCAL_USER_ID) -> dict[str, Any] | None:
     with get_conn() as conn:
         conn.execute(
-            "UPDATE listings SET is_favorite = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (1 if is_favorite else 0, listing_id),
+            "UPDATE listings SET is_favorite = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
+            (1 if is_favorite else 0, listing_id, user_id),
         )
-        row = conn.execute("SELECT * FROM listings WHERE id = ?", (listing_id,)).fetchone()
+        row = conn.execute("SELECT * FROM listings WHERE id = ? AND user_id = ?", (listing_id, user_id)).fetchone()
         return decode_listing(row) if row else None
 
 
-def delete_listing(listing_id: int) -> bool:
+def delete_listing(listing_id: int, user_id: str = LOCAL_USER_ID) -> bool:
     with get_conn() as conn:
-        cur = conn.execute("DELETE FROM listings WHERE id = ?", (listing_id,))
+        cur = conn.execute("DELETE FROM listings WHERE id = ? AND user_id = ?", (listing_id, user_id))
         return cur.rowcount > 0
