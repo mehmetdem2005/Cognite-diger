@@ -122,6 +122,7 @@ http://127.0.0.1:8000
 
 ```txt
 ENVIRONMENT=production
+LOG_LEVEL=INFO
 CORS_ALLOWED_ORIGINS=https://senin-domainin.com
 CORS_ALLOW_CREDENTIALS=false
 ENABLE_SCHEDULER=true
@@ -131,6 +132,26 @@ DATABASE_PATH=data/app.db
 ```
 
 Production'da `CORS_ALLOWED_ORIGINS=*` kullanmak yerine gerçek domain yazılmalıdır.
+
+## Gözlemlenebilirlik
+
+Uygulama production için temel gözlemlenebilirlik içerir:
+
+```txt
+/api/health       Basit canlılık kontrolü
+/api/ready        Veritabanı dahil hazırlık kontrolü
+X-Request-ID      Her response içinde döner
+JSON log          Request, job ve scheduler olayları JSON formatında loglanır
+LOG_LEVEL         INFO / DEBUG / WARNING / ERROR gibi ayarlanabilir
+```
+
+İstemci kendi request id değerini gönderebilir:
+
+```txt
+X-Request-ID: my-trace-id
+```
+
+Gönderilmezse uygulama otomatik üretir.
 
 ## Scheduler
 
@@ -191,9 +212,8 @@ PDF için sabit MB limiti yoktur. Gerçek sınır, sunucunun RAM/disk/timeout ka
 
 ## Sonraki aşamalar
 
-1. Production gözlemlenebilirlik
-2. PostgreSQL geçiş hazırlığı
-3. E-posta alarmı adaptörü
-4. Groq analiz modülü
-5. PWA / Android wrapper
-6. Frontend modülerleşme
+1. PostgreSQL geçiş hazırlığı
+2. E-posta alarmı adaptörü
+3. Groq analiz modülü
+4. PWA / Android wrapper
+5. Frontend modülerleşme
