@@ -14,7 +14,8 @@ const categoryHints = {
   arac: 'Araç için marka, model, yıl, kilometre ve hasar kaydı bilgileri önceliklidir.',
 };
 
-const categoryLabels = { konut: 'Konut', arsa: 'Arsa', isyeri: 'İşyeri / Ofis', arac: 'Araç' };
+const categoryLabels = { konut: 'Konut', arsa: 'Arsa', isyeri: 'İş Yeri', arac: 'Araç' };
+const categoryIcons = { konut: '⌂', arsa: '◇', isyeri: '▦', arac: '◉' };
 const sourceTypeLabels = { json_feed: 'JSON Feed', rss_feed: 'RSS / Açık Feed' };
 const jobStatusLabels = { queued: 'Sırada', running: 'Çalışıyor', succeeded: 'Tamamlandı', failed: 'Hata' };
 
@@ -37,18 +38,10 @@ function updateAuthUi(user) {
   $('#settingsAuthBtn').textContent = isLocal ? 'Giriş / Kayıt' : 'Hesabı değiştir';
 }
 
-async function refreshAllData() {
-  await Promise.allSettled([loadListings(), loadSavedSearches(), loadSources(), loadJobs()]);
-}
-
+async function refreshAllData() { await Promise.allSettled([loadListings(), loadSavedSearches(), loadSources(), loadJobs()]); }
 async function loadCurrentUser() {
-  try {
-    const user = await api('/api/auth/me');
-    updateAuthUi(user);
-  } catch (err) {
-    clearToken();
-    updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' });
-  }
+  try { const user = await api('/api/auth/me'); updateAuthUi(user); }
+  catch (err) { clearToken(); updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' }); }
 }
 
 async function api(path, options = {}) {
@@ -79,15 +72,16 @@ function syncCategoryFields() {
 function setActiveCategory(category) { activeCategory = category; $$('.subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.category === category)); syncCategoryFields(); }
 
 function bindTabs() {
-  $$('.tab').forEach(btn => btn.addEventListener('click', () => {
-    $$('.tab').forEach(b => b.classList.remove('active'));
-    $$('.panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    $('#' + btn.dataset.tab).classList.add('active');
-    if (btn.dataset.tab === 'sources') loadSources();
-    if (btn.dataset.tab === 'jobs') loadJobs();
-  }));
+  $$('.tab').forEach(btn => btn.addEventListener('click', () => openTab(btn.dataset.tab)));
+  $$('[data-open-tab]').forEach(btn => btn.addEventListener('click', () => openTab(btn.dataset.openTab)));
   $$('.subtab').forEach(btn => btn.addEventListener('click', () => { setActiveCategory(btn.dataset.category); loadListings(); loadSavedSearches(); }));
+}
+
+function openTab(tabName) {
+  $$('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+  $$('.panel').forEach(p => p.classList.toggle('active', p.id === tabName));
+  if (tabName === 'sources') loadSources();
+  if (tabName === 'jobs') loadJobs();
 }
 
 function formDataToObject(form) { return Object.fromEntries(new FormData(form).entries()); }
@@ -120,12 +114,19 @@ async function updateCounts() { const all = await api('/api/listings'); const fa
 async function loadListings() {
   const items = await api(`/api/listings?${buildQueryParams()}`); await updateCounts();
   if (!items.length) { $('#listings').innerHTML = `<div class="empty-state"><b>Bu kategoride ilan bulunamadı.</b><p>İlk ilanı ekleyebilir, filtreleri temizleyebilir veya resmî arama linki oluşturabilirsin.</p></div>`; return; }
-  $('#listings').innerHTML = items.map(item => `<article class="listing">${item.image_url ? `<img src="${item.image_url}" alt="${item.title}">` : `<div class="image-placeholder">Görsel yok</div>`}<div class="listing-body"><div class="listing-head"><h3>${item.title}</h3><button class="icon-btn" data-action="favorite" data-id="${item.id}" data-current="${item.is_favorite}">${item.is_favorite ? '★' : '☆'}</button></div><div class="price">${Number(item.price).toLocaleString('tr-TR')} ${item.currency}</div><p>${[item.city, item.district, item.neighborhood].filter(Boolean).join(' / ') || 'Konum yok'}</p><p class="property-line">${renderProperties(item) || 'Kategori özelliği yok'}</p><span class="score">${item.score} · ${item.risk_level}</span><details class="score-details"><summary>Puan nedenleri</summary>${renderReasons(item.score_reasons)}</details><div class="listing-actions">${item.listing_url ? `<a href="${item.listing_url}" target="_blank" rel="noopener">İlanı aç</a>` : ''}<button class="danger-link" data-action="delete" data-id="${item.id}">Sil</button></div></div></article>`).join('');
+  $('#listings').innerHTML = items.map(item => {
+    const cat = categoryLabels[item.category] || item.category;
+    const catIcon = categoryIcons[item.category] || '•';
+    return `<article class="listing">
+      <div class="listing-media">${item.image_url ? `<img src="${item.image_url}" alt="${item.title}">` : `<div class="image-placeholder">Görsel yok</div>`}<span class="score-pill">${Math.round(item.score)}</span><button class="heart-btn" data-action="favorite" data-id="${item.id}" data-current="${item.is_favorite}">${item.is_favorite ? '♥' : '♡'}</button></div>
+      <div class="listing-body"><span class="category-chip">${catIcon} ${cat}</span><h3>${item.title}</h3><p class="location-line">${[item.city, item.district, item.neighborhood].filter(Boolean).join(' / ') || 'Konum yok'}</p><p class="property-line">${renderProperties(item) || 'Kategori özelliği yok'}</p><div class="price">${Number(item.price).toLocaleString('tr-TR')} ${item.currency}</div><small class="unit-price">${item.risk_level}</small><details class="score-details"><summary>Puan nedenleri</summary>${renderReasons(item.score_reasons)}</details><div class="listing-actions">${item.listing_url ? `<a href="${item.listing_url}" target="_blank" rel="noopener">İlanı aç ↗</a>` : ''}<button class="danger-link" data-action="delete" data-id="${item.id}">Sil</button></div></div>
+    </article>`;
+  }).join('');
 }
 
-async function loadSavedSearches() { const items = await api(`/api/saved-searches?category=${activeCategory}`); if (!items.length) { $('#savedSearches').innerHTML = '<div class="empty-mini">Bu kategori için kayıtlı arama yok.</div>'; return; } $('#savedSearches').innerHTML = items.map(item => `<div class="saved-search-card"><div><b>${item.name}</b><span>${categoryLabels[item.category] || item.category} · ${item.sort_mode}</span></div><div class="saved-actions"><button data-search-action="load" data-id="${item.id}">Yükle</button><button data-search-action="delete" data-id="${item.id}" class="danger-small">Sil</button></div></div>`).join(''); }
+async function loadSavedSearches() { const items = await api(`/api/saved-searches?category=${activeCategory}`); if (!items.length) { $('#savedSearches').innerHTML = '<div class="empty-mini">Bu kategori için kayıtlı arama yok.</div>'; return; } $('#savedSearches').innerHTML = items.map(item => `<div class="saved-search-card"><span class="metric-icon small">⌕</span><div><b>${item.name}</b><span>${categoryLabels[item.category] || item.category} · ${item.sort_mode}</span></div><div class="saved-actions"><button data-search-action="load" data-id="${item.id}">Yükle</button><button data-search-action="delete" data-id="${item.id}" class="danger-small">Sil</button></div></div>`).join(''); }
 async function saveCurrentSearch() { const name = prompt('Bu aramaya isim ver:', `${categoryLabels[activeCategory]} aramam`); if (!name || !name.trim()) return; await api('/api/saved-searches', { method: 'POST', body: JSON.stringify({ name: name.trim(), category: activeCategory, filters: currentFilters(), sort_mode: $('#sortMode').value, notification_enabled: false }) }); showToast('Arama kaydedildi.'); await loadSavedSearches(); }
-function bindSavedSearches() { $('#saveSearchBtn').addEventListener('click', saveCurrentSearch); $('#savedSearches').addEventListener('click', async (e) => { const target = e.target.closest('[data-search-action]'); if (!target) return; const id = target.dataset.id; if (target.dataset.searchAction === 'load') { const saved = await api(`/api/saved-searches/${id}`); setActiveCategory(saved.category); applyFilters(saved.filters, saved.sort_mode); await loadListings(); await loadSavedSearches(); showToast('Kayıtlı arama yüklendi.'); } if (target.dataset.searchAction === 'delete') { if (!confirm('Kayıtlı arama silinsin mi?')) return; await api(`/api/saved-searches/${id}`, { method: 'DELETE' }); showToast('Kayıtlı arama silindi.'); await loadSavedSearches(); } }); }
+function bindSavedSearches() { $('#saveSearchBtn').addEventListener('click', saveCurrentSearch); const quick = $('#quickSaveSearchBtn'); if (quick) quick.addEventListener('click', saveCurrentSearch); $('#savedSearches').addEventListener('click', async (e) => { const target = e.target.closest('[data-search-action]'); if (!target) return; const id = target.dataset.id; if (target.dataset.searchAction === 'load') { const saved = await api(`/api/saved-searches/${id}`); setActiveCategory(saved.category); applyFilters(saved.filters, saved.sort_mode); await loadListings(); await loadSavedSearches(); showToast('Kayıtlı arama yüklendi.'); } if (target.dataset.searchAction === 'delete') { if (!confirm('Kayıtlı arama silinsin mi?')) return; await api(`/api/saved-searches/${id}`, { method: 'DELETE' }); showToast('Kayıtlı arama silindi.'); await loadSavedSearches(); } }); }
 
 async function importListingsFromJsonFile() { const file = $('#importJsonInput').files?.[0]; if (!file) { showToast('Önce bir JSON dosyası seç.'); return; } const text = await file.text(); let parsed; try { parsed = JSON.parse(text); } catch { showToast('JSON dosyası okunamadı.'); return; } const listings = Array.isArray(parsed) ? parsed : parsed.listings; if (!Array.isArray(listings)) { showToast('Yedek dosyasında listings listesi yok.'); return; } const normalized = listings.map(item => ({ source: item.source || 'manual', category: item.category, title: item.title, price: Number(item.price || 0), currency: item.currency || 'TRY', city: item.city || '', district: item.district || '', neighborhood: item.neighborhood || '', listing_url: item.listing_url || null, image_url: item.image_url || null, properties: item.properties || {}, contact: item.contact || {}, notes: item.notes || '', is_favorite: Boolean(item.is_favorite) })); const result = await api('/api/import/listings', { method: 'POST', body: JSON.stringify({ listings: normalized }) }); showToast(`${result.imported_count} ilan içe aktarıldı.`); $('#importJsonInput').value = ''; await loadListings(); }
 function bindBackupControls() { $('#importJsonBtn').addEventListener('click', importListingsFromJsonFile); }
@@ -137,121 +138,27 @@ function bindListingForm() {
   $('#listings').addEventListener('click', async (e) => { const target = e.target.closest('[data-action]'); if (!target) return; const id = target.dataset.id; if (target.dataset.action === 'favorite') { const current = target.dataset.current === 'true'; await api(`/api/listings/${id}/favorite`, { method: 'PATCH', body: JSON.stringify({ is_favorite: !current }) }); showToast(!current ? 'Favorilere eklendi.' : 'Favorilerden çıkarıldı.'); await loadListings(); } if (target.dataset.action === 'delete') { if (!confirm('Bu ilan silinsin mi?')) return; await api(`/api/listings/${id}`, { method: 'DELETE' }); showToast('İlan silindi.'); await loadListings(); } });
 }
 
-function sourceStatusText(source) {
-  const status = source.last_status || 'never_run';
-  if (status === 'ok') return `Son durum: başarılı${source.last_synced_at ? ' · ' + source.last_synced_at : ''}`;
-  if (status === 'error') return `Son durum: hata · ${source.last_error || 'bilinmeyen hata'}`;
-  return 'Henüz senkronize edilmedi.';
-}
+function sourceStatusText(source) { const status = source.last_status || 'never_run'; if (status === 'ok') return `Son durum: başarılı${source.last_synced_at ? ' · ' + source.last_synced_at : ''}`; if (status === 'error') return `Son durum: hata · ${source.last_error || 'bilinmeyen hata'}`; return 'Henüz senkronize edilmedi.'; }
 
 async function loadSources() {
   const items = await api('/api/data-sources');
-  if (!items.length) {
-    $('#sourceList').innerHTML = '<div class="empty-state"><b>Henüz veri kaynağı yok.</b><p>İzinli JSON/RSS feed ekleyerek otomatik ilan akışını başlat.</p></div>';
-    return;
-  }
-  $('#sourceList').innerHTML = items.map(source => `<article class="source-card"><div><h3>${source.name}</h3><p>${sourceTypeLabels[source.source_type] || source.source_type} · ${categoryLabels[source.category] || source.category}</p><small>${source.url}</small><span class="source-status ${source.last_status === 'error' ? 'bad' : ''}">${sourceStatusText(source)}</span></div><div class="source-actions"><button data-source-action="sync" data-id="${source.id}">Senkronize Et</button><button data-source-action="delete" data-id="${source.id}" class="danger-small">Sil</button></div></article>`).join('');
+  if (!items.length) { $('#sourceList').innerHTML = '<div class="empty-state"><b>Henüz veri kaynağı yok.</b><p>İzinli JSON/RSS feed ekleyerek otomatik ilan akışını başlat.</p></div>'; return; }
+  $('#sourceList').innerHTML = items.map(source => `<article class="source-card"><span class="source-icon">${source.source_type === 'rss_feed' ? 'RSS' : 'JS'}</span><div><h3>${source.name}</h3><p>${sourceTypeLabels[source.source_type] || source.source_type} · ${categoryLabels[source.category] || source.category}</p><small>${source.url}</small><span class="source-status ${source.last_status === 'error' ? 'bad' : ''}">${sourceStatusText(source)}</span></div><div class="source-actions"><button data-source-action="sync" data-id="${source.id}">Senkronize Et</button><button data-source-action="delete" data-id="${source.id}" class="danger-small">Sil</button></div></article>`).join('');
 }
 
-async function syncAllSourcesNow(button) {
-  button.disabled = true;
-  button.textContent = 'İş oluşturuluyor...';
-  try {
-    const result = await api('/api/jobs/source-sync-all', { method: 'POST' });
-    showToast(`Arka plan işi oluşturuldu: #${result.job_id}`);
-    await loadJobs();
-    showJobDetail(result.job_id);
-  } catch (err) {
-    showToast('Arka plan işi oluşturulamadı.');
-  } finally {
-    button.disabled = false;
-    button.textContent = 'Tüm Kaynakları Arka Planda Senkronize Et';
-  }
-}
+async function syncAllSourcesNow(button) { button.disabled = true; button.textContent = 'İş oluşturuluyor...'; try { const result = await api('/api/jobs/source-sync-all', { method: 'POST' }); showToast(`Arka plan işi oluşturuldu: #${result.job_id}`); await loadJobs(); showJobDetail(result.job_id); } catch (err) { showToast('Arka plan işi oluşturulamadı.'); } finally { button.disabled = false; button.textContent = 'Tümünü senkronize et'; } }
 
 function bindSources() {
   $('#syncAllSourcesBtn').addEventListener('click', (e) => syncAllSourcesNow(e.currentTarget));
-  $('#sourceForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const raw = formDataToObject(e.currentTarget);
-    await api('/api/data-sources', { method: 'POST', body: JSON.stringify({ name: raw.name, source_type: raw.source_type, url: raw.url, category: raw.category, enabled: true, config: {} }) });
-    e.currentTarget.reset();
-    showToast('Veri kaynağı eklendi.');
-    await loadSources();
-  });
-  $('#sourceList').addEventListener('click', async (e) => {
-    const target = e.target.closest('[data-source-action]');
-    if (!target) return;
-    const id = target.dataset.id;
-    if (target.dataset.sourceAction === 'sync') {
-      target.disabled = true;
-      target.textContent = 'Senkronize ediliyor...';
-      try {
-        const result = await api(`/api/data-sources/${id}/sync`, { method: 'POST' });
-        showToast(`${result.imported_count} yeni ilan eklendi, ${result.skipped_count} tekrar atlandı.`);
-        await loadSources();
-        await loadListings();
-      } catch (err) {
-        showToast('Senkronizasyon başarısız. Kaynak durumunu kontrol et.');
-        await loadSources();
-      }
-    }
-    if (target.dataset.sourceAction === 'delete') {
-      if (!confirm('Veri kaynağı silinsin mi? Daha önce gelen ilanlar silinmez.')) return;
-      await api(`/api/data-sources/${id}`, { method: 'DELETE' });
-      showToast('Veri kaynağı silindi.');
-      await loadSources();
-    }
-  });
+  $('#sourceForm').addEventListener('submit', async (e) => { e.preventDefault(); const raw = formDataToObject(e.currentTarget); await api('/api/data-sources', { method: 'POST', body: JSON.stringify({ name: raw.name, source_type: raw.source_type, url: raw.url, category: raw.category, enabled: true, config: {} }) }); e.currentTarget.reset(); showToast('Veri kaynağı eklendi.'); await loadSources(); });
+  $('#sourceList').addEventListener('click', async (e) => { const target = e.target.closest('[data-source-action]'); if (!target) return; const id = target.dataset.id; if (target.dataset.sourceAction === 'sync') { target.disabled = true; target.textContent = 'Senkronize ediliyor...'; try { const result = await api(`/api/data-sources/${id}/sync`, { method: 'POST' }); showToast(`${result.imported_count} yeni ilan eklendi, ${result.skipped_count} tekrar atlandı.`); await loadSources(); await loadListings(); } catch (err) { showToast('Senkronizasyon başarısız. Kaynak durumunu kontrol et.'); await loadSources(); } } if (target.dataset.sourceAction === 'delete') { if (!confirm('Veri kaynağı silinsin mi? Daha önce gelen ilanlar silinmez.')) return; await api(`/api/data-sources/${id}`, { method: 'DELETE' }); showToast('Veri kaynağı silindi.'); await loadSources(); } });
 }
 
-function progressText(job) {
-  const total = Number(job.progress_total || 0);
-  const current = Number(job.progress_current || 0);
-  return total > 0 ? `${current}/${total}` : jobStatusLabels[job.status] || job.status;
-}
-
-function progressPercent(job) {
-  const total = Number(job.progress_total || 0);
-  if (total <= 0) return job.status === 'succeeded' ? 100 : 0;
-  return Math.min(100, Math.round((Number(job.progress_current || 0) / total) * 100));
-}
-
-async function loadJobs() {
-  const jobs = await api('/api/jobs?limit=30');
-  if (!jobs.length) {
-    $('#jobList').innerHTML = '<div class="empty-state"><b>Henüz iş yok.</b><p>Veri Kaynakları sekmesinden toplu senkronizasyon başlatabilirsin.</p></div>';
-    return;
-  }
-  $('#jobList').innerHTML = jobs.map(job => `<article class="job-card ${job.status}"><div><b>#${job.id} · ${job.title}</b><span>${jobStatusLabels[job.status] || job.status} · ${progressText(job)}</span><div class="progress"><i style="width:${progressPercent(job)}%"></i></div></div><button data-job-id="${job.id}">Detay</button></article>`).join('');
-}
-
-async function showJobDetail(jobId) {
-  const [job, events] = await Promise.all([api(`/api/jobs/${jobId}`), api(`/api/jobs/${jobId}/events`)]);
-  $('#jobDetail').innerHTML = `<div class="job-detail-card"><h3>İş #${job.id}</h3><p><b>Durum:</b> ${jobStatusLabels[job.status] || job.status}</p><p><b>İlerleme:</b> ${progressText(job)}</p>${job.error ? `<p class="danger-text"><b>Hata:</b> ${job.error}</p>` : ''}<div class="progress"><i style="width:${progressPercent(job)}%"></i></div><h4>Olaylar</h4>${events.length ? events.map(ev => `<div class="job-event ${ev.level}"><b>${ev.created_at || ''}</b><span>${ev.message}</span></div>`).join('') : '<p class="muted">Henüz olay yok.</p>'}</div>`;
-  if (activeJobPoll) clearInterval(activeJobPoll);
-  if (['queued', 'running'].includes(job.status)) {
-    activeJobPoll = setInterval(async () => {
-      await loadJobs();
-      await showJobDetail(jobId);
-      const fresh = await api(`/api/jobs/${jobId}`);
-      if (!['queued', 'running'].includes(fresh.status)) {
-        clearInterval(activeJobPoll);
-        activeJobPoll = null;
-        await loadSources();
-        await loadListings();
-      }
-    }, 2500);
-  }
-}
-
-function bindJobs() {
-  $('#refreshJobsBtn').addEventListener('click', loadJobs);
-  $('#jobList').addEventListener('click', (e) => {
-    const target = e.target.closest('[data-job-id]');
-    if (target) showJobDetail(target.dataset.jobId);
-  });
-}
+function progressText(job) { const total = Number(job.progress_total || 0); const current = Number(job.progress_current || 0); return total > 0 ? `${current}/${total}` : jobStatusLabels[job.status] || job.status; }
+function progressPercent(job) { const total = Number(job.progress_total || 0); if (total <= 0) return job.status === 'succeeded' ? 100 : 0; return Math.min(100, Math.round((Number(job.progress_current || 0) / total) * 100)); }
+async function loadJobs() { const jobs = await api('/api/jobs?limit=30'); if (!jobs.length) { $('#jobList').innerHTML = '<div class="empty-state"><b>Henüz iş yok.</b><p>Veri Kaynakları sekmesinden toplu senkronizasyon başlatabilirsin.</p></div>'; return; } $('#jobList').innerHTML = jobs.map(job => `<article class="job-card ${job.status}"><span class="source-icon">▤</span><div><b>#${job.id} · ${job.title}</b><span>${jobStatusLabels[job.status] || job.status} · ${progressText(job)}</span><div class="progress"><i style="width:${progressPercent(job)}%"></i></div></div><button data-job-id="${job.id}">Detay</button></article>`).join(''); }
+async function showJobDetail(jobId) { const [job, events] = await Promise.all([api(`/api/jobs/${jobId}`), api(`/api/jobs/${jobId}/events`)]); $('#jobDetail').innerHTML = `<div class="job-detail-card"><h3>İş #${job.id}</h3><p><b>Durum:</b> ${jobStatusLabels[job.status] || job.status}</p><p><b>İlerleme:</b> ${progressText(job)}</p>${job.error ? `<p class="danger-text"><b>Hata:</b> ${job.error}</p>` : ''}<div class="progress"><i style="width:${progressPercent(job)}%"></i></div><h4>Olaylar</h4>${events.length ? events.map(ev => `<div class="job-event ${ev.level}"><b>${ev.created_at || ''}</b><span>${ev.message}</span></div>`).join('') : '<p class="muted">Henüz olay yok.</p>'}</div>`; if (activeJobPoll) clearInterval(activeJobPoll); if (['queued', 'running'].includes(job.status)) { activeJobPoll = setInterval(async () => { await loadJobs(); await showJobDetail(jobId); const fresh = await api(`/api/jobs/${jobId}`); if (!['queued', 'running'].includes(fresh.status)) { clearInterval(activeJobPoll); activeJobPoll = null; await loadSources(); await loadListings(); } }, 2500); } }
+function bindJobs() { $('#refreshJobsBtn').addEventListener('click', loadJobs); $('#jobList').addEventListener('click', (e) => { const target = e.target.closest('[data-job-id]'); if (target) showJobDetail(target.dataset.jobId); }); }
 
 function parseKeywords(value) { return (value || '').split(',').map(x => x.trim()).filter(Boolean); }
 function renderMeclisResult(result) { $('#meclisSummary').hidden = false; $('#meclisSummary').innerHTML = `<b>${result.matched_keywords} anahtar kelime eşleşti</b><span>${result.total_hits} toplam eşleşme · ${result.text_length} karakter</span>${result.pdf ? `<span>PDF: ${result.pdf.filename} · ${result.pdf.page_count} sayfa${result.pdf.needs_ocr ? ' · OCR gerekebilir' : ''}</span>` : ''}`; const rows = result.keywords || []; if (!rows.length) { $('#meclisResults').innerHTML = '<div class="empty-state"><b>Anahtar kelime yok.</b></div>'; return; } $('#meclisResults').innerHTML = rows.map(row => `<article class="meclis-card ${row.found ? 'hit' : 'miss'}"><div class="meclis-card-head"><b>${row.keyword}</b><span>${row.count} eşleşme</span></div>${row.contexts?.length ? row.contexts.map(ctx => `<p>${ctx}</p>`).join('') : '<p class="muted">Bu kelime bulunamadı.</p>'}</article>`).join(''); }
@@ -260,52 +167,9 @@ async function scanMeclisPdf() { const form = $('#meclisForm'); const raw = form
 function bindMeclis() { $('#meclisForm').addEventListener('submit', scanMeclisText); $('#scanPdfBtn').addEventListener('click', scanMeclisPdf); }
 function bindPolicy() { $('#policyBtn').addEventListener('click', async () => { const policy = await api('/api/policy'); alert(policy.scraping + '\n\nİzinli yollar:\n- ' + policy.allowed_sources.join('\n- ')); }); }
 
-async function handleLogin(e) {
-  e.preventDefault();
-  const raw = formDataToObject(e.currentTarget);
-  try {
-    const result = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: raw.email, password: raw.password }) });
-    setToken(result.token);
-    updateAuthUi(result.user);
-    hideAuthPanel();
-    e.currentTarget.reset();
-    showToast('Giriş yapıldı.');
-    await refreshAllData();
-  } catch (err) {
-    showToast('Giriş başarısız. Bilgileri kontrol et.');
-  }
-}
-
-async function handleRegister(e) {
-  e.preventDefault();
-  const raw = formDataToObject(e.currentTarget);
-  try {
-    const result = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email: raw.email, password: raw.password, full_name: raw.full_name || null }) });
-    setToken(result.token);
-    updateAuthUi(result.user);
-    hideAuthPanel();
-    e.currentTarget.reset();
-    showToast('Kayıt oluşturuldu ve giriş yapıldı.');
-    await refreshAllData();
-  } catch (err) {
-    showToast('Kayıt başarısız. E-posta kullanılıyor olabilir veya şifre kısa olabilir.');
-  }
-}
-
-async function handleLogout() {
-  clearToken();
-  updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' });
-  showToast('Çıkış yapıldı. Local kullanıcıya geçildi.');
-  await refreshAllData();
-}
-
-function bindAuth() {
-  $('#authToggleBtn').addEventListener('click', showAuthPanel);
-  $('#settingsAuthBtn').addEventListener('click', showAuthPanel);
-  $('#closeAuthBtn').addEventListener('click', hideAuthPanel);
-  $('#loginForm').addEventListener('submit', handleLogin);
-  $('#registerForm').addEventListener('submit', handleRegister);
-  $('#logoutBtn').addEventListener('click', handleLogout);
-}
+async function handleLogin(e) { e.preventDefault(); const raw = formDataToObject(e.currentTarget); try { const result = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: raw.email, password: raw.password }) }); setToken(result.token); updateAuthUi(result.user); hideAuthPanel(); e.currentTarget.reset(); showToast('Giriş yapıldı.'); await refreshAllData(); } catch (err) { showToast('Giriş başarısız. Bilgileri kontrol et.'); } }
+async function handleRegister(e) { e.preventDefault(); const raw = formDataToObject(e.currentTarget); try { const result = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email: raw.email, password: raw.password, full_name: raw.full_name || null }) }); setToken(result.token); updateAuthUi(result.user); hideAuthPanel(); e.currentTarget.reset(); showToast('Kayıt oluşturuldu ve giriş yapıldı.'); await refreshAllData(); } catch (err) { showToast('Kayıt başarısız. E-posta kullanılıyor olabilir veya şifre kısa olabilir.'); } }
+async function handleLogout() { clearToken(); updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' }); showToast('Çıkış yapıldı. Local kullanıcıya geçildi.'); await refreshAllData(); }
+function bindAuth() { $('#authToggleBtn').addEventListener('click', showAuthPanel); $('#settingsAuthBtn').addEventListener('click', showAuthPanel); $('#closeAuthBtn').addEventListener('click', hideAuthPanel); $('#loginForm').addEventListener('submit', handleLogin); $('#registerForm').addEventListener('submit', handleRegister); $('#logoutBtn').addEventListener('click', handleLogout); }
 
 bindTabs(); bindAuth(); bindListingForm(); bindSavedSearches(); bindBackupControls(); bindSources(); bindJobs(); bindMeclis(); bindPolicy(); syncCategoryFields(); loadCurrentUser().then(refreshAllData);
