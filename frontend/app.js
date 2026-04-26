@@ -106,7 +106,24 @@ async function loadSources() {
   $('#sourceList').innerHTML = items.map(source => `<article class="source-card"><div><h3>${source.name}</h3><p>${sourceTypeLabels[source.source_type] || source.source_type} · ${categoryLabels[source.category] || source.category}</p><small>${source.url}</small><span class="source-status ${source.last_status === 'error' ? 'bad' : ''}">${sourceStatusText(source)}</span></div><div class="source-actions"><button data-source-action="sync" data-id="${source.id}">Senkronize Et</button><button data-source-action="delete" data-id="${source.id}" class="danger-small">Sil</button></div></article>`).join('');
 }
 
+async function syncAllSourcesNow(button) {
+  button.disabled = true;
+  button.textContent = 'Tüm kaynaklar senkronize ediliyor...';
+  try {
+    const result = await api('/api/data-sources/sync-all', { method: 'POST' });
+    showToast(`${result.imported_count} yeni ilan eklendi, ${result.error_count} kaynak hata verdi.`);
+    await loadSources();
+    await loadListings();
+  } catch (err) {
+    showToast('Toplu senkronizasyon başarısız.');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Tüm Kaynakları Şimdi Senkronize Et';
+  }
+}
+
 function bindSources() {
+  $('#syncAllSourcesBtn').addEventListener('click', (e) => syncAllSourcesNow(e.currentTarget));
   $('#sourceForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const raw = formDataToObject(e.currentTarget);
