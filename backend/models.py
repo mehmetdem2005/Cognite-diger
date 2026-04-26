@@ -1,10 +1,33 @@
 from typing import Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 Category = Literal["konut", "arsa", "isyeri", "arac"]
 SortMode = Literal["newest", "price_asc", "price_desc", "score_desc", "m2_price_asc"]
 SourceType = Literal["json_feed", "rss_feed"]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
+
+
+class UserPublic(BaseModel):
+    id: str
+    email: str
+    full_name: str | None = None
+    is_active: bool | int = True
+
+
+class AuthRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    full_name: str | None = None
+
+
+class AuthLoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1)
+
+
+class AuthResponse(BaseModel):
+    user: UserPublic
+    token: str
 
 
 class ListingIn(BaseModel):
