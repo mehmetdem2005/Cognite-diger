@@ -3,6 +3,8 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
+import time
 from urllib.parse import quote_plus
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
@@ -11,7 +13,7 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from .auth import extract_bearer_token, get_current_user, login_user, logout_token, register_user
-from .config import APP_NAME, APP_VERSION, CORS_ALLOWED_ORIGINS, CORS_ALLOW_CREDENTIALS, FRONTEND_DIR
+from .config import APP_NAME, APP_VERSION, CORS_ALLOWED_ORIGINS, CORS_ALLOW_CREDENTIALS, FRONTEND_DIR, LOG_LEVEL
 from .database import (
     add_data_source,
     add_listing,
@@ -19,6 +21,7 @@ from .database import (
     delete_data_source,
     delete_listing,
     delete_saved_search,
+    get_conn,
     get_data_source,
     get_job,
     get_listing,
@@ -54,12 +57,16 @@ from .models import (
     SourceSyncResult,
     UserPublic,
 )
+from .observability import configure_logging, monotonic_ms, new_request_id, reset_request_id, set_request_id
 from .pdf_utils import PdfExtractionError, extract_text_from_pdf_stream
 from .scanner import scan_text
 from .scheduler import start_scheduler, stop_scheduler
 from .scoring import score_listing
 from .services.job_runner import enqueue_job
 from .services.source_sync import sync_all_sources, sync_source
+
+configure_logging(LOG_LEVEL)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title=APP_NAME, version=APP_VERSION)
 
@@ -73,23 +80,50 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
+async def request_observability_and_security(request: Request, call_next):
+    request_id = new_request_id(request.headers.get("X-Request-ID"))
+    token = set_request_id(request_id)
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+        duration_ms = monotonic_ms(start)
+        logger.info(
+            "request completed",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms,
+            },
+        )
+    except Exception:
+        duration_ms = monotonic_ms(start)
+        logger.exception(
+            "request failed",
+            extra={"method": request.method, "path": request.url.path, "duration_ms": duration_ms},
+        )
+        reset_request_id(token)
+        raise
+
+    response.headers["X-Request-ID"] = request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    reset_request_id(token)
     return response
 
 
 @app.on_event("startup")
 def _startup() -> None:
     init_db()
+    logger.info("application startup", extra={"path": "startup"})
     start_scheduler()
 
 
 @app.on_event("shutdown")
 def _shutdown() -> None:
+    logger.info("application shutdown", extra={"path": "shutdown"})
     stop_scheduler()
 
 
@@ -100,6 +134,17 @@ def _uid(user: dict) -> str:
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True, "project": "firsat-avcisi-meclis-takip", "version": APP_VERSION}
+
+
+@app.get("/api/ready")
+def ready() -> dict:
+    try:
+        with get_conn() as conn:
+            conn.execute("SELECT 1").fetchone()
+        return {"ok": True, "checks": {"database": "ok"}, "version": APP_VERSION}
+    except Exception as exc:
+        logger.exception("readiness check failed", extra={"path": "/api/ready"})
+        raise HTTPException(status_code=503, detail={"ok": False, "checks": {"database": "error"}, "error": str(exc)}) from exc
 
 
 @app.get("/api/policy")
@@ -114,6 +159,7 @@ def policy() -> dict:
 def auth_register(payload: AuthRegisterRequest) -> dict:
     try:
         user, token = register_user(payload.email, payload.password, payload.full_name)
+        logger.info("user registered", extra={"user_id": user.get("id")})
         return {"user": user, "token": token}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -123,6 +169,7 @@ def auth_register(payload: AuthRegisterRequest) -> dict:
 def auth_login(payload: AuthLoginRequest) -> dict:
     try:
         user, token = login_user(payload.email, payload.password)
+        logger.info("user logged in", extra={"user_id": user.get("id")})
         return {"user": user, "token": token}
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
@@ -138,6 +185,7 @@ def auth_logout(user: dict = Depends(get_current_user), authorization: str | Non
     token = extract_bearer_token(authorization)
     if token:
         logout_token(token)
+    logger.info("user logged out", extra={"user_id": user.get("id")})
     return {"ok": True, "user_id": user["id"]}
 
 
@@ -175,6 +223,7 @@ async def enqueue_source_sync_all(user: dict = Depends(get_current_user)) -> dic
         task=task,
         user_id=user_id,
     )
+    logger.info("source sync all job enqueued", extra={"job_id": job_id, "job_type": "source_sync_all", "user_id": user_id})
     return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
 
 
@@ -282,10 +331,13 @@ def remove_source(source_id: int, user: dict = Depends(get_current_user)) -> dic
 @app.post("/api/data-sources/{source_id}/sync", response_model=SourceSyncResult)
 async def sync_data_source(source_id: int, user: dict = Depends(get_current_user)) -> dict:
     try:
-        return await sync_source(source_id, user_id=_uid(user))
+        result = await sync_source(source_id, user_id=_uid(user))
+        logger.info("source sync completed", extra={"source_id": source_id, "user_id": _uid(user)})
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        logger.exception("source sync failed", extra={"source_id": source_id, "user_id": _uid(user)})
         raise HTTPException(status_code=500, detail=f"Senkronizasyon başarısız: {exc}") from exc
 
 
