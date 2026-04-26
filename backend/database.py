@@ -11,6 +11,17 @@ from .repositories.data_sources import (
     source_item_exists,
     update_data_source_status,
 )
+from .repositories.jobs import (
+    add_job_event,
+    create_job,
+    get_job,
+    list_job_events,
+    list_jobs,
+    mark_job_failed,
+    mark_job_running,
+    mark_job_succeeded,
+    update_job_progress,
+)
 from .repositories.listings import add_listing, delete_listing, get_listing, list_listings, set_favorite
 from .repositories.saved_searches import add_saved_search, delete_saved_search, get_saved_search, list_saved_searches
 
@@ -40,4 +51,13 @@ __all__ = [
     "update_data_source_status",
     "source_item_exists",
     "add_source_item",
+    "create_job",
+    "get_job",
+    "list_jobs",
+    "mark_job_running",
+    "update_job_progress",
+    "mark_job_succeeded",
+    "mark_job_failed",
+    "add_job_event",
+    "list_job_events",
 ]
