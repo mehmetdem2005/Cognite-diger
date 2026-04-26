@@ -45,13 +45,14 @@ from .models import (
 )
 from .pdf_utils import PdfExtractionError, extract_text_from_pdf_stream
 from .scanner import scan_text
+from .scheduler import start_scheduler, stop_scheduler
 from .scoring import score_listing
-from .services.source_sync import sync_source
+from .services.source_sync import sync_all_sources, sync_source
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT / "frontend"
 
-app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.6.0")
+app = FastAPI(title="Fırsat Avcısı + Meclis Takip", version="0.7.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,6 +66,12 @@ app.add_middleware(
 @app.on_event("startup")
 def _startup() -> None:
     init_db()
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+def _shutdown() -> None:
+    stop_scheduler()
 
 
 @app.get("/api/health")
@@ -189,6 +196,11 @@ async def sync_data_source(source_id: int) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Senkronizasyon başarısız: {exc}") from exc
+
+
+@app.post("/api/data-sources/sync-all")
+async def sync_all_data_sources() -> dict:
+    return await sync_all_sources()
 
 
 @app.post("/api/saved-searches", response_model=SavedSearchOut)
