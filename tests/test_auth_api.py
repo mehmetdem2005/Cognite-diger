@@ -1,17 +1,21 @@
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
-
-from backend.main import app
-
-client = TestClient(app)
 
 
 def _email(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex}@example.com"
 
 
-def _register(email: str, password: str = "StrongPass123") -> dict:
+@pytest.fixture
+def client() -> TestClient:
+    from backend.main import app
+
+    return TestClient(app)
+
+
+def _register(client: TestClient, email: str, password: str = "StrongPass123") -> dict:
     response = client.post(
         "/api/auth/register",
         json={"email": email, "password": password, "full_name": "Test User"},
@@ -24,10 +28,10 @@ def _auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_register_login_me_and_logout_flow() -> None:
+def test_register_login_me_and_logout_flow(client: TestClient) -> None:
     email = _email("auth-flow")
     password = "StrongPass123"
-    registered = _register(email, password)
+    registered = _register(client, email, password)
 
     assert registered["user"]["email"] == email
     assert registered["token"]
@@ -47,23 +51,23 @@ def test_register_login_me_and_logout_flow() -> None:
     assert revoked_me.status_code == 401
 
 
-def test_duplicate_register_is_rejected() -> None:
+def test_duplicate_register_is_rejected(client: TestClient) -> None:
     email = _email("duplicate")
-    _register(email)
+    _register(client, email)
     duplicate = client.post("/api/auth/register", json={"email": email, "password": "StrongPass123"})
     assert duplicate.status_code == 400
 
 
-def test_wrong_password_is_rejected() -> None:
+def test_wrong_password_is_rejected(client: TestClient) -> None:
     email = _email("wrong-password")
-    _register(email)
+    _register(client, email)
     login = client.post("/api/auth/login", json={"email": email, "password": "WrongPass123"})
     assert login.status_code == 401
 
 
-def test_user_listing_isolation() -> None:
-    user_a = _register(_email("isolation-a"))
-    user_b = _register(_email("isolation-b"))
+def test_user_listing_isolation(client: TestClient) -> None:
+    user_a = _register(client, _email("isolation-a"))
+    user_b = _register(client, _email("isolation-b"))
 
     create_a = client.post(
         "/api/listings",
