@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 Category = Literal["konut", "arsa", "isyeri", "arac"]
 SortMode = Literal["newest", "price_asc", "price_desc", "score_desc", "m2_price_asc"]
 SourceType = Literal["json_feed", "rss_feed"]
+JobStatus = Literal["queued", "running", "succeeded", "failed"]
 
 
 class ListingIn(BaseModel):
@@ -72,6 +73,36 @@ class SourceSyncResult(BaseModel):
     fetched_count: int
     imported_count: int
     skipped_count: int
+
+
+class JobOut(BaseModel):
+    id: int
+    job_type: str
+    status: JobStatus | str
+    title: str
+    payload: dict[str, Any]
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    progress_current: int = 0
+    progress_total: int = 0
+    created_at: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    updated_at: str | None = None
+
+
+class JobEventOut(BaseModel):
+    id: int
+    job_id: int
+    level: str
+    message: str
+    data: dict[str, Any]
+    created_at: str | None = None
+
+
+class JobCreatedOut(BaseModel):
+    job_id: int
+    status_url: str
 
 
 class ImportListingsRequest(BaseModel):
