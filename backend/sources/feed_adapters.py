@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import xml.etree.ElementTree as ET
 from typing import Any
 
 import httpx
 
 
-def _stable_id(value: str) -> str:
+def stable_external_id(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8", errors="ignore")).hexdigest()[:32]
 
 
-def _num(value: Any, default: float = 0.0) -> float:
+def parse_number(value: Any, default: float = 0.0) -> float:
     try:
         if value in (None, ""):
             return default
@@ -21,17 +20,17 @@ def _num(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def _normalize_item(raw: dict[str, Any], category: str, source_name: str, source_mode: str) -> dict[str, Any]:
+def normalize_feed_item(raw: dict[str, Any], category: str, source_name: str, source_mode: str) -> dict[str, Any]:
     title = str(raw.get("title") or raw.get("name") or raw.get("baslik") or "İsimsiz kayıt")
     url = raw.get("listing_url") or raw.get("url") or raw.get("link")
     external_id = str(raw.get("external_id") or raw.get("id") or raw.get("guid") or url or title)
     return {
-        "external_id": _stable_id(external_id),
+        "external_id": stable_external_id(external_id),
         "source": source_name,
         "source_mode": source_mode,
         "category": raw.get("category") or category,
         "title": title,
-        "price": _num(raw.get("price") or raw.get("fiyat")),
+        "price": parse_number(raw.get("price") or raw.get("fiyat")),
         "currency": raw.get("currency") or "TRY",
         "city": raw.get("city") or raw.get("il") or "",
         "district": raw.get("district") or raw.get("ilce") or "",
@@ -57,7 +56,7 @@ async def fetch_json_feed(url: str, category: str, source_name: str) -> list[dic
     else:
         items = []
 
-    return [_normalize_item(item, category, source_name, "authorized_json_feed") for item in items if isinstance(item, dict)]
+    return [normalize_feed_item(item, category, source_name, "authorized_json_feed") for item in items if isinstance(item, dict)]
 
 
 def _tag_text(item: ET.Element, tag: str) -> str | None:
@@ -88,7 +87,7 @@ async def fetch_rss_feed(url: str, category: str, source_name: str) -> list[dict
             "external_id": _tag_text(item, "guid") or link or title,
             "price": 0,
         }
-        normalized.append(_normalize_item(raw, category, source_name, "rss_or_open_feed"))
+        normalized.append(normalize_feed_item(raw, category, source_name, "rss_or_open_feed"))
     return normalized
 
 
