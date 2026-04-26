@@ -11,7 +11,7 @@ DATABASE_ENGINE=sqlite
 DATABASE_PATH=data/app.db
 ```
 
-Repository katmanı hâlâ sqlite3 bağlantısı kullanır. Bu yüzden PostgreSQL engine değeri şimdilik bilinçli olarak korumalıdır:
+Repository katmanı hâlâ SQLite uyumlu SQL ve DB-API bağlantısı kullanır. Bu yüzden PostgreSQL engine değeri şimdilik bilinçli olarak korumalıdır:
 
 ```txt
 DATABASE_ENGINE=postgres
@@ -49,6 +49,41 @@ jobs
 job_events
 scan_history
 ```
+
+## Eklenen adapter katmanı
+
+Bu aşamada eklendi:
+
+```txt
+backend/db/adapters.py
+backend/db/connection.py
+```
+
+Adapter yapısı:
+
+```txt
+DatabaseAdapter Protocol
+SQLiteAdapter
+PostgresAdapter skeleton
+get_database_engine()
+get_database_adapter()
+```
+
+`get_conn()` artık doğrudan sqlite3 bağlantısı üretmek yerine adapter factory üzerinden çalışır.
+
+Mevcut davranış korunur:
+
+```txt
+DATABASE_ENGINE=sqlite -> SQLiteAdapter.connect()
+```
+
+PostgreSQL davranışı bilinçli olarak kapalıdır:
+
+```txt
+DATABASE_ENGINE=postgres -> PostgresAdapter.connect() fail-fast hata verir
+```
+
+Bu, repository SQL portu tamamlanmadan production'da yanlış kullanım riskini azaltır.
 
 ## SQLite ve PostgreSQL farkları
 
@@ -130,14 +165,24 @@ DATABASE_ENGINE=postgres için güvenli fail-fast eklendi
 
 ### Faz B — DB adapter katmanı
 
-Yapılacak:
+Tamamlananlar:
 
 ```txt
+DatabaseAdapter Protocol
 SQLite adapter
-PostgreSQL adapter
+PostgreSQL skeleton adapter
+Adapter factory
+connection.py adapter üzerinden çalışıyor
+Engine guard testleri
+```
+
+Henüz yapılmayanlar:
+
+```txt
 Param style soyutlama
 Transaction helper
 Row decode standardı
+PostgreSQL canlı bağlantı
 ```
 
 SQLite parametreleri:
@@ -249,13 +294,13 @@ Repository'leri psycopg'a geçirmek
 SQLite verisini otomatik PostgreSQL'e taşımak
 ```
 
-Sebep: Önce adapter katmanı ve testler yazılmalı.
+Sebep: Önce query abstraction, param style ve transaction helper tamamlanmalı.
 
 ## Sonraki teknik adım
 
 ```txt
-DB adapter interface tasarla
-SQLite adapter'ı mevcut davranışla bağla
-PostgreSQL adapter skeleton ekle
-Repository'leri adapter üzerinden konuştur
+DB query helper / transaction helper ekle
+SQLite davranışını helper üstünden koru
+Repository'leri küçük parçalara bölmeden helper'a geçir
+Sonra PostgreSQL adapter'a canlı bağlantı ekle
 ```
