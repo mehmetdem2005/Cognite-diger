@@ -128,10 +128,42 @@ CORS_ALLOW_CREDENTIALS=false
 ENABLE_SCHEDULER=true
 SOURCE_SYNC_INTERVAL_MINUTES=60
 DATA_DIR=data
+DATABASE_ENGINE=sqlite
 DATABASE_PATH=data/app.db
+DATABASE_URL=
 ```
 
 Production'da `CORS_ALLOWED_ORIGINS=*` kullanmak yerine gerçek domain yazılmalıdır.
+
+## Veritabanı modu
+
+Şu an aktif ve güvenli varsayılan SQLite'tır:
+
+```txt
+DATABASE_ENGINE=sqlite
+DATABASE_PATH=data/app.db
+```
+
+PostgreSQL hedefi için sözleşme dosyası eklendi:
+
+```txt
+backend/db/postgres_schema.sql
+```
+
+PostgreSQL hedef environment formatı:
+
+```txt
+DATABASE_ENGINE=postgres
+DATABASE_URL=postgresql://user:password@host:5432/database
+```
+
+Ancak repository adapter portu tamamlanmadan `DATABASE_ENGINE=postgres` production'da kullanılmaz. Bu mod şu an bilinçli olarak fail-fast davranır; yani sessizce yanlış veritabanına bağlanmak yerine açık hata verir.
+
+Detaylı plan:
+
+```txt
+docs/15_POSTGRESQL_MIGRATION_PLAN.md
+```
 
 ## Gözlemlenebilirlik
 
@@ -212,7 +244,7 @@ PDF için sabit MB limiti yoktur. Gerçek sınır, sunucunun RAM/disk/timeout ka
 
 ## Sonraki aşamalar
 
-1. PostgreSQL geçiş hazırlığı
+1. DB adapter interface
 2. E-posta alarmı adaptörü
 3. Groq analiz modülü
 4. PWA / Android wrapper
