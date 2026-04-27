@@ -16,6 +16,7 @@ from .auth import extract_bearer_token, get_current_user, login_user, logout_tok
 from .config import (
     APP_NAME,
     APP_VERSION,
+    CONTENT_SECURITY_POLICY,
     CORS_ALLOWED_ORIGINS,
     CORS_ALLOW_CREDENTIALS,
     FRONTEND_DIR,
@@ -24,6 +25,7 @@ from .config import (
     RATE_LIMIT_ENABLED,
     RATE_LIMIT_IMPORT_REQUESTS_PER_MINUTE,
     RATE_LIMIT_REQUESTS_PER_MINUTE,
+    SECURITY_HEADERS_ENABLED,
 )
 from .database import (
     add_data_source,
@@ -125,10 +127,12 @@ async def request_observability_security_and_limits(request: Request, call_next)
     response.headers["X-Request-ID"] = request_id
     if rate_remaining is not None:
         response.headers["X-RateLimit-Remaining"] = str(rate_remaining)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if SECURITY_HEADERS_ENABLED:
+        response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     reset_request_id(token)
     return response
 
