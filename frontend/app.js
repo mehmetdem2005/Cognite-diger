@@ -4,7 +4,6 @@ let currentUser = null;
 
 const $ = (q) => document.querySelector(q);
 const $$ = (q) => [...document.querySelectorAll(q)];
-
 const AUTH_TOKEN_KEY = 'firsat_auth_token';
 
 const categoryHints = {
@@ -13,16 +12,31 @@ const categoryHints = {
   isyeri: 'İşyeri/ofis için m², cadde üzeri, kat ve kira potansiyeli önemlidir.',
   arac: 'Araç için marka, model, yıl, kilometre ve hasar kaydı bilgileri önceliklidir.',
 };
-
 const categoryLabels = { konut: 'Konut', arsa: 'Arsa', isyeri: 'İş Yeri', arac: 'Araç' };
 const categoryIcons = { konut: '⌂', arsa: '◇', isyeri: '▦', arac: '◉' };
 const sourceTypeLabels = { json_feed: 'JSON Feed', rss_feed: 'RSS / Açık Feed' };
 const jobStatusLabels = { queued: 'Sırada', running: 'Çalışıyor', succeeded: 'Tamamlandı', failed: 'Hata' };
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch]));
+}
+function safeUrl(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    return escapeHtml(url.href);
+  } catch {
+    return '';
+  }
+}
+function safeClass(value, allowed) {
+  return allowed.includes(value) ? value : allowed[0];
+}
 function getToken() { return localStorage.getItem(AUTH_TOKEN_KEY); }
 function setToken(token) { localStorage.setItem(AUTH_TOKEN_KEY, token); }
 function clearToken() { localStorage.removeItem(AUTH_TOKEN_KEY); }
-
 function showToast(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; setTimeout(() => { toast.hidden = true; }, 2600); }
 function showAuthPanel() { $('#authPanel').hidden = false; }
 function hideAuthPanel() { $('#authPanel').hidden = true; }
@@ -37,9 +51,6 @@ function updateAuthUi(user) {
   $('#settingsUserText').textContent = isLocal ? 'Local kullanıcı ile çalışıyorsun. Giriş yaparsan verilerin hesabına ayrılır.' : `${label} hesabıyla çalışıyorsun.`;
   $('#settingsAuthBtn').textContent = isLocal ? 'Giriş / Kayıt' : 'Hesabı değiştir';
 }
-
-async function refreshAllData() { await Promise.allSettled([loadListings(), loadSavedSearches(), loadSources(), loadJobs()]); }
-async function loadCurrentUser() { try { const user = await api('/api/auth/me'); updateAuthUi(user); } catch (err) { clearToken(); updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' }); } }
 
 async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
@@ -56,6 +67,11 @@ async function api(path, options = {}) {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+async function refreshAllData() { await Promise.allSettled([loadListings(), loadSavedSearches(), loadSources(), loadJobs()]); }
+async function loadCurrentUser() {
+  try { updateAuthUi(await api('/api/auth/me')); }
+  catch { clearToken(); updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' }); }
+}
 
 function syncCategoryFields() {
   $('#categoryHint').textContent = categoryHints[activeCategory] || '';
@@ -65,22 +81,24 @@ function syncCategoryFields() {
     field.querySelectorAll('input, textarea, select').forEach(input => { input.disabled = !visible; });
   });
 }
-
-function setActiveCategory(category) { activeCategory = category; $$('.subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.category === category)); syncCategoryFields(); }
-
-function bindTabs() {
-  $$('.tab').forEach(btn => btn.addEventListener('click', () => openTab(btn.dataset.tab)));
-  $$('[data-open-tab]').forEach(btn => btn.addEventListener('click', () => openTab(btn.dataset.openTab)));
-  $$('.subtab').forEach(btn => btn.addEventListener('click', () => { setActiveCategory(btn.dataset.category); loadListings(); loadSavedSearches(); }));
+function setActiveCategory(category) {
+  activeCategory = category;
+  $$('.subtab').forEach(btn => btn.classList.toggle('active', btn.dataset.category === category));
+  const emailCategory = $('#emailAlertForm [name="default_category"]');
+  if (emailCategory) emailCategory.value = category;
+  syncCategoryFields();
 }
-
 function openTab(tabName) {
   $$('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
   $$('.panel').forEach(p => p.classList.toggle('active', p.id === tabName));
   if (tabName === 'sources') loadSources();
   if (tabName === 'jobs') loadJobs();
 }
-
+function bindTabs() {
+  $$('.tab').forEach(btn => btn.addEventListener('click', () => openTab(btn.dataset.tab)));
+  $$('[data-open-tab]').forEach(btn => btn.addEventListener('click', () => openTab(btn.dataset.openTab)));
+  $$('.subtab').forEach(btn => btn.addEventListener('click', () => { setActiveCategory(btn.dataset.category); loadListings(); loadSavedSearches(); }));
+}
 function formDataToObject(form) { return Object.fromEntries(new FormData(form).entries()); }
 function cleanValue(value) { if (value === undefined || value === null) return null; if (typeof value === 'string' && value.trim() === '') return null; return value; }
 
@@ -92,39 +110,93 @@ function buildCategoryProperties(raw) {
   if (activeCategory === 'arac') return { marka: cleanValue(raw.marka), model: cleanValue(raw.model), yil: cleanValue(raw.yil), km: cleanValue(raw.km), yakit: cleanValue(raw.yakit), vites: cleanValue(raw.vites), hasar_kaydi: cleanValue(raw.hasar_kaydi) };
   return common;
 }
-
 function renderProperties(item) {
   const p = item.properties || {};
-  if (item.category === 'arac') return [p.marka, p.model, p.yil ? `${p.yil} model` : '', p.km ? `${Number(p.km).toLocaleString('tr-TR')} km` : ''].filter(Boolean).join(' · ');
-  if (item.category === 'arsa') return [p.m2 ? `${p.m2} m²` : '', p.imar, p.tapu, p.yol_cephe ? 'yola cephe' : ''].filter(Boolean).join(' · ');
-  if (item.category === 'isyeri') return [p.m2 ? `${p.m2} m²` : '', p.isyeri_tipi, p.cadde_uzeri ? 'cadde üzeri' : '', p.kat].filter(Boolean).join(' · ');
-  return [p.m2 ? `${p.m2} m²` : '', p.oda, p.bina_yasi ? `${p.bina_yasi} yaş` : '', p.krediye_uygun ? 'krediye uygun' : ''].filter(Boolean).join(' · ');
+  let parts;
+  if (item.category === 'arac') parts = [p.marka, p.model, p.yil ? `${p.yil} model` : '', p.km ? `${Number(p.km).toLocaleString('tr-TR')} km` : ''];
+  else if (item.category === 'arsa') parts = [p.m2 ? `${p.m2} m²` : '', p.imar, p.tapu, p.yol_cephe ? 'yola cephe' : ''];
+  else if (item.category === 'isyeri') parts = [p.m2 ? `${p.m2} m²` : '', p.isyeri_tipi, p.cadde_uzeri ? 'cadde üzeri' : '', p.kat];
+  else parts = [p.m2 ? `${p.m2} m²` : '', p.oda, p.bina_yasi ? `${p.bina_yasi} yaş` : '', p.krediye_uygun ? 'krediye uygun' : ''];
+  return escapeHtml(parts.filter(Boolean).join(' · '));
 }
-
 function currentFilters() { return { q: $('#filterQ').value.trim(), city: $('#filterCity').value.trim(), district: $('#filterDistrict').value.trim(), min_price: $('#filterMinPrice').value.trim(), max_price: $('#filterMaxPrice').value.trim(), favorites: $('#filterFavorites').checked }; }
 function applyFilters(filters = {}, sortMode = 'newest') { $('#filterQ').value = filters.q || ''; $('#filterCity').value = filters.city || ''; $('#filterDistrict').value = filters.district || ''; $('#filterMinPrice').value = filters.min_price || ''; $('#filterMaxPrice').value = filters.max_price || ''; $('#filterFavorites').checked = Boolean(filters.favorites); $('#sortMode').value = sortMode || 'newest'; }
-function buildQueryParams() { const params = new URLSearchParams(); const filters = currentFilters(); params.set('category', activeCategory); params.set('sort', $('#sortMode').value); if (filters.q) params.set('q', filters.q); if (filters.city) params.set('city', filters.city); if (filters.district) params.set('district', filters.district); if (filters.min_price) params.set('min_price', filters.min_price); if (filters.max_price) params.set('max_price', filters.max_price); if (filters.favorites) params.set('favorites', 'true'); return params.toString(); }
-function renderReasons(reasons = []) { if (!reasons.length) return '<p class="muted">Puan açıklaması yok.</p>'; return `<ul class="reasons">${reasons.map(reason => `<li>${reason}</li>`).join('')}</ul>`; }
+function buildQueryParams() { const params = new URLSearchParams(); const f = currentFilters(); params.set('category', activeCategory); params.set('sort', $('#sortMode').value); if (f.q) params.set('q', f.q); if (f.city) params.set('city', f.city); if (f.district) params.set('district', f.district); if (f.min_price) params.set('min_price', f.min_price); if (f.max_price) params.set('max_price', f.max_price); if (f.favorites) params.set('favorites', 'true'); return params.toString(); }
+function renderReasons(reasons = []) { if (!reasons.length) return '<p class="muted">Puan açıklaması yok.</p>'; return `<ul class="reasons">${reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>`; }
 
-async function updateCounts() { const all = await api('/api/listings'); const favs = await api('/api/listings?favorites=true'); $('#listingCount').textContent = `${all.length} kayıt`; $('#favoriteCount').textContent = `${favs.length} kayıt`; }
-
+async function updateCounts() {
+  const all = await api('/api/listings');
+  const favs = await api('/api/listings?favorites=true');
+  $('#listingCount').textContent = `${all.length} kayıt`;
+  $('#favoriteCount').textContent = `${favs.length} kayıt`;
+}
 async function loadListings() {
-  const items = await api(`/api/listings?${buildQueryParams()}`); await updateCounts();
-  if (!items.length) { $('#listings').innerHTML = `<div class="empty-state"><b>Bu kategoride ilan bulunamadı.</b><p>İlk ilanı ekleyebilir, filtreleri temizleyebilir veya resmî arama linki oluşturabilirsin.</p></div>`; return; }
+  const items = await api(`/api/listings?${buildQueryParams()}`);
+  await updateCounts();
+  if (!items.length) { $('#listings').innerHTML = '<div class="empty-state"><b>Bu kategoride ilan bulunamadı.</b><p>İlk ilanı ekleyebilir, filtreleri temizleyebilir veya resmî arama linki oluşturabilirsin.</p></div>'; return; }
   $('#listings').innerHTML = items.map(item => {
-    const cat = categoryLabels[item.category] || item.category;
-    const catIcon = categoryIcons[item.category] || '•';
-    return `<article class="listing"><div class="listing-media">${item.image_url ? `<img src="${item.image_url}" alt="${item.title}">` : `<div class="image-placeholder">Görsel yok</div>`}<span class="score-pill">${Math.round(item.score)}</span><button class="heart-btn" data-action="favorite" data-id="${item.id}" data-current="${item.is_favorite}">${item.is_favorite ? '♥' : '♡'}</button></div><div class="listing-body"><span class="category-chip">${catIcon} ${cat}</span><h3>${item.title}</h3><p class="location-line">${[item.city, item.district, item.neighborhood].filter(Boolean).join(' / ') || 'Konum yok'}</p><p class="property-line">${renderProperties(item) || 'Kategori özelliği yok'}</p><div class="price">${Number(item.price).toLocaleString('tr-TR')} ${item.currency}</div><small class="unit-price">${item.risk_level}</small><details class="score-details"><summary>Puan nedenleri</summary>${renderReasons(item.score_reasons)}</details><div class="listing-actions">${item.listing_url ? `<a href="${item.listing_url}" target="_blank" rel="noopener">İlanı aç ↗</a>` : ''}<button class="danger-link" data-action="delete" data-id="${item.id}">Sil</button></div></div></article>`;
+    const cat = escapeHtml(categoryLabels[item.category] || item.category);
+    const catIcon = escapeHtml(categoryIcons[item.category] || '•');
+    const imageUrl = safeUrl(item.image_url);
+    const listingUrl = safeUrl(item.listing_url);
+    const location = escapeHtml([item.city, item.district, item.neighborhood].filter(Boolean).join(' / ') || 'Konum yok');
+    const statusClass = safeClass(String(item.risk_level || 'unknown'), ['low', 'medium', 'high', 'unknown']);
+    return `<article class="listing"><div class="listing-media">${imageUrl ? `<img src="${imageUrl}" alt="${escapeHtml(item.title)}">` : '<div class="image-placeholder">Görsel yok</div>'}<span class="score-pill">${Number(item.score || 0).toFixed(0)}</span><button class="heart-btn" data-action="favorite" data-id="${Number(item.id)}" data-current="${item.is_favorite ? 'true' : 'false'}">${item.is_favorite ? '♥' : '♡'}</button></div><div class="listing-body"><span class="category-chip">${catIcon} ${cat}</span><h3>${escapeHtml(item.title)}</h3><p class="location-line">${location}</p><p class="property-line">${renderProperties(item) || 'Kategori özelliği yok'}</p><div class="price">${Number(item.price || 0).toLocaleString('tr-TR')} ${escapeHtml(item.currency || 'TRY')}</div><small class="unit-price ${statusClass}">${escapeHtml(item.risk_level || 'unknown')}</small><details class="score-details"><summary>Puan nedenleri</summary>${renderReasons(item.score_reasons)}</details><div class="listing-actions">${listingUrl ? `<a href="${listingUrl}" target="_blank" rel="noopener noreferrer">İlanı aç ↗</a>` : ''}<button class="danger-link" data-action="delete" data-id="${Number(item.id)}">Sil</button></div></div></article>`;
   }).join('');
 }
 
-async function loadSavedSearches() { const items = await api(`/api/saved-searches?category=${activeCategory}`); if (!items.length) { $('#savedSearches').innerHTML = '<div class="empty-mini">Bu kategori için kayıtlı arama yok.</div>'; return; } $('#savedSearches').innerHTML = items.map(item => `<div class="saved-search-card"><span class="metric-icon small">⌕</span><div><b>${item.name}</b><span>${categoryLabels[item.category] || item.category} · ${item.sort_mode}</span></div><div class="saved-actions"><button data-search-action="load" data-id="${item.id}">Yükle</button><button data-search-action="delete" data-id="${item.id}" class="danger-small">Sil</button></div></div>`).join(''); }
-async function saveCurrentSearch() { const name = prompt('Bu aramaya isim ver:', `${categoryLabels[activeCategory]} aramam`); if (!name || !name.trim()) return; await api('/api/saved-searches', { method: 'POST', body: JSON.stringify({ name: name.trim(), category: activeCategory, filters: currentFilters(), sort_mode: $('#sortMode').value, notification_enabled: false }) }); showToast('Arama kaydedildi.'); await loadSavedSearches(); }
-function bindSavedSearches() { $('#saveSearchBtn').addEventListener('click', saveCurrentSearch); const quick = $('#quickSaveSearchBtn'); if (quick) quick.addEventListener('click', saveCurrentSearch); $('#savedSearches').addEventListener('click', async (e) => { const target = e.target.closest('[data-search-action]'); if (!target) return; const id = target.dataset.id; if (target.dataset.searchAction === 'load') { const saved = await api(`/api/saved-searches/${id}`); setActiveCategory(saved.category); applyFilters(saved.filters, saved.sort_mode); await loadListings(); await loadSavedSearches(); showToast('Kayıtlı arama yüklendi.'); } if (target.dataset.searchAction === 'delete') { if (!confirm('Kayıtlı arama silinsin mi?')) return; await api(`/api/saved-searches/${id}`, { method: 'DELETE' }); showToast('Kayıtlı arama silindi.'); await loadSavedSearches(); } }); }
+async function loadSavedSearches() {
+  const items = await api(`/api/saved-searches?category=${activeCategory}`);
+  if (!items.length) { $('#savedSearches').innerHTML = '<div class="empty-mini">Bu kategori için kayıtlı arama yok.</div>'; return; }
+  $('#savedSearches').innerHTML = items.map(item => `<div class="saved-search-card"><span class="metric-icon small">⌕</span><div><b>${escapeHtml(item.name)}</b><span>${escapeHtml(categoryLabels[item.category] || item.category)} · ${escapeHtml(item.sort_mode)}</span></div><div class="saved-actions"><button data-search-action="load" data-id="${Number(item.id)}">Yükle</button><button data-search-action="delete" data-id="${Number(item.id)}" class="danger-small">Sil</button></div></div>`).join('');
+}
+async function saveCurrentSearch() {
+  const name = prompt('Bu aramaya isim ver:', `${categoryLabels[activeCategory]} aramam`);
+  if (!name || !name.trim()) return;
+  await api('/api/saved-searches', { method: 'POST', body: JSON.stringify({ name: name.trim(), category: activeCategory, filters: currentFilters(), sort_mode: $('#sortMode').value, notification_enabled: false }) });
+  showToast('Arama kaydedildi.');
+  await loadSavedSearches();
+}
+function bindSavedSearches() {
+  $('#saveSearchBtn').addEventListener('click', saveCurrentSearch);
+  const quick = $('#quickSaveSearchBtn');
+  if (quick) quick.addEventListener('click', saveCurrentSearch);
+  $('#savedSearches').addEventListener('click', async (e) => {
+    const target = e.target.closest('[data-search-action]');
+    if (!target) return;
+    const id = Number(target.dataset.id);
+    if (target.dataset.searchAction === 'load') {
+      const saved = await api(`/api/saved-searches/${id}`);
+      setActiveCategory(saved.category);
+      applyFilters(saved.filters, saved.sort_mode);
+      await loadListings();
+      await loadSavedSearches();
+      showToast('Kayıtlı arama yüklendi.');
+    }
+    if (target.dataset.searchAction === 'delete') {
+      if (!confirm('Kayıtlı arama silinsin mi?')) return;
+      await api(`/api/saved-searches/${id}`, { method: 'DELETE' });
+      showToast('Kayıtlı arama silindi.');
+      await loadSavedSearches();
+    }
+  });
+}
 
-async function importListingsFromJsonFile() { const file = $('#importJsonInput').files?.[0]; if (!file) { showToast('Önce bir JSON dosyası seç.'); return; } const text = await file.text(); let parsed; try { parsed = JSON.parse(text); } catch { showToast('JSON dosyası okunamadı.'); return; } const listings = Array.isArray(parsed) ? parsed : parsed.listings; if (!Array.isArray(listings)) { showToast('Yedek dosyasında listings listesi yok.'); return; } const normalized = listings.map(item => ({ source: item.source || 'manual', category: item.category, title: item.title, price: Number(item.price || 0), currency: item.currency || 'TRY', city: item.city || '', district: item.district || '', neighborhood: item.neighborhood || '', listing_url: item.listing_url || null, image_url: item.image_url || null, properties: item.properties || {}, contact: item.contact || {}, notes: item.notes || '', is_favorite: Boolean(item.is_favorite) })); const result = await api('/api/import/listings', { method: 'POST', body: JSON.stringify({ listings: normalized }) }); showToast(`${result.imported_count} ilan içe aktarıldı.`); $('#importJsonInput').value = ''; await loadListings(); }
+async function importListingsFromJsonFile() {
+  const file = $('#importJsonInput').files?.[0];
+  if (!file) { showToast('Önce bir JSON dosyası seç.'); return; }
+  const text = await file.text();
+  let parsed;
+  try { parsed = JSON.parse(text); } catch { showToast('JSON dosyası okunamadı.'); return; }
+  const listings = Array.isArray(parsed) ? parsed : parsed.listings;
+  if (!Array.isArray(listings)) { showToast('Yedek dosyasında listings listesi yok.'); return; }
+  const normalized = listings.map(item => ({ source: item.source || 'manual', category: item.category, title: item.title, price: Number(item.price || 0), currency: item.currency || 'TRY', city: item.city || '', district: item.district || '', neighborhood: item.neighborhood || '', listing_url: item.listing_url || null, image_url: item.image_url || null, properties: item.properties || {}, contact: item.contact || {}, notes: item.notes || '', is_favorite: Boolean(item.is_favorite) }));
+  const result = await api('/api/import/listings', { method: 'POST', body: JSON.stringify({ listings: normalized }) });
+  showToast(`${result.imported_count} ilan içe aktarıldı.`);
+  $('#importJsonInput').value = '';
+  await loadListings();
+}
 function bindBackupControls() { $('#importJsonBtn').addEventListener('click', importListingsFromJsonFile); }
-
 function bindEmailAlertForm() {
   const form = $('#emailAlertForm');
   if (!form) return;
@@ -136,40 +208,140 @@ function bindEmailAlertForm() {
       showToast(`${result.imported_count} ilan aktarıldı, ${result.skipped_count} atlandı.`);
       e.currentTarget.reset();
       await loadListings();
-    } catch (err) {
-      showToast('E-posta alarmı aktarılamadı. Metinde link ve fiyat olduğundan emin ol.');
+    } catch { showToast('E-posta alarmı aktarılamadı. Metinde link ve fiyat olduğundan emin ol.'); }
+  });
+}
+function bindListingForm() {
+  $('#listingForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const raw = formDataToObject(e.currentTarget);
+    const payload = { source: 'manual', category: activeCategory, title: raw.title, price: Number(raw.price || 0), city: raw.city || '', district: raw.district || '', neighborhood: raw.neighborhood || '', listing_url: raw.listing_url || null, image_url: raw.image_url || null, notes: raw.notes || '', properties: buildCategoryProperties(raw), contact: {} };
+    await api('/api/listings', { method: 'POST', body: JSON.stringify(payload) });
+    e.currentTarget.reset();
+    syncCategoryFields();
+    showToast('İlan havuza eklendi.');
+    await loadListings();
+  });
+  $('#sortMode').addEventListener('change', loadListings);
+  $('#applyFiltersBtn').addEventListener('click', loadListings);
+  $('#filterFavorites').addEventListener('change', loadListings);
+  $('#clearFiltersBtn').addEventListener('click', async () => { applyFilters({}, 'newest'); await loadListings(); });
+  $('#makeLinksBtn').addEventListener('click', async () => {
+    const city = $('#filterCity').value || $('#listingForm [name="city"]').value || '';
+    const district = $('#filterDistrict').value || $('#listingForm [name="district"]').value || '';
+    const neighborhood = $('#listingForm [name="neighborhood"]').value || '';
+    const links = await api('/api/search-links', { method: 'POST', body: JSON.stringify({ category: activeCategory, city, district, neighborhood, keywords: $('#filterQ').value || '' }) });
+    $('#searchLinks').innerHTML = links.map(x => {
+      const url = safeUrl(x.url);
+      return url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(x.source)}: ${url}<br><small>${escapeHtml(x.note)}</small></a>` : '';
+    }).join('');
+  });
+  $('#listings').addEventListener('click', async (e) => {
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+    const id = Number(target.dataset.id);
+    if (target.dataset.action === 'favorite') {
+      const current = target.dataset.current === 'true';
+      await api(`/api/listings/${id}/favorite`, { method: 'PATCH', body: JSON.stringify({ is_favorite: !current }) });
+      showToast(!current ? 'Favorilere eklendi.' : 'Favorilerden çıkarıldı.');
+      await loadListings();
+    }
+    if (target.dataset.action === 'delete') {
+      if (!confirm('Bu ilan silinsin mi?')) return;
+      await api(`/api/listings/${id}`, { method: 'DELETE' });
+      showToast('İlan silindi.');
+      await loadListings();
     }
   });
 }
 
-function bindListingForm() {
-  $('#listingForm').addEventListener('submit', async (e) => { e.preventDefault(); const raw = formDataToObject(e.currentTarget); const payload = { source: 'manual', category: activeCategory, title: raw.title, price: Number(raw.price || 0), city: raw.city || '', district: raw.district || '', neighborhood: raw.neighborhood || '', listing_url: raw.listing_url || null, image_url: raw.image_url || null, notes: raw.notes || '', properties: buildCategoryProperties(raw), contact: {} }; await api('/api/listings', { method: 'POST', body: JSON.stringify(payload) }); e.currentTarget.reset(); syncCategoryFields(); showToast('İlan havuza eklendi.'); await loadListings(); });
-  $('#sortMode').addEventListener('change', loadListings); $('#applyFiltersBtn').addEventListener('click', loadListings); $('#filterFavorites').addEventListener('change', loadListings); $('#clearFiltersBtn').addEventListener('click', async () => { applyFilters({}, 'newest'); await loadListings(); });
-  $('#makeLinksBtn').addEventListener('click', async () => { const city = $('#filterCity').value || $('#listingForm [name="city"]').value || ''; const district = $('#filterDistrict').value || $('#listingForm [name="district"]').value || ''; const neighborhood = $('#listingForm [name="neighborhood"]').value || ''; const links = await api('/api/search-links', { method: 'POST', body: JSON.stringify({ category: activeCategory, city, district, neighborhood, keywords: $('#filterQ').value || '' }) }); $('#searchLinks').innerHTML = links.map(x => `<a href="${x.url}" target="_blank" rel="noopener">${x.source}: ${x.url}<br><small>${x.note}</small></a>`).join(''); });
-  $('#listings').addEventListener('click', async (e) => { const target = e.target.closest('[data-action]'); if (!target) return; const id = target.dataset.id; if (target.dataset.action === 'favorite') { const current = target.dataset.current === 'true'; await api(`/api/listings/${id}/favorite`, { method: 'PATCH', body: JSON.stringify({ is_favorite: !current }) }); showToast(!current ? 'Favorilere eklendi.' : 'Favorilerden çıkarıldı.'); await loadListings(); } if (target.dataset.action === 'delete') { if (!confirm('Bu ilan silinsin mi?')) return; await api(`/api/listings/${id}`, { method: 'DELETE' }); showToast('İlan silindi.'); await loadListings(); } });
-}
-
 function sourceStatusText(source) { const status = source.last_status || 'never_run'; if (status === 'ok') return `Son durum: başarılı${source.last_synced_at ? ' · ' + source.last_synced_at : ''}`; if (status === 'error') return `Son durum: hata · ${source.last_error || 'bilinmeyen hata'}`; return 'Henüz senkronize edilmedi.'; }
-async function loadSources() { const items = await api('/api/data-sources'); if (!items.length) { $('#sourceList').innerHTML = '<div class="empty-state"><b>Henüz veri kaynağı yok.</b><p>İzinli JSON/RSS feed ekleyerek otomatik ilan akışını başlat.</p></div>'; return; } $('#sourceList').innerHTML = items.map(source => `<article class="source-card"><span class="source-icon">${source.source_type === 'rss_feed' ? 'RSS' : 'JS'}</span><div><h3>${source.name}</h3><p>${sourceTypeLabels[source.source_type] || source.source_type} · ${categoryLabels[source.category] || source.category}</p><small>${source.url}</small><span class="source-status ${source.last_status === 'error' ? 'bad' : ''}">${sourceStatusText(source)}</span></div><div class="source-actions"><button data-source-action="sync" data-id="${source.id}">Senkronize Et</button><button data-source-action="delete" data-id="${source.id}" class="danger-small">Sil</button></div></article>`).join(''); }
-async function syncAllSourcesNow(button) { button.disabled = true; button.textContent = 'İş oluşturuluyor...'; try { const result = await api('/api/jobs/source-sync-all', { method: 'POST' }); showToast(`Arka plan işi oluşturuldu: #${result.job_id}`); await loadJobs(); showJobDetail(result.job_id); } catch (err) { showToast('Arka plan işi oluşturulamadı.'); } finally { button.disabled = false; button.textContent = 'Tümünü senkronize et'; } }
-function bindSources() { $('#syncAllSourcesBtn').addEventListener('click', (e) => syncAllSourcesNow(e.currentTarget)); $('#sourceForm').addEventListener('submit', async (e) => { e.preventDefault(); const raw = formDataToObject(e.currentTarget); await api('/api/data-sources', { method: 'POST', body: JSON.stringify({ name: raw.name, source_type: raw.source_type, url: raw.url, category: raw.category, enabled: true, config: {} }) }); e.currentTarget.reset(); showToast('Veri kaynağı eklendi.'); await loadSources(); }); $('#sourceList').addEventListener('click', async (e) => { const target = e.target.closest('[data-source-action]'); if (!target) return; const id = target.dataset.id; if (target.dataset.sourceAction === 'sync') { target.disabled = true; target.textContent = 'Senkronize ediliyor...'; try { const result = await api(`/api/data-sources/${id}/sync`, { method: 'POST' }); showToast(`${result.imported_count} yeni ilan eklendi, ${result.skipped_count} tekrar atlandı.`); await loadSources(); await loadListings(); } catch (err) { showToast('Senkronizasyon başarısız. Kaynak durumunu kontrol et.'); await loadSources(); } } if (target.dataset.sourceAction === 'delete') { if (!confirm('Veri kaynağı silinsin mi? Daha önce gelen ilanlar silinmez.')) return; await api(`/api/data-sources/${id}`, { method: 'DELETE' }); showToast('Veri kaynağı silindi.'); await loadSources(); } }); }
+async function loadSources() {
+  const items = await api('/api/data-sources');
+  if (!items.length) { $('#sourceList').innerHTML = '<div class="empty-state"><b>Henüz veri kaynağı yok.</b><p>İzinli JSON/RSS feed ekleyerek otomatik ilan akışını başlat.</p></div>'; return; }
+  $('#sourceList').innerHTML = items.map(source => `<article class="source-card"><span class="source-icon">${source.source_type === 'rss_feed' ? 'RSS' : 'JS'}</span><div><h3>${escapeHtml(source.name)}</h3><p>${escapeHtml(sourceTypeLabels[source.source_type] || source.source_type)} · ${escapeHtml(categoryLabels[source.category] || source.category)}</p><small>${escapeHtml(source.url)}</small><span class="source-status ${source.last_status === 'error' ? 'bad' : ''}">${escapeHtml(sourceStatusText(source))}</span></div><div class="source-actions"><button data-source-action="sync" data-id="${Number(source.id)}">Senkronize Et</button><button data-source-action="delete" data-id="${Number(source.id)}" class="danger-small">Sil</button></div></article>`).join('');
+}
+async function syncAllSourcesNow(button) {
+  button.disabled = true; button.textContent = 'İş oluşturuluyor...';
+  try { const result = await api('/api/jobs/source-sync-all', { method: 'POST' }); showToast(`Arka plan işi oluşturuldu: #${result.job_id}`); await loadJobs(); showJobDetail(result.job_id); }
+  catch { showToast('Arka plan işi oluşturulamadı.'); }
+  finally { button.disabled = false; button.textContent = 'Tümünü senkronize et'; }
+}
+function bindSources() {
+  $('#syncAllSourcesBtn').addEventListener('click', (e) => syncAllSourcesNow(e.currentTarget));
+  $('#sourceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const raw = formDataToObject(e.currentTarget);
+    await api('/api/data-sources', { method: 'POST', body: JSON.stringify({ name: raw.name, source_type: raw.source_type, url: raw.url, category: raw.category, enabled: true, config: {} }) });
+    e.currentTarget.reset();
+    showToast('Veri kaynağı eklendi.');
+    await loadSources();
+  });
+  $('#sourceList').addEventListener('click', async (e) => {
+    const target = e.target.closest('[data-source-action]');
+    if (!target) return;
+    const id = Number(target.dataset.id);
+    if (target.dataset.sourceAction === 'sync') {
+      target.disabled = true; target.textContent = 'Senkronize ediliyor...';
+      try { const result = await api(`/api/data-sources/${id}/sync`, { method: 'POST' }); showToast(`${result.imported_count} yeni ilan eklendi, ${result.skipped_count} tekrar atlandı.`); await loadSources(); await loadListings(); }
+      catch { showToast('Senkronizasyon başarısız. Kaynak durumunu kontrol et.'); await loadSources(); }
+    }
+    if (target.dataset.sourceAction === 'delete') {
+      if (!confirm('Veri kaynağı silinsin mi? Daha önce gelen ilanlar silinmez.')) return;
+      await api(`/api/data-sources/${id}`, { method: 'DELETE' });
+      showToast('Veri kaynağı silindi.');
+      await loadSources();
+    }
+  });
+}
 
 function progressText(job) { const total = Number(job.progress_total || 0); const current = Number(job.progress_current || 0); return total > 0 ? `${current}/${total}` : jobStatusLabels[job.status] || job.status; }
 function progressPercent(job) { const total = Number(job.progress_total || 0); if (total <= 0) return job.status === 'succeeded' ? 100 : 0; return Math.min(100, Math.round((Number(job.progress_current || 0) / total) * 100)); }
-async function loadJobs() { const jobs = await api('/api/jobs?limit=30'); if (!jobs.length) { $('#jobList').innerHTML = '<div class="empty-state"><b>Henüz iş yok.</b><p>Veri Kaynakları sekmesinden toplu senkronizasyon başlatabilirsin.</p></div>'; return; } $('#jobList').innerHTML = jobs.map(job => `<article class="job-card ${job.status}"><span class="source-icon">▤</span><div><b>#${job.id} · ${job.title}</b><span>${jobStatusLabels[job.status] || job.status} · ${progressText(job)}</span><div class="progress"><i style="width:${progressPercent(job)}%"></i></div></div><button data-job-id="${job.id}">Detay</button></article>`).join(''); }
-async function showJobDetail(jobId) { const [job, events] = await Promise.all([api(`/api/jobs/${jobId}`), api(`/api/jobs/${jobId}/events`)]); $('#jobDetail').innerHTML = `<div class="job-detail-card"><h3>İş #${job.id}</h3><p><b>Durum:</b> ${jobStatusLabels[job.status] || job.status}</p><p><b>İlerleme:</b> ${progressText(job)}</p>${job.error ? `<p class="danger-text"><b>Hata:</b> ${job.error}</p>` : ''}<div class="progress"><i style="width:${progressPercent(job)}%"></i></div><h4>Olaylar</h4>${events.length ? events.map(ev => `<div class="job-event ${ev.level}"><b>${ev.created_at || ''}</b><span>${ev.message}</span></div>`).join('') : '<p class="muted">Henüz olay yok.</p>'}</div>`; if (activeJobPoll) clearInterval(activeJobPoll); if (['queued', 'running'].includes(job.status)) { activeJobPoll = setInterval(async () => { await loadJobs(); await showJobDetail(jobId); const fresh = await api(`/api/jobs/${jobId}`); if (!['queued', 'running'].includes(fresh.status)) { clearInterval(activeJobPoll); activeJobPoll = null; await loadSources(); await loadListings(); } }, 2500); } }
+async function loadJobs() {
+  const jobs = await api('/api/jobs?limit=30');
+  if (!jobs.length) { $('#jobList').innerHTML = '<div class="empty-state"><b>Henüz iş yok.</b><p>Veri Kaynakları sekmesinden toplu senkronizasyon başlatabilirsin.</p></div>'; return; }
+  $('#jobList').innerHTML = jobs.map(job => { const cls = safeClass(job.status, ['queued', 'running', 'succeeded', 'failed']); return `<article class="job-card ${cls}"><span class="source-icon">▤</span><div><b>#${Number(job.id)} · ${escapeHtml(job.title)}</b><span>${escapeHtml(jobStatusLabels[job.status] || job.status)} · ${escapeHtml(progressText(job))}</span><div class="progress"><i style="width:${progressPercent(job)}%"></i></div></div><button data-job-id="${Number(job.id)}">Detay</button></article>`; }).join('');
+}
+async function showJobDetail(jobId) {
+  const [job, events] = await Promise.all([api(`/api/jobs/${Number(jobId)}`), api(`/api/jobs/${Number(jobId)}/events`)]);
+  $('#jobDetail').innerHTML = `<div class="job-detail-card"><h3>İş #${Number(job.id)}</h3><p><b>Durum:</b> ${escapeHtml(jobStatusLabels[job.status] || job.status)}</p><p><b>İlerleme:</b> ${escapeHtml(progressText(job))}</p>${job.error ? `<p class="danger-text"><b>Hata:</b> ${escapeHtml(job.error)}</p>` : ''}<div class="progress"><i style="width:${progressPercent(job)}%"></i></div><h4>Olaylar</h4>${events.length ? events.map(ev => `<div class="job-event ${safeClass(ev.level, ['info', 'warning', 'error'])}"><b>${escapeHtml(ev.created_at || '')}</b><span>${escapeHtml(ev.message)}</span></div>`).join('') : '<p class="muted">Henüz olay yok.</p>'}</div>`;
+  if (activeJobPoll) clearInterval(activeJobPoll);
+  if (['queued', 'running'].includes(job.status)) {
+    activeJobPoll = setInterval(async () => {
+      await loadJobs();
+      await showJobDetail(jobId);
+      const fresh = await api(`/api/jobs/${Number(jobId)}`);
+      if (!['queued', 'running'].includes(fresh.status)) { clearInterval(activeJobPoll); activeJobPoll = null; await loadSources(); await loadListings(); }
+    }, 2500);
+  }
+}
 function bindJobs() { $('#refreshJobsBtn').addEventListener('click', loadJobs); $('#jobList').addEventListener('click', (e) => { const target = e.target.closest('[data-job-id]'); if (target) showJobDetail(target.dataset.jobId); }); }
 
 function parseKeywords(value) { return (value || '').split(',').map(x => x.trim()).filter(Boolean); }
-function renderMeclisResult(result) { $('#meclisSummary').hidden = false; $('#meclisSummary').innerHTML = `<b>${result.matched_keywords} anahtar kelime eşleşti</b><span>${result.total_hits} toplam eşleşme · ${result.text_length} karakter</span>${result.pdf ? `<span>PDF: ${result.pdf.filename} · ${result.pdf.page_count} sayfa${result.pdf.needs_ocr ? ' · OCR gerekebilir' : ''}</span>` : ''}`; const rows = result.keywords || []; if (!rows.length) { $('#meclisResults').innerHTML = '<div class="empty-state"><b>Anahtar kelime yok.</b></div>'; return; } $('#meclisResults').innerHTML = rows.map(row => `<article class="meclis-card ${row.found ? 'hit' : 'miss'}"><div class="meclis-card-head"><b>${row.keyword}</b><span>${row.count} eşleşme</span></div>${row.contexts?.length ? row.contexts.map(ctx => `<p>${ctx}</p>`).join('') : '<p class="muted">Bu kelime bulunamadı.</p>'}</article>`).join(''); }
+function renderMeclisResult(result) {
+  $('#meclisSummary').hidden = false;
+  $('#meclisSummary').innerHTML = `<b>${Number(result.matched_keywords)} anahtar kelime eşleşti</b><span>${Number(result.total_hits)} toplam eşleşme · ${Number(result.text_length)} karakter</span>${result.pdf ? `<span>PDF: ${escapeHtml(result.pdf.filename)} · ${Number(result.pdf.page_count)} sayfa${result.pdf.needs_ocr ? ' · OCR gerekebilir' : ''}</span>` : ''}`;
+  const rows = result.keywords || [];
+  if (!rows.length) { $('#meclisResults').innerHTML = '<div class="empty-state"><b>Anahtar kelime yok.</b></div>'; return; }
+  $('#meclisResults').innerHTML = rows.map(row => `<article class="meclis-card ${row.found ? 'hit' : 'miss'}"><div class="meclis-card-head"><b>${escapeHtml(row.keyword)}</b><span>${Number(row.count)} eşleşme</span></div>${row.contexts?.length ? row.contexts.map(ctx => `<p>${escapeHtml(ctx)}</p>`).join('') : '<p class="muted">Bu kelime bulunamadı.</p>'}</article>`).join('');
+}
 async function scanMeclisText(e) { e.preventDefault(); const raw = formDataToObject(e.currentTarget); const keywords = parseKeywords(raw.keywords); if (!raw.text?.trim()) { showToast('Metin alanı boş. PDF taramak için PDF butonunu kullan.'); return; } const result = await api('/api/meclis/scan', { method: 'POST', body: JSON.stringify({ municipality_name: raw.municipality_name || '', keywords, text: raw.text }) }); renderMeclisResult(result); showToast('Metin tarandı.'); }
-async function scanMeclisPdf() { const form = $('#meclisForm'); const raw = formDataToObject(form); const file = $('#meclisPdfInput').files?.[0]; const keywords = parseKeywords(raw.keywords); if (!file) { showToast('Önce PDF seç.'); return; } if (!keywords.length) { showToast('En az bir anahtar kelime gir.'); return; } const data = new FormData(); data.append('file', file); data.append('keywords_json', JSON.stringify(keywords)); data.append('municipality_name', raw.municipality_name || ''); const res = await fetch('/api/meclis/scan-pdf', { method: 'POST', body: data, headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} }); if (!res.ok) { showToast(await res.text()); return; } const result = await res.json(); renderMeclisResult(result); showToast('PDF tarandı.'); }
+async function scanMeclisPdf() {
+  const form = $('#meclisForm'); const raw = formDataToObject(form); const file = $('#meclisPdfInput').files?.[0]; const keywords = parseKeywords(raw.keywords);
+  if (!file) { showToast('Önce PDF seç.'); return; }
+  if (!keywords.length) { showToast('En az bir anahtar kelime gir.'); return; }
+  const data = new FormData(); data.append('file', file); data.append('keywords_json', JSON.stringify(keywords)); data.append('municipality_name', raw.municipality_name || '');
+  const res = await fetch('/api/meclis/scan-pdf', { method: 'POST', body: data, headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} });
+  if (!res.ok) { showToast(await res.text()); return; }
+  renderMeclisResult(await res.json());
+  showToast('PDF tarandı.');
+}
 function bindMeclis() { $('#meclisForm').addEventListener('submit', scanMeclisText); $('#scanPdfBtn').addEventListener('click', scanMeclisPdf); }
 function bindPolicy() { $('#policyBtn').addEventListener('click', async () => { const policy = await api('/api/policy'); alert(policy.scraping + '\n\nİzinli yollar:\n- ' + policy.allowed_sources.join('\n- ')); }); }
 
-async function handleLogin(e) { e.preventDefault(); const raw = formDataToObject(e.currentTarget); try { const result = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: raw.email, password: raw.password }) }); setToken(result.token); updateAuthUi(result.user); hideAuthPanel(); e.currentTarget.reset(); showToast('Giriş yapıldı.'); await refreshAllData(); } catch (err) { showToast('Giriş başarısız. Bilgileri kontrol et.'); } }
-async function handleRegister(e) { e.preventDefault(); const raw = formDataToObject(e.currentTarget); try { const result = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email: raw.email, password: raw.password, full_name: raw.full_name || null }) }); setToken(result.token); updateAuthUi(result.user); hideAuthPanel(); e.currentTarget.reset(); showToast('Kayıt oluşturuldu ve giriş yapıldı.'); await refreshAllData(); } catch (err) { showToast('Kayıt başarısız. E-posta kullanılıyor olabilir veya şifre kısa olabilir.'); } }
-async function handleLogout() { clearToken(); updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' }); showToast('Çıkış yapıldı. Local kullanıcıya geçildi.'); await refreshAllData(); }
+async function handleLogin(e) { e.preventDefault(); const raw = formDataToObject(e.currentTarget); try { const result = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: raw.email, password: raw.password }) }); setToken(result.token); updateAuthUi(result.user); hideAuthPanel(); e.currentTarget.reset(); showToast('Giriş yapıldı.'); await refreshAllData(); } catch { showToast('Giriş başarısız. Bilgileri kontrol et.'); } }
+async function handleRegister(e) { e.preventDefault(); const raw = formDataToObject(e.currentTarget); try { const result = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email: raw.email, password: raw.password, full_name: raw.full_name || null }) }); setToken(result.token); updateAuthUi(result.user); hideAuthPanel(); e.currentTarget.reset(); showToast('Kayıt oluşturuldu ve giriş yapıldı.'); await refreshAllData(); } catch { showToast('Kayıt başarısız. E-posta kullanılıyor olabilir veya şifre kısa olabilir.'); } }
+async function handleLogout() { try { await api('/api/auth/logout', { method: 'POST' }); } catch {} clearToken(); updateAuthUi({ id: 'local', email: 'local@app', full_name: 'Local Kullanıcı' }); showToast('Çıkış yapıldı. Local kullanıcıya geçildi.'); await refreshAllData(); }
 function bindAuth() { $('#authToggleBtn').addEventListener('click', showAuthPanel); $('#settingsAuthBtn').addEventListener('click', showAuthPanel); $('#closeAuthBtn').addEventListener('click', hideAuthPanel); $('#loginForm').addEventListener('submit', handleLogin); $('#registerForm').addEventListener('submit', handleRegister); $('#logoutBtn').addEventListener('click', handleLogout); }
 
 bindTabs(); bindAuth(); bindEmailAlertForm(); bindListingForm(); bindSavedSearches(); bindBackupControls(); bindSources(); bindJobs(); bindMeclis(); bindPolicy(); syncCategoryFields(); loadCurrentUser().then(refreshAllData);
