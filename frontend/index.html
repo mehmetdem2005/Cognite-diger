@@ -68,8 +68,19 @@
       </div>
       <div class="category-hint" id="categoryHint">Konut için fiyat, m², oda, bina yaşı ve krediye uygunluk bilgileri önceliklidir.</div>
 
-      <details class="filter-box compact-on-mobile" open>
-        <summary><span class="summary-icon">＋</span> İlan ekle</summary>
+      <details class="filter-box" open>
+        <summary><span class="summary-icon">✉</span> E-posta alarmı içe aktar</summary>
+        <form id="emailAlertForm" class="form-grid">
+          <label class="field"><span>Varsayılan şehir</span><input name="default_city" placeholder="Örn: Adana" /></label>
+          <label class="field"><span>Varsayılan ilçe</span><input name="default_district" placeholder="Örn: Seyhan" /></label>
+          <label class="field"><span>Kategori</span><select name="default_category"><option value="konut">Konut</option><option value="arsa">Arsa</option><option value="isyeri">İşyeri / Ofis</option><option value="arac">Araç</option></select></label>
+          <label class="field full"><span>E-posta alarm metni</span><textarea name="text" placeholder="İlan alarmı e-postasını buraya yapıştır. Link + fiyat içeren satırlar otomatik havuza aktarılır." required></textarea></label>
+          <button type="submit">E-posta alarmından ilanları aktar</button>
+        </form>
+      </details>
+
+      <details class="filter-box compact-on-mobile">
+        <summary><span class="summary-icon">＋</span> Manuel ilan ekle</summary>
         <form id="listingForm" class="form-grid">
           <label class="field common-field"><span>Başlık</span><input name="title" placeholder="Örn: Seyhan'da 3+1 uygun daire" required /></label>
           <label class="field common-field"><span>Fiyat</span><input name="price" placeholder="Örn: 1250000" type="number" required /></label>
