@@ -91,6 +91,34 @@ Alternatif Uvicorn komutu:
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+## Kalite komutları
+
+```bash
+make install       # Python bağımlılıklarını kurar
+make run           # run.py ile başlatır
+make dev           # uvicorn reload modunda başlatır
+make test          # pytest çalıştırır
+make lint          # ruff lint kontrolü
+make format        # ruff format uygular
+make format-check  # format kontrolü
+make check         # lint + format-check + test
+make ci            # install + check
+```
+
+GitHub Actions workflow:
+
+```txt
+.github/workflows/ci.yml
+```
+
+Her push ve pull request için şunları çalıştırır:
+
+```txt
+ruff check
+ruff format --check
+pytest
+```
+
 ## Test çalıştırma
 
 ```bash
@@ -244,8 +272,7 @@ PDF için sabit MB limiti yoktur. Gerçek sınır, sunucunun RAM/disk/timeout ka
 
 ## Sonraki aşamalar
 
-1. DB adapter interface
-2. E-posta alarmı adaptörü
-3. Groq analiz modülü
-4. PWA / Android wrapper
-5. Frontend modülerleşme
+1. E-posta alarmı adaptörü
+2. Groq analiz modülü
+3. PWA / Android wrapper
+4. Frontend modülerleşme
