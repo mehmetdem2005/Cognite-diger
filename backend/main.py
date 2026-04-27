@@ -40,6 +40,8 @@ from .models import (
     AuthResponse,
     DataSourceIn,
     DataSourceOut,
+    EmailAlertImportRequest,
+    EmailAlertImportResult,
     FavoriteUpdate,
     ImportListingsRequest,
     ImportListingsResult,
@@ -64,6 +66,7 @@ from .scheduler import start_scheduler, stop_scheduler
 from .scoring import score_listing
 from .services.job_runner import enqueue_job
 from .services.source_sync import sync_all_sources, sync_source
+from .sources.email_alerts import parse_email_alert_text
 
 configure_logging(LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -87,21 +90,10 @@ async def request_observability_and_security(request: Request, call_next):
     try:
         response = await call_next(request)
         duration_ms = monotonic_ms(start)
-        logger.info(
-            "request completed",
-            extra={
-                "method": request.method,
-                "path": request.url.path,
-                "status_code": response.status_code,
-                "duration_ms": duration_ms,
-            },
-        )
+        logger.info("request completed", extra={"method": request.method, "path": request.url.path, "status_code": response.status_code, "duration_ms": duration_ms})
     except Exception:
         duration_ms = monotonic_ms(start)
-        logger.exception(
-            "request failed",
-            extra={"method": request.method, "path": request.url.path, "duration_ms": duration_ms},
-        )
+        logger.exception("request failed", extra={"method": request.method, "path": request.url.path, "duration_ms": duration_ms})
         reset_request_id(token)
         raise
 
@@ -149,10 +141,7 @@ def ready() -> dict:
 
 @app.get("/api/policy")
 def policy() -> dict:
-    return {
-        "scraping": "Gizli scraping, CAPTCHA aşma, CORS dolanma ve izinsiz toplu veri çekme yok.",
-        "allowed_sources": ["resmî API", "izinli partner feed", "RSS/açık veri", "yetkili JSON/XML feed", "e-posta alarmı"],
-    }
+    return {"scraping": "Gizli scraping, CAPTCHA aşma, CORS dolanma ve izinsiz toplu veri çekme yok.", "allowed_sources": ["resmî API", "izinli partner feed", "RSS/açık veri", "yetkili JSON/XML feed", "e-posta alarmı"]}
 
 
 @app.post("/api/auth/register", response_model=AuthResponse)
@@ -216,13 +205,7 @@ async def enqueue_source_sync_all(user: dict = Depends(get_current_user)) -> dic
     async def task(job_id: int) -> dict:
         return await sync_all_sources(job_id=job_id, user_id=user_id)
 
-    job_id = enqueue_job(
-        job_type="source_sync_all",
-        title="Tüm veri kaynaklarını senkronize et",
-        payload={},
-        task=task,
-        user_id=user_id,
-    )
+    job_id = enqueue_job(job_type="source_sync_all", title="Tüm veri kaynaklarını senkronize et", payload={}, task=task, user_id=user_id)
     logger.info("source sync all job enqueued", extra={"job_id": job_id, "job_type": "source_sync_all", "user_id": user_id})
     return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
 
@@ -241,6 +224,21 @@ def create_listing(payload: ListingIn, user: dict = Depends(get_current_user)) -
 @app.get("/api/listings")
 def get_listings(category: str | None = None, sort: str = "newest", q: str | None = None, city: str | None = None, district: str | None = None, favorites: bool = False, min_price: float | None = Query(default=None, ge=0), max_price: float | None = Query(default=None, ge=0), user: dict = Depends(get_current_user)) -> list[dict]:
     return list_listings(category=category, sort=sort, query_text=q, city=city, district=district, favorites_only=favorites, min_price=min_price, max_price=max_price, user_id=_uid(user))
+
+
+@app.post("/api/import/email-alert", response_model=EmailAlertImportResult)
+def import_email_alert(payload: EmailAlertImportRequest, user: dict = Depends(get_current_user)) -> EmailAlertImportResult:
+    parsed = parse_email_alert_text(payload.text, payload.default_category, payload.default_city, payload.default_district)
+    imported = 0
+    skipped = parsed.skipped_count
+    for item in parsed.listings:
+        try:
+            score, risk, reasons = score_listing(item)
+            add_listing(item, score, risk, reasons, user_id=_uid(user))
+            imported += 1
+        except Exception:
+            skipped += 1
+    return EmailAlertImportResult(imported_count=imported, skipped_count=skipped, parsed_count=len(parsed.listings))
 
 
 @app.get("/api/listings/{listing_id}")
