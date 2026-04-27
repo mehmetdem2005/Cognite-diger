@@ -13,7 +13,18 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from .auth import extract_bearer_token, get_current_user, login_user, logout_token, register_user
-from .config import APP_NAME, APP_VERSION, CORS_ALLOWED_ORIGINS, CORS_ALLOW_CREDENTIALS, FRONTEND_DIR, LOG_LEVEL
+from .config import (
+    APP_NAME,
+    APP_VERSION,
+    CORS_ALLOWED_ORIGINS,
+    CORS_ALLOW_CREDENTIALS,
+    FRONTEND_DIR,
+    LOG_LEVEL,
+    RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE,
+    RATE_LIMIT_ENABLED,
+    RATE_LIMIT_IMPORT_REQUESTS_PER_MINUTE,
+    RATE_LIMIT_REQUESTS_PER_MINUTE,
+)
 from .database import (
     add_data_source,
     add_listing,
@@ -61,6 +72,7 @@ from .models import (
 )
 from .observability import configure_logging, monotonic_ms, new_request_id, reset_request_id, set_request_id
 from .pdf_utils import PdfExtractionError, extract_text_from_pdf_stream
+from .rate_limit import enforce_rate_limit, path_limit
 from .scanner import scan_text
 from .scheduler import start_scheduler, stop_scheduler
 from .scoring import score_listing
@@ -83,14 +95,27 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def request_observability_and_security(request: Request, call_next):
+async def request_observability_security_and_limits(request: Request, call_next):
     request_id = new_request_id(request.headers.get("X-Request-ID"))
     token = set_request_id(request_id)
     start = time.perf_counter()
+    rate_remaining: int | None = None
     try:
+        if RATE_LIMIT_ENABLED and request.url.path.startswith("/api/"):
+            limit = path_limit(
+                request.url.path,
+                default_limit=RATE_LIMIT_REQUESTS_PER_MINUTE,
+                auth_limit=RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE,
+                import_limit=RATE_LIMIT_IMPORT_REQUESTS_PER_MINUTE,
+            )
+            rate_remaining, _ = enforce_rate_limit(request, limit)
+
         response = await call_next(request)
         duration_ms = monotonic_ms(start)
-        logger.info("request completed", extra={"method": request.method, "path": request.url.path, "status_code": response.status_code, "duration_ms": duration_ms})
+        logger.info(
+            "request completed",
+            extra={"method": request.method, "path": request.url.path, "status_code": response.status_code, "duration_ms": duration_ms},
+        )
     except Exception:
         duration_ms = monotonic_ms(start)
         logger.exception("request failed", extra={"method": request.method, "path": request.url.path, "duration_ms": duration_ms})
@@ -98,6 +123,8 @@ async def request_observability_and_security(request: Request, call_next):
         raise
 
     response.headers["X-Request-ID"] = request_id
+    if rate_remaining is not None:
+        response.headers["X-RateLimit-Remaining"] = str(rate_remaining)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -195,7 +222,7 @@ def read_job(job_id: int, user: dict = Depends(get_current_user)) -> dict:
 def read_job_events(job_id: int, user: dict = Depends(get_current_user)) -> list[dict]:
     if not get_job(job_id, user_id=_uid(user)):
         raise HTTPException(status_code=404, detail="İş bulunamadı.")
-    return list_job_events(job_id, user_id=_uid(user))
+    return list_job_events(job_id, user_id=user["id"])
 
 
 @app.post("/api/jobs/source-sync-all", response_model=JobCreatedOut)
