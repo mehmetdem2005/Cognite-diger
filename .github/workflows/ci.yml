@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
-  test:
+  backend-quality:
     runs-on: ubuntu-latest
 
     steps:
@@ -17,15 +17,22 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
-      - name: Lint
+      - name: Ruff lint
         run: ruff check backend tests
 
-      - name: Test
-        run: pytest -q
+      - name: Ruff format check
+        run: ruff format --check backend tests
+
+      - name: Pytest
+        env:
+          ENABLE_SCHEDULER: "false"
+          DATABASE_ENGINE: "sqlite"
+        run: pytest
