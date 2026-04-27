@@ -23,6 +23,9 @@ def test_request_id_and_security_headers_are_returned() -> None:
 
     assert response.status_code == 200
     assert response.headers["X-Request-ID"] == "test-request-id"
+    assert response.headers["Content-Security-Policy"]
+    assert "default-src 'self'" in response.headers["Content-Security-Policy"]
+    assert "object-src 'none'" in response.headers["Content-Security-Policy"]
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
