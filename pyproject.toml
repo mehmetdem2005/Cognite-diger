@@ -1,17 +1,28 @@
 [tool.pytest.ini_options]
+minversion = "8.0"
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = "-q --strict-markers --disable-warnings"
 asyncio_mode = "auto"
 
 [tool.ruff]
-target-version = "py312"
-line-length = 120
+target-version = "py311"
+line-length = 140
 src = ["backend", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
-ignore = ["E501"]
+select = [
+  "E",
+  "F",
+  "I",
+  "B",
+  "UP",
+]
+ignore = [
+  "E501"
+]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+line-ending = "auto"
