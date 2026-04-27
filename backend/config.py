@@ -39,3 +39,19 @@ RATE_LIMIT_ENABLED = _bool_env("RATE_LIMIT_ENABLED", "true")
 RATE_LIMIT_REQUESTS_PER_MINUTE = max(10, int(os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "120")))
 RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE = max(3, int(os.getenv("RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE", "20")))
 RATE_LIMIT_IMPORT_REQUESTS_PER_MINUTE = max(3, int(os.getenv("RATE_LIMIT_IMPORT_REQUESTS_PER_MINUTE", "30")))
+
+SECURITY_HEADERS_ENABLED = _bool_env("SECURITY_HEADERS_ENABLED", "true")
+CONTENT_SECURITY_POLICY = os.getenv(
+    "CONTENT_SECURITY_POLICY",
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' https: data:; "
+    "font-src 'self' data:; "
+    "connect-src 'self'; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "frame-ancestors 'none'; "
+    "form-action 'self'; "
+    "upgrade-insecure-requests",
+)
