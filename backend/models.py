@@ -137,6 +137,19 @@ class ImportListingsResult(BaseModel):
     skipped_count: int = 0
 
 
+class EmailAlertImportRequest(BaseModel):
+    text: str = Field(min_length=1)
+    default_category: Category = "konut"
+    default_city: str = ""
+    default_district: str = ""
+
+
+class EmailAlertImportResult(BaseModel):
+    imported_count: int
+    skipped_count: int = 0
+    parsed_count: int = 0
+
+
 class SearchLinkRequest(BaseModel):
     category: Category
     city: str = ""
