@@ -4,42 +4,40 @@ import json
 from typing import Any
 
 from ..auth import LOCAL_USER_ID
-from ..db.connection import get_conn
+from ..db.session import db_session, execute, execute_returning_id, fetch_all, fetch_one
 from .decoders import decode_listing
 
 
 def add_listing(data: dict[str, Any], score: float, risk_level: str, score_reasons: list[str], user_id: str = LOCAL_USER_ID) -> int:
-    with get_conn() as conn:
-        cur = conn.execute(
-            """
-            INSERT INTO listings (
-                user_id, source, category, title, price, currency, city, district, neighborhood,
-                listing_url, image_url, properties_json, contact_json, notes, score, risk_level,
-                score_reasons_json, is_favorite
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                user_id,
-                data.get("source", "manual"),
-                data.get("category"),
-                data.get("title"),
-                data.get("price"),
-                data.get("currency", "TRY"),
-                data.get("city", ""),
-                data.get("district", ""),
-                data.get("neighborhood", ""),
-                data.get("listing_url"),
-                data.get("image_url"),
-                json.dumps(data.get("properties") or {}, ensure_ascii=False),
-                json.dumps(data.get("contact") or {}, ensure_ascii=False),
-                data.get("notes", ""),
-                score,
-                risk_level,
-                json.dumps(score_reasons, ensure_ascii=False),
-                1 if data.get("is_favorite") else 0,
-            ),
-        )
-        return int(cur.lastrowid)
+    return execute_returning_id(
+        """
+        INSERT INTO listings (
+            user_id, source, category, title, price, currency, city, district, neighborhood,
+            listing_url, image_url, properties_json, contact_json, notes, score, risk_level,
+            score_reasons_json, is_favorite
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            data.get("source", "manual"),
+            data.get("category"),
+            data.get("title"),
+            data.get("price"),
+            data.get("currency", "TRY"),
+            data.get("city", ""),
+            data.get("district", ""),
+            data.get("neighborhood", ""),
+            data.get("listing_url"),
+            data.get("image_url"),
+            json.dumps(data.get("properties") or {}, ensure_ascii=False),
+            json.dumps(data.get("contact") or {}, ensure_ascii=False),
+            data.get("notes", ""),
+            score,
+            risk_level,
+            json.dumps(score_reasons, ensure_ascii=False),
+            1 if data.get("is_favorite") else 0,
+        ),
+    )
 
 
 def list_listings(
@@ -83,9 +81,7 @@ def list_listings(
     query = "SELECT * FROM listings WHERE " + " AND ".join(where)
     query += f" ORDER BY {order_by}"
 
-    with get_conn() as conn:
-        rows = conn.execute(query, params).fetchall()
-        items = [decode_listing(row) for row in rows]
+    items = [decode_listing(row) for row in fetch_all(query, params)]
 
     if sort == "m2_price_asc":
         def m2_price(item: dict[str, Any]) -> float:
@@ -98,13 +94,12 @@ def list_listings(
 
 
 def get_listing(listing_id: int, user_id: str = LOCAL_USER_ID) -> dict[str, Any] | None:
-    with get_conn() as conn:
-        row = conn.execute("SELECT * FROM listings WHERE id = ? AND user_id = ?", (listing_id, user_id)).fetchone()
-        return decode_listing(row) if row else None
+    row = fetch_one("SELECT * FROM listings WHERE id = ? AND user_id = ?", (listing_id, user_id))
+    return decode_listing(row) if row else None
 
 
 def set_favorite(listing_id: int, is_favorite: bool, user_id: str = LOCAL_USER_ID) -> dict[str, Any] | None:
-    with get_conn() as conn:
+    with db_session() as conn:
         conn.execute(
             "UPDATE listings SET is_favorite = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
             (1 if is_favorite else 0, listing_id, user_id),
@@ -114,6 +109,5 @@ def set_favorite(listing_id: int, is_favorite: bool, user_id: str = LOCAL_USER_I
 
 
 def delete_listing(listing_id: int, user_id: str = LOCAL_USER_ID) -> bool:
-    with get_conn() as conn:
-        cur = conn.execute("DELETE FROM listings WHERE id = ? AND user_id = ?", (listing_id, user_id))
-        return cur.rowcount > 0
+    affected = execute("DELETE FROM listings WHERE id = ? AND user_id = ?", (listing_id, user_id))
+    return affected > 0
