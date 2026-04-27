@@ -1,13 +1,16 @@
-.PHONY: install dev test lint format check docker-build docker-run
+.PHONY: install run dev test lint format format-check check ci docker-build docker-run
 
 install:
 	pip install -r backend/requirements.txt
+
+run:
+	python run.py
 
 dev:
 	uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 
 test:
-	pytest -q
+	pytest
 
 lint:
 	ruff check backend tests
@@ -15,7 +18,12 @@ lint:
 format:
 	ruff format backend tests
 
-check: lint test
+format-check:
+	ruff format --check backend tests
+
+check: lint format-check test
+
+ci: install check
 
 docker-build:
 	docker build -t firsat-avcisi .
